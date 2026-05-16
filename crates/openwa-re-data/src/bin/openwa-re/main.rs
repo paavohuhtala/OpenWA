@@ -8,17 +8,33 @@
 //!
 //! Subcommands:
 //!   - `validate` — parse all `re/**/*.toml` and report schema/cross-ref errors
-//!   - `import`   — read a Ghidra XML dump, write `re/*.toml`
-//!   - `export`   — read `re/*.toml`, write a Ghidra-bound manifest (JSON)
+//!   - `import`   — read a Ghidra XML dump from a scratch dir, write `re/*.toml`
+//!   - `export`   — read `re/*.toml`, write a Ghidra-bound manifest into a scratch dir
 //!   - `diff`     — TODO: human-readable diff between `re/` and a given Ghidra XML
+//!
+//! Import/export both operate on a single "scratch dir" shared with Ghidra,
+//! and use fixed file conventions inside it:
+//!   - `wa_export.xml`         — XML dump produced by `OpenWAExport.java`
+//!   - `wa_export_extras.json` — sidecar produced alongside the XML; carries
+//!                               calling_convention, no_return, custom_storage
+//!                               (attributes Ghidra's XML DTD cannot represent)
+//!   - `wa_import.json`        — manifest consumed by `OpenWAImport.java`
+//!
+//! The extras sidecar is load-bearing: without it, custom-storage functions
+//! lose their per-param ESI/EDI/stack assignments. We auto-pair it with the
+//! XML on import and with the manifest on export, so users can never forget
+//! to pass it.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use openwa_re_data::manifest;
 use openwa_re_data::repo::{find_repo_root, re_dir};
+use openwa_re_data::setup::SetupConfig;
 use openwa_re_data::toml_io::Catalog;
-use openwa_re_data::{emit, resolve, validate, xml_in};
-use std::path::PathBuf;
+use openwa_re_data::{emit, resolve, setup, validate, xml_in};
+use std::path::{Path, PathBuf};
+
+mod wizard;
 
 #[derive(Parser)]
 #[command(name = "openwa-re", about = "OpenWA reverse-engineering metadata tool")]
@@ -32,10 +48,15 @@ enum Cmd {
     /// Parse all re/**/*.toml and check schema + cross-references.
     Validate,
 
-    /// Read a Ghidra XML dump and write re/*.toml shards.
+    /// Read `<dir>/wa_export.xml` (+ `<dir>/wa_export_extras.json`) and
+    /// write re/*.toml shards. Defaults `<dir>` from `.openwa/setup.toml`.
     Import {
-        /// Path to a Ghidra `XmlExporter` dump (e.g. C:/tmp/wa_export.xml).
-        xml: PathBuf,
+        /// Scratch directory shared with Ghidra. Must contain
+        /// `wa_export.xml` written by `OpenWAExport.java`; if a sibling
+        /// `wa_export_extras.json` is present it's overlaid automatically.
+        /// If omitted, defaults to the scratch dir recorded in
+        /// `.openwa/setup.toml`.
+        dir: Option<PathBuf>,
         /// Initial bootstrap mode: shard functions by VA range and OVERWRITE
         /// any existing files in `re/`. Required for the first dump; refuses
         /// to run later unless `--force` is passed.
@@ -49,22 +70,31 @@ enum Cmd {
         dry_run: bool,
     },
 
-    /// Read re/*.toml and emit a Ghidra-bound manifest (JSON).
+    /// Read re/*.toml and emit `<dir>/wa_import.json` for `OpenWAImport.java`.
+    /// Defaults `<dir>` from `.openwa/setup.toml`.
     Export {
-        /// Output JSON path. `OpenWAImport.java` consumes this directly.
-        #[arg(long)]
-        out: PathBuf,
-        /// Optional `_extras.json` produced by `OpenWAExport.java`. When
-        /// given, its calling_convention / no_return / custom_storage
-        /// entries are overlaid onto the loaded TOML catalog before
-        /// manifest emission. Lets us inject these attributes without
-        /// rewriting TOML (which is what a fresh `--bootstrap` would do).
-        #[arg(long)]
-        extras: Option<PathBuf>,
+        /// Scratch directory shared with Ghidra. The manifest is written to
+        /// `<dir>/wa_import.json`; if `<dir>/wa_export_extras.json` is
+        /// present, its calling_convention / no_return / custom_storage
+        /// entries are overlaid onto the loaded TOML catalog before manifest
+        /// emission. If omitted, defaults to the scratch dir recorded in
+        /// `.openwa/setup.toml`.
+        dir: Option<PathBuf>,
     },
 
     /// Diff committed re/ against a Ghidra XML dump. (TODO)
-    Diff { xml: PathBuf },
+    Diff {
+        /// Scratch directory containing `wa_export.xml`.
+        dir: Option<PathBuf>,
+    },
+
+    /// Interactive per-machine setup wizard. Writes `.openwa/setup.toml` and
+    /// copies the Ghidra-side scripts into `~/ghidra_scripts/`.
+    Setup {
+        /// Re-run the wizard even if `.openwa/setup.toml` already exists.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -77,14 +107,63 @@ fn main() -> Result<()> {
     match cli.cmd {
         Cmd::Validate => cmd_validate(&re),
         Cmd::Import {
-            xml,
+            dir,
             bootstrap,
             force,
             dry_run,
-        } => cmd_import(&re, &xml, bootstrap, force, dry_run),
-        Cmd::Export { out, extras } => cmd_export(&re, &out, extras.as_deref()),
-        Cmd::Diff { xml } => cmd_diff(&re, &xml),
+        } => {
+            let dir = resolve_scratch_dir(&root, dir.as_deref())?;
+            cmd_import(&re, &dir, bootstrap, force, dry_run)
+        }
+        Cmd::Export { dir } => {
+            let dir = resolve_scratch_dir(&root, dir.as_deref())?;
+            cmd_export(&re, &dir)
+        }
+        Cmd::Diff { dir } => {
+            let dir = resolve_scratch_dir(&root, dir.as_deref())?;
+            cmd_diff(&re, &dir)
+        }
+        Cmd::Setup { force } => wizard::run(&root, force),
     }
+}
+
+/// Resolve a scratch dir from (a) an explicit CLI arg, or (b) `.openwa/setup.toml`.
+/// Bails with an actionable error if neither is available.
+fn resolve_scratch_dir(repo_root: &Path, explicit: Option<&Path>) -> Result<PathBuf> {
+    if let Some(p) = explicit {
+        return Ok(p.to_path_buf());
+    }
+    match SetupConfig::load(repo_root)? {
+        Some(cfg) => Ok(cfg.effective_scratch_dir(repo_root)),
+        None => anyhow::bail!(
+            "no scratch dir given and {} doesn't exist. \
+             Pass a directory explicitly or run `openwa-re setup`.",
+            setup::setup_path(repo_root).display(),
+        ),
+    }
+}
+
+/// Fixed filenames inside the scratch dir shared with Ghidra.
+const XML_FILE: &str = "wa_export.xml";
+const EXTRAS_FILE: &str = "wa_export_extras.json";
+const MANIFEST_FILE: &str = "wa_import.json";
+
+/// Verify the scratch dir exists. Auto-creates it on `export` (we're writing
+/// into it) but requires it to already exist on `import` / `diff` (we're
+/// reading a Ghidra dump from it).
+fn require_scratch_dir(dir: &std::path::Path, must_exist: bool) -> Result<()> {
+    if dir.is_dir() {
+        return Ok(());
+    }
+    if must_exist {
+        anyhow::bail!(
+            "scratch dir not found: {}. Run OpenWAExport.java first.",
+            dir.display(),
+        );
+    }
+    std::fs::create_dir_all(dir)
+        .with_context(|| format!("creating scratch dir {}", dir.display()))?;
+    Ok(())
 }
 
 fn cmd_validate(re: &std::path::Path) -> Result<()> {
@@ -122,7 +201,7 @@ fn cmd_validate(re: &std::path::Path) -> Result<()> {
 
 fn cmd_import(
     re: &std::path::Path,
-    xml: &std::path::Path,
+    dir: &std::path::Path,
     bootstrap: bool,
     force: bool,
     dry_run: bool,
@@ -133,12 +212,22 @@ fn cmd_import(
              Pass --bootstrap to do the initial dump."
         );
     }
+    require_scratch_dir(dir, true)?;
+
+    let xml = dir.join(XML_FILE);
+    if !xml.is_file() {
+        anyhow::bail!(
+            "{} not found in scratch dir {}. Run OpenWAExport.java first.",
+            XML_FILE,
+            dir.display(),
+        );
+    }
+    let extras_path = dir.join(EXTRAS_FILE);
 
     let t0 = std::time::Instant::now();
-    let mut prog = xml_in::parse_file(xml)?;
+    let mut prog = xml_in::parse_file(&xml)?;
     let parse_dt = t0.elapsed();
 
-    let extras_path = extras_sidecar_path(xml);
     let extras_applied = apply_extras_sidecar(&mut prog, &extras_path)?;
 
     let t1 = std::time::Instant::now();
@@ -247,18 +336,19 @@ fn cmd_import(
     Ok(())
 }
 
-fn cmd_export(
-    re: &std::path::Path,
-    out: &std::path::Path,
-    extras: Option<&std::path::Path>,
-) -> Result<()> {
+fn cmd_export(re: &std::path::Path, dir: &std::path::Path) -> Result<()> {
+    require_scratch_dir(dir, false)?;
+    let manifest_path = dir.join(MANIFEST_FILE);
+    let extras_path = dir.join(EXTRAS_FILE);
+
     let t0 = std::time::Instant::now();
     let mut cat = Catalog::load_from(re)?;
     let load_dt = t0.elapsed();
 
-    let extras_applied = match extras {
-        Some(p) => Some(apply_extras_to_catalog(&mut cat, p)?),
-        None => None,
+    let extras_applied = if extras_path.is_file() {
+        Some(apply_extras_to_catalog(&mut cat, &extras_path)?)
+    } else {
+        None
     };
 
     let report = validate::validate(&cat)?;
@@ -272,14 +362,9 @@ fn cmd_export(
     let t1 = std::time::Instant::now();
     let manifest = manifest::build_from_catalog(&cat);
     let json = manifest::to_json(&manifest)?;
-    let out_path = if out.extension().is_some() {
-        out.to_path_buf()
-    } else {
-        out.with_extension("json")
-    };
-    std::fs::write(&out_path, &json)?;
+    std::fs::write(&manifest_path, &json)?;
     let render_dt = t1.elapsed();
-    let bytes = std::fs::metadata(&out_path)?.len();
+    let bytes = std::fs::metadata(&manifest_path)?.len();
 
     eprintln!(
         "Loaded {} TOML file(s), {} entries in {:.2}s. Rendered manifest in {:.2}s.",
@@ -290,23 +375,31 @@ fn cmd_export(
     );
     eprintln!(
         "  Manifest: {} ({:.1} KiB)",
-        out_path.display(),
+        manifest_path.display(),
         bytes as f64 / 1024.0,
     );
+    match extras_applied {
+        Some(n) => eprintln!(
+            "  Extras overlay: {} applied to {} function(s)",
+            extras_path.display(),
+            n,
+        ),
+        None => eprintln!(
+            "  Extras overlay: {} not found — emitting without calling-convention / no-return / custom-storage attributes",
+            extras_path.display(),
+        ),
+    }
     if !report.warnings.is_empty() {
         eprintln!(
             "  ({} validation warning(s) — non-fatal)",
             report.warnings.len()
         );
     }
-    if let Some(n) = extras_applied {
-        eprintln!("  Extras overlay: {n} function(s) updated from sidecar");
-    }
 
     Ok(())
 }
 
-fn cmd_diff(_re: &std::path::Path, _xml: &std::path::Path) -> Result<()> {
+fn cmd_diff(_re: &std::path::Path, _dir: &std::path::Path) -> Result<()> {
     anyhow::bail!("diff: not yet implemented")
 }
 
@@ -354,16 +447,6 @@ fn apply_extras_to_catalog(
         applied += 1;
     }
     Ok(applied)
-}
-
-/// `OpenWAExport.java` writes the sidecar at `<xml_prefix>_extras.json` — where
-/// `xml_prefix` is whatever the user passed as the prefix (the `.xml` then
-/// gets appended). So for `C:/tmp/wa_export.xml`, the sidecar is at
-/// `C:/tmp/wa_export_extras.json` (strip `.xml`, append `_extras.json`).
-fn extras_sidecar_path(xml: &std::path::Path) -> PathBuf {
-    let stem = xml.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    let parent = xml.parent().unwrap_or_else(|| std::path::Path::new(""));
-    parent.join(format!("{stem}_extras.json"))
 }
 
 /// Overlay calling_convention and no_return from the sidecar onto matching

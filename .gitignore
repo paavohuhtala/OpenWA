@@ -1,6 +1,7 @@
 /target
 .claude/settings.local.json
 .mcp.json
+.openwa/
 start-mcp.ps1
 docs/re-notes/decompiled/
 testdata/logs/

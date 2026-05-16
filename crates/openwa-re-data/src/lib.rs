@@ -12,6 +12,7 @@ pub mod manifest;
 pub mod model;
 pub mod repo;
 pub mod resolve;
+pub mod setup;
 pub mod toml_io;
 pub mod validate;
 pub mod xml_in;
