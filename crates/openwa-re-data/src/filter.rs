@@ -59,6 +59,27 @@ pub fn is_auto_function_name(name: &str) -> bool {
     false
 }
 
+/// True if a function name carries a `::`-qualified namespace prefix that
+/// indicates a Ghidra auto-import: PE library imports (`WSOCK32.DLL::*`,
+/// `WINSPOOL.DRV::*`, `KERNEL32.DLL::*`) and MFC/CRT class methods
+/// recognised by the Function ID Analyzer + Demangler combo (`CWnd::*`,
+/// `CWinApp::*`, `CFixedAllocNoSync::*`). Round-tripping these via
+/// `<SYMBOL SOURCE_TYPE="USER_DEFINED">` fails in two distinct ways:
+///   - PE IAT addresses: `getPrimarySymbol(addr)` returns null →
+///     SymbolUtilities.create… returns null → NPE at
+///     `SymbolTableXmlMgr.java:270` (`s.setPrimary()`).
+///   - MFC class thunks: existing DEFAULT symbol can't be promoted to
+///     USER_DEFINED → `IllegalArgumentException` at
+///     `SymbolTableXmlMgr.java:272` (`s.setSource(...)`).
+///
+/// In both cases Ghidra recreates these during analysis anyway, so
+/// dropping them on parse is lossless. The user's intentional class-scoped
+/// renames live in the Rust crates without a `::` separator — we use the
+/// `Foo__bar` flavour throughout the codebase (CLAUDE.md / naming memory).
+pub fn is_qualified_import_name(name: &str) -> bool {
+    name.contains("::")
+}
+
 /// True if a symbol name is a Ghidra-default `LAB_xxxxxxxx` / `DAT_xxxxxxxx` /
 /// `SUB_xxxxxxxx` placeholder.
 pub fn is_auto_symbol_name(name: &str) -> bool {
@@ -71,6 +92,20 @@ pub fn is_auto_symbol_name(name: &str) -> bool {
         }
     }
     false
+}
+
+/// True if a type name is one of Ghidra's RTTI / EH auto-analyser
+/// internal struct names. These all live under `/` so the namespace
+/// filter alone doesn't catch them; their field types resolve to types
+/// that look identical in Ghidra's DTM but match neither the namespaced
+/// nor the root-namespaced flavour exactly, so re-importing produces
+/// `.conflict` copies on every run. Ghidra always recreates these during
+/// auto-analysis, so dropping them is lossless.
+pub fn is_rtti_or_eh_internal_type(name: &str) -> bool {
+    // EH: _s_FuncInfo, _s_HandlerType, _s_TryBlockMapEntry, _s_UnwindMapEntry.
+    // RTTI: _s__RTTIBaseClassDescriptor, _s__RTTIClassHierarchyDescriptor,
+    // _s__RTTICompleteObjectLocator, _s__RTTIClassArray, etc.
+    name.starts_with("_s_")
 }
 
 /// True if a data type name is a Ghidra-fabricated anonymous structure /

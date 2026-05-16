@@ -1,19 +1,18 @@
 //! Emit a Ghidra-importable XML document from a [`Catalog`].
 //!
 //! We write the subset of `PROGRAM.DTD` Ghidra's `XmlImporter` consumes for
-//! metadata overlay: `DATATYPES`, `SYMBOL_TABLE`, `DATA`, `FUNCTIONS`,
-//! `COMMENTS`. Everything else (memory map, code blocks, relocations,
-//! markup) is derived from the binary at import time.
-//!
-//! Storage parsing: TOML strings like `"ECX"`, `"stack:0x4"`,
-//! `"stack:0x10:4"`, `"EDX:EAX"` are routed to `<REGISTER_VAR>` or
-//! `<STACK_VAR>` based on prefix. Split-register storage (`EDX:EAX` for a
-//! 64-bit return) is passed through to Ghidra verbatim as a register name —
-//! Ghidra knows the syntax.
+//! metadata overlay: `DATATYPES`, `DATA`, `COMMENTS`. We do NOT emit
+//! `FUNCTIONS` or `SYMBOL_TABLE` — both Ghidra-side managers NPE on
+//! various obscure edge cases (`FunctionsXmlMgr.read` for existing
+//! functions with bodySize > 1; `SymbolTableXmlMgr.read` for PE IAT
+//! addresses and DEFAULT-source conflicts). Every per-function override
+//! and every (VA, name) pair lives in the extras sidecar instead, applied
+//! by `ReImport.java` directly via the Java API with per-entry error
+//! reporting.
 
 use crate::model::*;
 use crate::toml_io::Catalog;
-use anyhow::{Result, bail};
+use anyhow::Result;
 use std::fmt::Write as FmtWrite;
 use std::path::Path;
 
@@ -35,9 +34,7 @@ pub fn render(cat: &Catalog) -> Result<String> {
     )?;
 
     render_datatypes(&mut w, cat)?;
-    render_symbol_table(&mut w, cat)?;
     render_data(&mut w, cat)?;
-    render_functions(&mut w, cat)?;
     render_comments(&mut w, cat)?;
 
     writeln!(w, "</PROGRAM>")?;
@@ -260,64 +257,6 @@ fn render_function_def(w: &mut String, fd: &FunctionDef) -> Result<()> {
     Ok(())
 }
 
-// ─── SYMBOL_TABLE section ────────────────────────────────────────────────────
-
-fn render_symbol_table(w: &mut String, cat: &Catalog) -> Result<()> {
-    writeln!(w, "    <SYMBOL_TABLE>")?;
-
-    // Function names: emitted here only for functions WITHOUT overrides
-    // (which have no `<FUNCTION>` element, so SYMBOL_TABLE is their only
-    // naming hook). Functions with overrides get their name from
-    // `<FUNCTION NAME="...">` instead; emitting a duplicate SYMBOL entry for
-    // them confuses FunctionsXmlMgr's later lookup and triggers NPEs when
-    // names collide.
-    let mut funcs: Vec<&Function> = cat
-        .functions
-        .values()
-        .map(|e| &e.value)
-        .filter(|f| !function_has_overrides(f))
-        .collect();
-    funcs.sort_by_key(|f| f.va);
-    for f in funcs {
-        writeln!(
-            w,
-            "        <SYMBOL ADDRESS=\"{:08x}\" NAME=\"{}\" NAMESPACE=\"\" TYPE=\"global\" SOURCE_TYPE=\"USER_DEFINED\" PRIMARY=\"y\" />",
-            f.va,
-            xml_escape(&f.name),
-        )?;
-    }
-
-    // Globals.
-    let mut globals: Vec<&Global> = cat.globals.values().map(|e| &e.value).collect();
-    globals.sort_by_key(|g| g.va);
-    for g in globals {
-        writeln!(
-            w,
-            "        <SYMBOL ADDRESS=\"{:08x}\" NAME=\"{}\" NAMESPACE=\"\" TYPE=\"global\" SOURCE_TYPE=\"USER_DEFINED\" PRIMARY=\"y\" />",
-            g.va,
-            xml_escape(&g.name),
-        )?;
-    }
-
-    // Code labels. Emitted with the same flavour as Ghidra exports user
-    // labels (`TYPE="global"` `PRIMARY="y"`) so they survive a re-export
-    // round-trip; Ghidra still treats them as plain labels because no
-    // `<FUNCTION>` or `<DEFINED_DATA>` claims the VA.
-    let mut labels: Vec<&Label> = cat.labels.values().map(|e| &e.value).collect();
-    labels.sort_by_key(|l| l.va);
-    for l in labels {
-        writeln!(
-            w,
-            "        <SYMBOL ADDRESS=\"{:08x}\" NAME=\"{}\" NAMESPACE=\"\" TYPE=\"global\" SOURCE_TYPE=\"USER_DEFINED\" PRIMARY=\"y\" />",
-            l.va,
-            xml_escape(&l.name),
-        )?;
-    }
-
-    writeln!(w, "    </SYMBOL_TABLE>")?;
-    Ok(())
-}
-
 // ─── DATA section (typed globals) ────────────────────────────────────────────
 
 fn render_data(w: &mut String, cat: &Catalog) -> Result<()> {
@@ -344,139 +283,6 @@ fn render_data(w: &mut String, cat: &Catalog) -> Result<()> {
         )?;
     }
     writeln!(w, "    </DATA>")?;
-    Ok(())
-}
-
-// ─── FUNCTIONS section ───────────────────────────────────────────────────────
-
-fn render_functions(w: &mut String, cat: &Catalog) -> Result<()> {
-    // Only emit a FUNCTION element for functions with something XML can carry
-    // beyond the name (signature, plate comment, params, locals, comments).
-    // Name-only functions get their identity from the SYMBOL_TABLE entry —
-    // emitting a bare `<FUNCTION>` triggers FunctionsXmlMgr's full lookup
-    // path and reliably NPEs on duplicate names.
-    let funcs: Vec<&Function> = cat
-        .functions
-        .values()
-        .map(|e| &e.value)
-        .filter(|f| function_has_overrides(f))
-        .collect();
-    if funcs.is_empty() {
-        return Ok(());
-    }
-    let mut funcs = funcs;
-    funcs.sort_by_key(|f| f.va);
-    writeln!(w, "    <FUNCTIONS>")?;
-    for f in funcs {
-        render_function(w, f)?;
-    }
-    writeln!(w, "    </FUNCTIONS>")?;
-    Ok(())
-}
-
-fn function_has_overrides(f: &Function) -> bool {
-    f.signature.is_some()
-        || f.plate_comment.is_some()
-        || !f.param.is_empty()
-        || !f.local.is_empty()
-        || !f.comment.is_empty()
-        || f.no_return
-}
-
-fn render_function(w: &mut String, f: &Function) -> Result<()> {
-    writeln!(
-        w,
-        "        <FUNCTION ENTRY_POINT=\"{:08x}\" NAME=\"{}\" LIBRARY_FUNCTION=\"n\">",
-        f.va,
-        xml_escape(&f.name),
-    )?;
-
-    // Ghidra's FunctionsXmlMgr requires at least one ADDRESS_RANGE to locate
-    // the function on overlay-import — without it `getFunctionAt(entry)`
-    // returns null even for valid entries and the import NPEs at
-    // `func.getSymbol().setName(...)`. We don't track the body end address
-    // in the model, so emit a 1-byte placeholder: Ghidra honors the existing
-    // function body when the entry point matches an existing function.
-    writeln!(
-        w,
-        "            <ADDRESS_RANGE START=\"{:08x}\" END=\"{:08x}\" />",
-        f.va, f.va,
-    )?;
-
-    if let Some(sig) = &f.signature {
-        writeln!(
-            w,
-            "            <RETURN_TYPE DATATYPE=\"{}\" />",
-            xml_escape(&sig.returns),
-        )?;
-    }
-    if let Some(plate) = &f.plate_comment {
-        writeln!(
-            w,
-            "            <REGULAR_CMT>{}</REGULAR_CMT>",
-            xml_escape(plate)
-        )?;
-    }
-
-    // Split params into stack (→ STACK_VAR) and register (→ REGISTER_VAR).
-    let mut stack_params: Vec<(&Param, ParsedStorage)> = Vec::new();
-    let mut register_params: Vec<(&Param, ParsedStorage)> = Vec::new();
-    let mut unanchored: Vec<&Param> = Vec::new();
-    for p in &f.param {
-        match p.storage.as_deref().map(parse_storage) {
-            Some(Ok(ps @ ParsedStorage::Stack { .. })) => stack_params.push((p, ps)),
-            Some(Ok(ps @ ParsedStorage::Register(_))) => register_params.push((p, ps)),
-            Some(Ok(ps @ ParsedStorage::SplitRegister(..))) => register_params.push((p, ps)),
-            Some(Err(e)) => {
-                bail!(
-                    "function 0x{:08x} param `{}` storage `{}`: {}",
-                    f.va,
-                    p.name,
-                    p.storage.as_deref().unwrap_or(""),
-                    e,
-                );
-            }
-            None => unanchored.push(p),
-        }
-    }
-
-    if !stack_params.is_empty() {
-        writeln!(w, "            <STACK_FRAME>")?;
-        for (p, ps) in &stack_params {
-            let ParsedStorage::Stack { offset, .. } = ps else {
-                unreachable!()
-            };
-            writeln!(
-                w,
-                "                <STACK_VAR STACK_PTR_OFFSET=\"0x{:x}\" NAME=\"{}\" DATATYPE=\"{}\" />",
-                offset,
-                xml_escape(&p.name),
-                xml_escape(&p.ty),
-            )?;
-        }
-        writeln!(w, "            </STACK_FRAME>")?;
-    }
-
-    for (p, ps) in &register_params {
-        let reg = match ps {
-            ParsedStorage::Register(r) => r.clone(),
-            ParsedStorage::SplitRegister(hi, lo) => format!("{hi}:{lo}"),
-            ParsedStorage::Stack { .. } => unreachable!(),
-        };
-        writeln!(
-            w,
-            "            <REGISTER_VAR NAME=\"{}\" REGISTER=\"{}\" DATATYPE=\"{}\" />",
-            xml_escape(&p.name),
-            xml_escape(&reg),
-            xml_escape(&p.ty),
-        )?;
-    }
-
-    // Unanchored params (no `storage` field): emit nothing — Ghidra computes
-    // them from the calling convention (set via extras sidecar).
-    let _ = unanchored;
-
-    writeln!(w, "        </FUNCTION>")?;
     Ok(())
 }
 
@@ -512,60 +318,6 @@ fn render_comments(w: &mut String, cat: &Catalog) -> Result<()> {
     }
     writeln!(w, "    </COMMENTS>")?;
     Ok(())
-}
-
-// ─── Storage parsing ─────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone)]
-enum ParsedStorage {
-    Register(String),
-    SplitRegister(String, String),
-    Stack { offset: i32, _size: Option<u32> },
-}
-
-fn parse_storage(s: &str) -> std::result::Result<ParsedStorage, &'static str> {
-    if let Some(rest) = s.strip_prefix("stack:") {
-        let mut parts = rest.split(':');
-        let off = parts.next().ok_or("missing stack offset")?;
-        let size = parts.next();
-        if parts.next().is_some() {
-            return Err("too many `:` in stack storage");
-        }
-        let offset = parse_signed_hex_or_dec(off).ok_or("bad stack offset")?;
-        let _size = match size {
-            Some(s) => Some(s.parse::<u32>().map_err(|_| "bad stack size")?),
-            None => None,
-        };
-        Ok(ParsedStorage::Stack { offset, _size })
-    } else if let Some((hi, lo)) = s.split_once(':') {
-        if !is_register_name(hi) || !is_register_name(lo) {
-            return Err("split register parts must be register names");
-        }
-        Ok(ParsedStorage::SplitRegister(hi.to_string(), lo.to_string()))
-    } else if is_register_name(s) {
-        Ok(ParsedStorage::Register(s.to_string()))
-    } else {
-        Err("storage must be a register, register pair, or `stack:0x…`")
-    }
-}
-
-fn is_register_name(r: &str) -> bool {
-    !r.is_empty()
-        && r.chars()
-            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
-}
-
-fn parse_signed_hex_or_dec(s: &str) -> Option<i32> {
-    let (sign, rest) = match s.strip_prefix('-') {
-        Some(r) => (-1i32, r),
-        None => (1, s),
-    };
-    let n = if let Some(h) = rest.strip_prefix("0x") {
-        i32::from_str_radix(h, 16).ok()?
-    } else {
-        rest.parse::<i32>().ok()?
-    };
-    Some(sign * n)
 }
 
 // ─── Escaping ────────────────────────────────────────────────────────────────
@@ -621,45 +373,12 @@ mod tests {
     }
 
     #[test]
-    fn renders_function_with_register_var() {
+    fn emits_no_function_or_symbol_section() {
         let f = Function {
             va: 0x0052aaa0,
             name: "UpdateNetworkHudAnimations".into(),
-            calling_convention: Some("__usercall".into()),
-            plate_comment: Some("ESI = this".into()),
-            no_return: false,
-            signature: Some(Signature {
-                returns: "void".into(),
-                return_storage: None,
-            }),
-            param: vec![
-                Param {
-                    name: "this".into(),
-                    ty: "GameRuntime *".into(),
-                    storage: Some("ESI".into()),
-                },
-                Param {
-                    name: "chat_box_min_step".into(),
-                    ty: "Fixed".into(),
-                    storage: Some("stack:0x4".into()),
-                },
-            ],
-            local: vec![],
-            comment: vec![],
-        };
-        let xml = render(&cat_with_function(f)).unwrap();
-        assert!(xml.contains(r#"<REGISTER_VAR NAME="this" REGISTER="ESI""#));
-        assert!(xml.contains(r#"<STACK_VAR STACK_PTR_OFFSET="0x4""#));
-        assert!(xml.contains(r#"<REGULAR_CMT>ESI = this</REGULAR_CMT>"#));
-    }
-
-    #[test]
-    fn escapes_xml_special_chars() {
-        let f = Function {
-            va: 0x500,
-            name: "Foo<&>".into(),
             calling_convention: None,
-            plate_comment: Some("She said \"hi\"; then left".into()),
+            plate_comment: Some("plate".into()),
             no_return: false,
             signature: None,
             param: vec![],
@@ -667,29 +386,15 @@ mod tests {
             comment: vec![],
         };
         let xml = render(&cat_with_function(f)).unwrap();
-        assert!(xml.contains("Foo&lt;&amp;&gt;"));
-        assert!(xml.contains("She said &quot;hi&quot;"));
+        assert!(!xml.contains("<FUNCTION "));
+        assert!(!xml.contains("<REGISTER_VAR"));
+        assert!(!xml.contains("<SYMBOL_TABLE"));
+        assert!(!xml.contains("<SYMBOL "));
     }
 
     #[test]
-    fn parse_storage_accepts_grammar() {
-        assert!(matches!(
-            parse_storage("ECX"),
-            Ok(ParsedStorage::Register(_))
-        ));
-        assert!(matches!(
-            parse_storage("EDX:EAX"),
-            Ok(ParsedStorage::SplitRegister(_, _))
-        ));
-        assert!(matches!(
-            parse_storage("stack:0x4"),
-            Ok(ParsedStorage::Stack { offset: 4, .. })
-        ));
-        assert!(matches!(
-            parse_storage("stack:0x10:4"),
-            Ok(ParsedStorage::Stack { offset: 16, .. })
-        ));
-        assert!(parse_storage("eax").is_err());
-        assert!(parse_storage("stack:abc").is_err());
+    fn xml_escape_handles_special_chars() {
+        assert_eq!(xml_escape("Foo<&>"), "Foo&lt;&amp;&gt;");
+        assert_eq!(xml_escape("\"hi\""), "&quot;hi&quot;");
     }
 }

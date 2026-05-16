@@ -160,8 +160,9 @@ fn parse_structure<R: std::io::BufRead>(
     let namespace = optional_attr(&start, b"NAMESPACE").unwrap_or_else(|| "/".to_string());
     let size = hex_attr(&start, b"SIZE")?;
 
-    let mut keep =
-        !filter::is_builtin_dtm_namespace(&namespace) && !filter::is_primitive_type_name(&name);
+    let mut keep = !filter::is_builtin_dtm_namespace(&namespace)
+        && !filter::is_primitive_type_name(&name)
+        && !filter::is_rtti_or_eh_internal_type(&name);
 
     // PlaceHolder Structure: size 0 with a marker REGULAR_CMT. Drop.
     let mut is_placeholder = size == 0;
@@ -269,6 +270,22 @@ fn parse_structure<R: std::io::BufRead>(
         return Ok(());
     }
 
+    // Structs in `/` whose members reference archive-only types
+    // (`__ehstate_t` in `/ehdata.h`, `PMD` in `/ehdata.h`, `ptrdiff_t` in
+    // `/crtdefs.h`, …) are Ghidra's RTTI/EH/PE auto-analysis output, not
+    // user definitions. We can't re-emit them faithfully because the
+    // referenced types live in archive namespaces we drop, so Ghidra would
+    // create `.conflict` copies on import. Also drop structs that use
+    // bit-field DATATYPE notation (`dword:N`) — Ghidra's XML importer
+    // can't parse those — and structs with a flex-array tail
+    // (offset == size, e.g. TypeDescriptor.name `char[0]` at +0x8 size
+    // 0x8), which throws `IllegalArgumentException` in `replaceAtOffset`.
+    if !fields.is_empty() && is_system_generated_struct(&fields, size) {
+        prog.stats.types_dropped_builtin += 1;
+        prog.external_types.push(name);
+        return Ok(());
+    }
+
     prog.structs.push(Struct {
         name,
         namespace: normalise_namespace(namespace),
@@ -278,6 +295,31 @@ fn parse_structure<R: std::io::BufRead>(
     });
     prog.stats.types_kept += 1;
     Ok(())
+}
+
+fn is_system_generated_struct(fields: &[Field], struct_size: u32) -> bool {
+    for f in fields {
+        // Member sits at or past the struct's declared size — flex-tail
+        // (e.g. `char[0]` placeholder for runtime-sized data). Ghidra's
+        // importer throws on these.
+        if f.offset >= struct_size {
+            return true;
+        }
+        // Bit-field DATATYPE notation (`dword:31`, `dword:1`). The XML
+        // importer doesn't parse these.
+        if f.ty.contains(':') {
+            return true;
+        }
+        // Field references a built-in / archive-only namespace. By
+        // transitive closure, our user struct cannot resolve all of its
+        // members → would create a `.conflict` copy in the live DB.
+        if let Some(ns) = &f.type_namespace
+            && filter::is_builtin_dtm_namespace(ns)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// Map `/` (root) and empty to `None`; everything else passes through as `Some`.
@@ -532,6 +574,15 @@ fn parse_symbol_table<R: std::io::BufRead>(
                     prog.stats.symbols_dropped_auto += 1;
                     continue;
                 }
+                // Symbols whose NAMESPACE is set to a class / library
+                // path (`CWnd::`, `CWinApp::`, `WSOCK32.DLL::`) are
+                // Ghidra auto-imports — see filter::is_qualified_import_name
+                // for the failure modes. Dropping is lossless.
+                let namespace_attr = optional_attr(&e, b"NAMESPACE").unwrap_or_default();
+                if !namespace_attr.is_empty() && namespace_attr != "/" {
+                    prog.stats.symbols_dropped_auto += 1;
+                    continue;
+                }
                 // We don't know yet whether this is a function, global, or
                 // plain label. Functions are filled by <FUNCTIONS>; if a
                 // SYMBOL VA collides with a FUNCTION VA later, the symbol is
@@ -585,6 +636,9 @@ fn parse_function<R: std::io::BufRead>(
         prog.stats.functions_dropped_auto += 1;
         keep = false;
     } else if library == "y" {
+        prog.stats.functions_dropped_library += 1;
+        keep = false;
+    } else if filter::is_qualified_import_name(&name) {
         prog.stats.functions_dropped_library += 1;
         keep = false;
     }

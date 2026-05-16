@@ -351,13 +351,7 @@ fn write_struct(out: &mut String, s: &Struct) {
         write_string_kv(out, "plate_comment", p);
     }
     for fld in &s.field {
-        writeln!(out, "\n  [[struct.field]]").unwrap();
-        writeln!(out, "  offset = 0x{:X}", fld.offset).unwrap();
-        write_string_kv_indented(out, "  ", "name", &fld.name);
-        write_string_kv_indented(out, "  ", "type", &fld.ty);
-        if let Some(c) = &fld.comment {
-            write_string_kv_indented(out, "  ", "comment", c);
-        }
+        write_struct_field(out, fld);
     }
 }
 
@@ -370,13 +364,40 @@ fn write_union(out: &mut String, u: &Union) {
         write_string_kv(out, "plate_comment", p);
     }
     for fld in &u.field {
-        writeln!(out, "\n  [[union.field]]").unwrap();
-        writeln!(out, "  offset = 0x{:X}", fld.offset).unwrap();
-        write_string_kv_indented(out, "  ", "name", &fld.name);
-        write_string_kv_indented(out, "  ", "type", &fld.ty);
-        if let Some(c) = &fld.comment {
-            write_string_kv_indented(out, "  ", "comment", c);
-        }
+        write_union_field(out, fld);
+    }
+}
+
+fn write_struct_field(out: &mut String, fld: &Field) {
+    write_field(out, fld, "struct");
+}
+
+fn write_union_field(out: &mut String, fld: &Field) {
+    write_field(out, fld, "union");
+}
+
+/// Emit a single `[[<parent>.field]]` block. `type_namespace` and `size`
+/// are load-bearing: Ghidra's `DataTypesXmlMgr` keys struct equality on
+/// `(NAME, NAMESPACE, SIZE) + (per-member NAME, OFFSET, DATATYPE,
+/// DATATYPE_NAMESPACE, SIZE)`. Dropping member SIZE makes Ghidra create a
+/// `.conflict` copy on every import even when the type is byte-identical.
+fn write_field(out: &mut String, fld: &Field, parent: &str) {
+    writeln!(out, "\n  [[{parent}.field]]").unwrap();
+    writeln!(out, "  offset = 0x{:X}", fld.offset).unwrap();
+    write_string_kv_indented(out, "  ", "name", &fld.name);
+    write_string_kv_indented(out, "  ", "type", &fld.ty);
+    if let Some(ns) = fld
+        .type_namespace
+        .as_deref()
+        .filter(|s| !s.is_empty() && *s != "/")
+    {
+        write_string_kv_indented(out, "  ", "type_namespace", ns);
+    }
+    if let Some(sz) = fld.size {
+        writeln!(out, "  size = 0x{:X}", sz).unwrap();
+    }
+    if let Some(c) = &fld.comment {
+        write_string_kv_indented(out, "  ", "comment", c);
     }
 }
 
