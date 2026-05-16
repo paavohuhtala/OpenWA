@@ -6,6 +6,7 @@ name = "BlitScreen"
 va = 0x005A2430
 name = "ConstructFrameBuffer"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "int"

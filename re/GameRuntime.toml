@@ -14,6 +14,7 @@ name = "GameRuntime__DispatchFrame"
 va = 0x00529F30
 name = "GameRuntime__StepFrame"
 calling_convention = "__thiscall"
+custom_storage = true
 plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra register param). 5 stack params, RET 0x14."
 
   [function.signature]
@@ -99,6 +100,7 @@ plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RE
 [[function]]
 va = 0x0052AAA0
 name = "GameRuntime__UpdateNetworkHudAnimations"
+custom_storage = true
 plate_comment = """
 GameRuntime::UpdateNetworkHudAnimations
 

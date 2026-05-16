@@ -14,6 +14,7 @@ name = "BitGrid__PutPixel"
 va = 0x004F6370
 name = "BitGrid__Init"
 calling_convention = "__fastcall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -59,6 +60,7 @@ name = "BitGrid__GetPixelClipped"
 va = 0x004F9180
 name = "BitGrid__PutPixelClipped"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"

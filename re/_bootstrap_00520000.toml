@@ -82,6 +82,7 @@ name = "GameStats_FreeBuffers_Maybe"
 va = 0x00523400
 name = "LoadSprite"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "int"

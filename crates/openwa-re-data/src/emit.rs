@@ -288,6 +288,9 @@ fn write_function(out: &mut String, f: &Function) {
     if f.no_return {
         writeln!(out, "no_return = true").unwrap();
     }
+    if f.custom_storage {
+        writeln!(out, "custom_storage = true").unwrap();
+    }
     if let Some(plate) = &f.plate_comment {
         write_string_kv(out, "plate_comment", plate);
     }

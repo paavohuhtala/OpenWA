@@ -6,6 +6,7 @@ name = "MissileEntity__HomingTargetCheck"
 va = 0x00507D10
 name = "MissileEntity__Constructor"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void *"

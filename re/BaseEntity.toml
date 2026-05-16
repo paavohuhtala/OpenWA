@@ -10,6 +10,7 @@ name = "BaseEntity__UnlinkChild"
 va = 0x005613D0
 name = "BaseEntity__vt3_vt4_Stub_Returns0"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "int"
@@ -82,6 +83,7 @@ name = "BaseEntity__vt5_ProcessChildren"
 va = 0x00563000
 name = "BaseEntity__vt6_ProcessFrame"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"

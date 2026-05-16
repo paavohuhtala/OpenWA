@@ -18,6 +18,7 @@ name = "Display__sub_523160"
 va = 0x005231E0
 name = "Display__palette_create"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -39,6 +40,7 @@ calling_convention = "__thiscall"
 va = 0x00523270
 name = "Display__palette_pointer"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void *"

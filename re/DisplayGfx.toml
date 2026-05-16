@@ -10,6 +10,7 @@ name = "DisplayGfx__DefaultStub_RetZero_Ret8"
 va = 0x00523310
 name = "DisplayGfx__LoadSpriteEx"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "int"
@@ -47,6 +48,7 @@ calling_convention = "__thiscall"
 va = 0x00523500
 name = "DisplayGfx__GetSpriteInfo"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -72,6 +74,7 @@ calling_convention = "__thiscall"
 va = 0x00523560
 name = "DisplayGfx__LoadFont"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -101,6 +104,7 @@ calling_convention = "__thiscall"
 va = 0x00523620
 name = "DisplayGfx__LoadFontExtension"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -134,6 +138,7 @@ calling_convention = "__thiscall"
 va = 0x00523690
 name = "DisplayGfx__SetFontPalette"
 calling_convention = "__thiscall"
+custom_storage = true
 plate_comment = "DisplayGfx::SetFontPalette (vtable slot 36). Misleadingly named — see Font__SetPalette (0x4F9F20) for what it actually does. Just looks up font_table[font_index] and forwards to Font__SetPalette. Called once during DDGame::LoadFonts to extend the digital font with derived '.' and ';' glyphs. Ported as openwa-core display::vtable::set_font_palette."
 
   [function.signature]
@@ -156,6 +161,7 @@ plate_comment = "DisplayGfx::SetFontPalette (vtable slot 36). Misleadingly named
 va = 0x005236B0
 name = "DisplayGfx__DrawTextOnBitmap"
 calling_convention = "__thiscall"
+custom_storage = true
 plate_comment = "DisplayGfx::DrawTextOnBitmap (vtable slot 7). Validates font_id (low 16 bits, 1..=31, slot non-null), then forwards to BitmapFont__DrawText (0x4FA4E0) with font_id high 16 bits as flags. Reached only by SetTextboxText (0x4FB070) → in-game text bitmaps. Ported as openwa-core display::vtable::draw_text_on_bitmap."
 
   [function.signature]
@@ -198,6 +204,7 @@ plate_comment = "DisplayGfx::DrawTextOnBitmap (vtable slot 7). Validates font_id
 va = 0x00523710
 name = "DisplayGfx__MeasureText"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -227,6 +234,7 @@ calling_convention = "__thiscall"
 va = 0x00523750
 name = "DisplayGfx__GetFontMetric"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -252,6 +260,7 @@ calling_convention = "__thiscall"
 va = 0x00523790
 name = "DisplayGfx__GetFontInfo"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -273,6 +282,7 @@ calling_convention = "__thiscall"
 va = 0x005237C0
 name = "DisplayGfx__GetSpriteFrameForBlit"
 calling_convention = "__thiscall"
+custom_storage = true
 plate_comment = "DisplayGfx::GetSpriteFrameForBlit (vtable slot 33). Resolves a sprite ID + animation value into a renderable frame: dispatches to Sprite__GetFrameForBlit (sprite_ptrs path) or SpriteBank__GetFrameForBlit (sprite_banks path), which look up the frame's bounding box and lazily decompress its surface. Returns *DisplayBitGrid. Hot-path — called every frame from BlitSprite (slot 19) for every sprite. Formerly mis-named LoadSpriteComplex; the rename cascade is in openwa-core display::vtable::get_sprite_frame_for_blit."
 
   [function.signature]
@@ -339,6 +349,7 @@ name = "DisplayGfx__Constructor_Maybe"
 va = 0x00569CE0
 name = "DisplayGfx__Destructor"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "undefined4"
@@ -406,6 +417,7 @@ name = "DisplayGfx__AcquireRenderLock"
 va = 0x0056A460
 name = "DisplayGfx__GetDimensions"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -427,6 +439,7 @@ calling_convention = "__thiscall"
 va = 0x0056A480
 name = "DisplayGfx__IsSpriteLoaded"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -444,6 +457,7 @@ calling_convention = "__thiscall"
 va = 0x0056A4C0
 name = "DisplayGfx__LoadSpriteByLayer"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "int"
@@ -473,6 +487,7 @@ calling_convention = "__thiscall"
 va = 0x0056A580
 name = "DisplayGfx__FlushRender"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -486,6 +501,7 @@ calling_convention = "__thiscall"
 va = 0x0056A5D0
 name = "DisplayGfx__SetLayerVisibility"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -507,6 +523,7 @@ calling_convention = "__thiscall"
 va = 0x0056A610
 name = "DisplayGfx__UpdatePalette"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -552,6 +569,7 @@ name = "DisplayGfx__BlitTiled"
 va = 0x0056B080
 name = "DisplayGfx__BlitSprite"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -581,6 +599,7 @@ calling_convention = "__thiscall"
 va = 0x0056B660
 name = "DisplayGfx__DrawScaledSprite"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -626,6 +645,7 @@ calling_convention = "__thiscall"
 va = 0x0056B7C0
 name = "DisplayGfx__DrawViaCallback"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -659,6 +679,7 @@ calling_convention = "__thiscall"
 va = 0x0056B810
 name = "DisplayGfx__FillRect"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -692,6 +713,7 @@ calling_convention = "__thiscall"
 va = 0x0056B8C0
 name = "DisplayGfx__DrawTiledBitmap"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -717,6 +739,7 @@ calling_convention = "__thiscall"
 va = 0x0056BCC0
 name = "DisplayGfx__DrawPolyline"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -742,6 +765,7 @@ calling_convention = "__thiscall"
 va = 0x0056BD50
 name = "DisplayGfx__DrawLineClipped"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -775,6 +799,7 @@ calling_convention = "__thiscall"
 va = 0x0056BDB0
 name = "DisplayGfx__DrawLine"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -812,6 +837,7 @@ calling_convention = "__thiscall"
 va = 0x0056BE10
 name = "DisplayGfx__DrawPixelStrip"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -849,6 +875,7 @@ calling_convention = "__thiscall"
 va = 0x0056BE80
 name = "DisplayGfx__DrawCrosshair"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -878,6 +905,7 @@ calling_convention = "__thiscall"
 va = 0x0056BFD0
 name = "DisplayGfx__DrawOutlinedPixel"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -907,6 +935,7 @@ calling_convention = "__thiscall"
 va = 0x0056C5A0
 name = "DisplayGfx__DrawTiledTerrain"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -936,6 +965,7 @@ calling_convention = "__thiscall"
 va = 0x0056CC40
 name = "DisplayGfx__SetCameraOffset"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
@@ -957,6 +987,7 @@ calling_convention = "__thiscall"
 va = 0x0056CC60
 name = "DisplayGfx__SetClipRect"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"

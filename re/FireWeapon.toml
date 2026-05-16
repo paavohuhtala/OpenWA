@@ -25,6 +25,7 @@ name = "FireWeapon__Projectile"
 va = 0x0051E0F0
 name = "FireWeapon__CreateWeaponProjectile"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"

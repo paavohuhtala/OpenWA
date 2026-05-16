@@ -6,6 +6,7 @@ name = "CWormsApp__Constructor"
 va = 0x004E3E90
 name = "CWormsApp__ScalarDeletingDestructor"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void *"
@@ -27,6 +28,7 @@ name = "CWormsApp__Destructor"
 va = 0x004EB730
 name = "CWormsApp__DoMessageBox"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "int"
@@ -52,6 +54,7 @@ calling_convention = "__thiscall"
 va = 0x004EC810
 name = "CWormsApp__PreTranslateMessage"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "int"
@@ -77,6 +80,7 @@ name = "CWormsApp__ClearFrameBuffer_Indirect"
 va = 0x005A24A0
 name = "CWormsApp__ReleaseFrameBuffer"
 calling_convention = "__fastcall"
+custom_storage = true
 
   [function.signature]
   returns = "void *"
@@ -103,6 +107,7 @@ name = "CWormsApp__LockFrameBuffer"
 va = 0x005A25C0
 name = "CWormsApp__FillRect"
 calling_convention = "__fastcall"
+custom_storage = true
 
   [function.signature]
   returns = "void *"
@@ -145,6 +150,7 @@ name = "CWormsApp__GetRendererSurface"
 va = 0x005A2700
 name = "CWormsApp__FlipSurface"
 calling_convention = "__fastcall"
+custom_storage = true
 
   [function.signature]
   returns = "void *"
@@ -167,6 +173,7 @@ name = "CWormsApp__AllocErrorResult"
 va = 0x005A2A40
 name = "CWormsApp__BlitToFrameBuffer"
 calling_convention = "__fastcall"
+custom_storage = true
 
   [function.signature]
   returns = "void *"
