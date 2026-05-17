@@ -1,0 +1,59 @@
+[[function]]
+va = 0x004FE130
+name = "ArrowEntity__Constructor"
+
+[[global]]
+va = 0x00664198
+name = "ArrowEntity__vtable"
+
+[[function]]
+va = 0x004FE2F0
+name = "ArrowEntity__dtor0_ArrowEntity"
+
+[[function]]
+va = 0x004FE310
+name = "ArrowEntity__init_mask"
+
+[[function]]
+va = 0x004FE410
+name = "ArrowEntity__update_mask"
+
+[[function]]
+va = 0x004FE500
+name = "ArrowEntity__ctor1_ArrowEntity"
+
+[[function]]
+va = 0x004FE550
+name = "ArrowEntity__save"
+
+[[function]]
+va = 0x004FE590
+name = "ArrowEntity__dtor1_ArrowEntity"
+
+[[function]]
+va = 0x004FE650
+name = "ArrowEntity__plot_arrow"
+
+[[function]]
+va = 0x004FE8A0
+name = "ArrowEntity__water_splash"
+
+[[function]]
+va = 0x004FE900
+name = "ArrowEntity__collide"
+
+[[function]]
+va = 0x004FE930
+name = "ArrowEntity__render"
+
+[[function]]
+va = 0x004FE9C0
+name = "ArrowEntity__message"
+
+[[function]]
+va = 0x004FED10
+name = "ArrowEntity__sub_4FED10"
+
+[[function]]
+va = 0x004FED20
+name = "ArrowEntity__sub_4FED20"

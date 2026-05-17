@@ -1,0 +1,11 @@
+[[function]]
+va = 0x005466C0
+name = "SpriteAnimEntity__Constructor"
+
+[[global]]
+va = 0x00669D00
+name = "SpriteAnimEntity__vtable"
+
+[[function]]
+va = 0x00546760
+name = "SpriteAnimEntity__message"

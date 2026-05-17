@@ -1,0 +1,63 @@
+[[function]]
+va = 0x00504AF0
+name = "OilDrumEntity__Constructor"
+
+[[function]]
+va = 0x00504C80
+name = "OilDrumEntity__Free"
+
+[[function]]
+va = 0x00504D40
+name = "OilDrumEntity__Init"
+
+[[function]]
+va = 0x005050B0
+name = "OilDrumEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[global]]
+va = 0x00664338
+name = "OilDrumEntity__vtable"
+
+[[function]]
+va = 0x00504CC0
+name = "OilDrumEntity__ctor1_OilDrumEntity"
+
+[[function]]
+va = 0x00504D90
+name = "OilDrumEntity__collide"
+
+[[function]]
+va = 0x00504DF0
+name = "OilDrumEntity__detonate"
+
+[[function]]
+va = 0x00505000
+name = "OilDrumEntity__render"
+
+[[function]]
+va = 0x00505420
+name = "OilDrumEntity__sub_505420"

@@ -1,0 +1,155 @@
+[[function]]
+va = 0x00500070
+name = "CrateEntity__OnLandBounce"
+
+[[function]]
+va = 0x00500080
+name = "CrateEntity__OnLandSlide"
+
+[[function]]
+va = 0x00500090
+name = "CrateEntity__vmethod_17"
+
+[[function]]
+va = 0x005000E0
+name = "CrateEntity__OnSink"
+
+[[function]]
+va = 0x00500360
+name = "CrateEntity__OnKilled"
+
+[[function]]
+va = 0x00500380
+name = "CrateEntity__vmethod_12"
+
+[[function]]
+va = 0x00500CC0
+name = "CrateEntity__vmethod_15"
+
+[[function]]
+va = 0x00502490
+name = "CrateEntity__Constructor"
+
+[[function]]
+va = 0x00502860
+name = "CrateEntity__Free"
+
+[[function]]
+va = 0x00502B50
+name = "CrateEntity__WriteReplayState"
+
+[[function]]
+va = 0x00502D20
+name = "CrateEntity__OnWormPush"
+
+[[function]]
+va = 0x005032F0
+name = "CrateEntity__SetState"
+
+[[function]]
+va = 0x00503AD0
+name = "CrateEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[function]]
+va = 0x00503F70
+name = "CrateEntity__GetEntityData"
+
+[[function]]
+va = 0x00503FA0
+name = "CrateEntity__vmethod_18"
+
+[[function]]
+va = 0x00503FB0
+name = "CrateEntity__vmethod_19"
+
+[[global]]
+va = 0x00664298
+name = "CrateEntity__vtable"
+
+[[function]]
+va = 0x00502880
+name = "CrateEntity__construct_pointers"
+
+[[function]]
+va = 0x00502A10
+name = "CrateEntity__ctor1_CrateEntity"
+
+[[function]]
+va = 0x00502BE0
+name = "CrateEntity__dtor1_CrateEntity"
+
+[[function]]
+va = 0x00502D80
+name = "CrateEntity__detonate_0"
+
+[[function]]
+va = 0x00502FD0
+name = "CrateEntity__detonate_1"
+
+[[function]]
+va = 0x00503390
+name = "CrateEntity__calc_sprite"
+
+[[function]]
+va = 0x00503510
+name = "CrateEntity__close_to_landing"
+
+[[function]]
+va = 0x00503570
+name = "CrateEntity__render_indicator"
+
+[[function]]
+va = 0x005037C0
+name = "CrateEntity__render"
+
+[[function]]
+va = 0x005041D0
+name = "CrateEntity__sub_5041D0"
+
+[[function]]
+va = 0x00504250
+name = "CrateEntity__sub_504250"
+
+[[function]]
+va = 0x005042E0
+name = "CrateEntity__sub_5042E0"
+
+[[function]]
+va = 0x00504520
+name = "CrateEntity__sub_504520"
+
+[[function]]
+va = 0x00504540
+name = "CrateEntity__sub_504540"
+
+[[function]]
+va = 0x00504560
+name = "CrateEntity__sub_504560"
+
+[[function]]
+va = 0x00504590
+name = "CrateEntity__sub_504590"

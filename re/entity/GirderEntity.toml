@@ -1,0 +1,15 @@
+[[function]]
+va = 0x00550890
+name = "GirderEntity__Constructor"
+
+[[function]]
+va = 0x00550920
+name = "GirderEntity__ctor1_GirderEntity"
+
+[[function]]
+va = 0x00550A70
+name = "GirderEntity__check_for_target"
+
+[[function]]
+va = 0x00550D00
+name = "GirderEntity__message"

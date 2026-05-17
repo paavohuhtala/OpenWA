@@ -1,0 +1,11 @@
+[[function]]
+va = 0x0054EDC0
+name = "DirtEntity__Constructor"
+
+[[global]]
+va = 0x00669D74
+name = "DirtEntity__vtable"
+
+[[function]]
+va = 0x0054EE60
+name = "DirtEntity__message"

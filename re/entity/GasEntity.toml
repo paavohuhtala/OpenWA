@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00554750
+name = "GasEntity__Constructor"
+
+[[function]]
+va = 0x00554810
+name = "GasEntity__ctor1_GasEntity"
+
+[[function]]
+va = 0x005548E0
+name = "GasEntity__save"
+
+[[function]]
+va = 0x00554980
+name = "GasEntity__check_for_target"
+
+[[function]]
+va = 0x00554A70
+name = "GasEntity__message"

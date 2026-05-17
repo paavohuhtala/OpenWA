@@ -1,0 +1,27 @@
+[[function]]
+va = 0x005553C0
+name = "AirStrikeEntity__Constructor"
+
+[[function]]
+va = 0x005555E0
+name = "AirStrikeEntity__dtor0_AirStrikeEntity"
+
+[[function]]
+va = 0x00555620
+name = "AirStrikeEntity__sub_555620"
+
+[[function]]
+va = 0x00555630
+name = "AirStrikeEntity__ctor1_AirStrikeEntity"
+
+[[function]]
+va = 0x00555720
+name = "AirStrikeEntity__save"
+
+[[function]]
+va = 0x00555800
+name = "AirStrikeEntity__release_missile"
+
+[[function]]
+va = 0x00555A20
+name = "AirStrikeEntity__message"

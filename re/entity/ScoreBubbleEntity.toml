@@ -1,0 +1,19 @@
+[[function]]
+va = 0x00554CA0
+name = "ScoreBubbleEntity__Constructor"
+
+[[function]]
+va = 0x00554D40
+name = "ScoreBubbleEntity__dtor0_ScoreBubbleEntity"
+
+[[function]]
+va = 0x00554D60
+name = "ScoreBubbleEntity__dtor1_ScoreBubbleEntity"
+
+[[function]]
+va = 0x00554DF0
+name = "ScoreBubbleEntity__counstruct_pointers"
+
+[[function]]
+va = 0x00554E80
+name = "ScoreBubbleEntity__message"

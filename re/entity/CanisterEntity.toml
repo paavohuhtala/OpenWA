@@ -1,0 +1,43 @@
+[[function]]
+va = 0x00501A80
+name = "CanisterEntity__Constructor"
+
+[[function]]
+va = 0x00501C70
+name = "CanisterEntity__dtor0_CanisterEntity"
+
+[[function]]
+va = 0x00501CB0
+name = "CanisterEntity__ctor1_CanisterEntity"
+
+[[function]]
+va = 0x00501D80
+name = "CanisterEntity__save"
+
+[[function]]
+va = 0x00501E30
+name = "CanisterEntity__collide"
+
+[[function]]
+va = 0x00501E80
+name = "CanisterEntity__calc_sprite"
+
+[[function]]
+va = 0x00501EE0
+name = "CanisterEntity__render"
+
+[[function]]
+va = 0x00501F60
+name = "CanisterEntity__emit_gass"
+
+[[function]]
+va = 0x00502030
+name = "CanisterEntity__detonate"
+
+[[function]]
+va = 0x00502090
+name = "CanisterEntity__message"
+
+[[function]]
+va = 0x00502400
+name = "CanisterEntity__sub_502400"

@@ -1,0 +1,55 @@
+[[function]]
+va = 0x0054F370
+name = "FilterEntity__Subscribe"
+
+[[function]]
+va = 0x0054F390
+name = "FilterEntity__SubscribeAll"
+
+[[function]]
+va = 0x0054F3D0
+name = "FilterEntity__Constructor"
+
+[[function]]
+va = 0x0054F4A0
+name = "FilterEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[global]]
+va = 0x00669DAC
+name = "FilterEntity__vtable"
+
+[[function]]
+va = 0x0054F380
+name = "FilterEntity__disable_message"
+
+[[function]]
+va = 0x0054F3B0
+name = "FilterEntity__disable"
+
+[[function]]
+va = 0x0054F450
+name = "FilterEntity__save"

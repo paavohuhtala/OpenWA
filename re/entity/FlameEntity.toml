@@ -1,0 +1,11 @@
+[[function]]
+va = 0x0054F0F0
+name = "FlameEntity__Constructor"
+
+[[function]]
+va = 0x0054F150
+name = "FlameEntity__dtor0_FlameEntity"
+
+[[function]]
+va = 0x0054F190
+name = "FlameEntity__message"

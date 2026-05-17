@@ -1,0 +1,235 @@
+[[function]]
+va = 0x00552030
+name = "TeamEntity__SpawnFilterEntity_Clouds"
+
+[[function]]
+va = 0x005520D0
+name = "TeamEntity__SpawnFilterEntity_Water"
+
+[[function]]
+va = 0x00552190
+name = "TeamEntity__SpawnFilterEntity_Physics"
+
+[[function]]
+va = 0x00552360
+name = "TeamEntity__SpawnLandEntity"
+
+[[function]]
+va = 0x005528C0
+name = "TeamEntity__SpawnTeamEntities"
+
+[[function]]
+va = 0x00552960
+name = "TeamEntity__CreateWeatherFilter"
+
+[[function]]
+va = 0x00555BB0
+name = "TeamEntity__Constructor"
+
+[[function]]
+va = 0x00555E40
+name = "TeamEntity__Constructor_Maybe"
+
+[[function]]
+va = 0x00556030
+name = "TeamEntity__Constructor_Maybe"
+
+[[function]]
+va = 0x00557310
+name = "TeamEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[global]]
+va = 0x00669E20
+name = "TeamEntity__vtable"
+
+[[global]]
+va = 0x00669EE4
+name = "TeamEntity__vtable2"
+
+[[function]]
+va = 0x00555E20
+name = "TeamEntity__dtor0_TeamEntity"
+
+[[function]]
+va = 0x00555F80
+name = "TeamEntity__save"
+
+[[function]]
+va = 0x005560B0
+name = "TeamEntity__construct_pointers"
+
+[[function]]
+va = 0x00556120
+name = "TeamEntity__select_default_weapon"
+
+[[function]]
+va = 0x00556230
+name = "TeamEntity__find_default_weapon"
+
+[[function]]
+va = 0x00556690
+name = "TeamEntity__advance_worm"
+
+[[function]]
+va = 0x00556880
+name = "TeamEntity__set_worm"
+
+[[function]]
+va = 0x00556970
+name = "TeamEntity__render_panel"
+
+[[function]]
+va = 0x00556A40
+name = "TeamEntity__sub_556A40"
+
+[[function]]
+va = 0x00556AD0
+name = "TeamEntity__render_cursor"
+
+[[function]]
+va = 0x00556D00
+name = "TeamEntity__reset_cursor"
+
+[[function]]
+va = 0x00556D30
+name = "TeamEntity__enable_cursor"
+
+[[function]]
+va = 0x00556E90
+name = "TeamEntity__sub_556E90"
+
+[[function]]
+va = 0x00557270
+name = "TeamEntity__update_reselect"
+
+[[function]]
+va = 0x00558BB0
+name = "TeamEntity__cancel_delay"
+
+[[function]]
+va = 0x00558BE0
+name = "TeamEntity__render_start_delay"
+
+[[function]]
+va = 0x00558CF0
+name = "TeamEntity__play_tick"
+
+[[function]]
+va = 0x00558D40
+name = "TeamEntity__update_start_delay"
+
+[[function]]
+va = 0x00558DE0
+name = "TeamEntity__enquire"
+
+[[function]]
+va = 0x00558E30
+name = "TeamEntity__select_weapon"
+
+[[function]]
+va = 0x00558E80
+name = "TeamEntity__subtract_weapon"
+
+[[function]]
+va = 0x00558EE0
+name = "TeamEntity__reset_select"
+
+[[function]]
+va = 0x00558F20
+name = "TeamEntity__reset_keyboard"
+
+[[function]]
+va = 0x00558FD0
+name = "TeamEntity__process_input"
+
+[[function]]
+va = 0x00559080
+name = "TeamEntity__sub_559080"
+
+[[function]]
+va = 0x005592E0
+name = "TeamEntity__sub_5592E0"
+
+[[function]]
+va = 0x00559380
+name = "TeamEntity__process_panel"
+
+[[function]]
+va = 0x005593C0
+name = "TeamEntity__sub_5593C0"
+
+[[function]]
+va = 0x005597A0
+name = "TeamEntity__process_cursor"
+
+[[function]]
+va = 0x0055A0C0
+name = "TeamEntity__sub_55A0C0"
+
+[[function]]
+va = 0x0055A4E0
+name = "TeamEntity__process_weapon_control"
+
+[[function]]
+va = 0x0055A680
+name = "TeamEntity__process_keyboard"
+
+[[function]]
+va = 0x0055A710
+name = "TeamEntity__process_worm_movement"
+
+[[function]]
+va = 0x0055AAC0
+name = "TeamEntity__find_key_weapons"
+
+[[function]]
+va = 0x0055ABC0
+name = "TeamEntity__process_weapon_select"
+
+[[function]]
+va = 0x0055AE50
+name = "TeamEntity__check_for_replay_request"
+
+[[function]]
+va = 0x0055AEB0
+name = "TeamEntity__check_for_worm_focus"
+
+[[function]]
+va = 0x0055B070
+name = "TeamEntity__sub_55B070"
+
+[[function]]
+va = 0x0055B130
+name = "TeamEntity__sub_55B130"
+
+[[function]]
+va = 0x0055B190
+name = "TeamEntity__sub_55B190"
+
+[[function]]
+va = 0x0055B220
+name = "TeamEntity__sub_55B220"

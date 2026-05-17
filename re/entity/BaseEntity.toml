@@ -1,0 +1,150 @@
+[[function]]
+va = 0x004FDC70
+name = "BaseEntity__AppendChild"
+
+[[function]]
+va = 0x004FDCE0
+name = "BaseEntity__UnlinkChild"
+
+[[function]]
+va = 0x005613D0
+name = "BaseEntity__vt3_vt4_Stub_Returns0"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "param_1"
+  type = "int"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "param_2"
+  type = "int"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "param_3"
+  type = "int"
+  storage = "stack:0xC"
+
+[[function]]
+va = 0x00562520
+name = "BaseEntity__LinkToParent"
+
+[[function]]
+va = 0x005625A0
+name = "BaseEntity__Constructor"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "parent"
+  type = "void *"
+
+  [[function.param]]
+  name = "class_type"
+  type = "int"
+
+[[function]]
+va = 0x00562620
+name = "BaseEntity__vt1_Free"
+
+[[function]]
+va = 0x00562640
+name = "BaseEntity__Constructor_Maybe"
+
+[[function]]
+va = 0x00562710
+name = "BaseEntity__vt0_init"
+
+[[function]]
+va = 0x00562820
+name = "BaseEntity__Destructor_Maybe"
+
+[[function]]
+va = 0x00562F30
+name = "BaseEntity__vt2_HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[function]]
+va = 0x00562FA0
+name = "BaseEntity__vt5_ProcessChildren"
+
+[[function]]
+va = 0x00563000
+name = "BaseEntity__vt6_ProcessFrame"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+[[function]]
+va = 0x00563210
+name = "BaseEntity__vt7_INVALID_NotInBaseVtable"
+
+[[global]]
+va = 0x00669F8C
+name = "BaseEntity__vtable"
+
+[[function]]
+va = 0x005627A0
+name = "BaseEntity__save_children"
+
+[[function]]
+va = 0x005628C0
+name = "BaseEntity__restore_children"
+
+[[function]]
+va = 0x00562E90
+name = "BaseEntity__sub_562E90"
+
+[[function]]
+va = 0x00562EF0
+name = "BaseEntity__deliver"
+
+[[function]]
+va = 0x00563070
+name = "BaseEntity__sub_563070"

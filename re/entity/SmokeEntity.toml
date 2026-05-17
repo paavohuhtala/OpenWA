@@ -1,0 +1,11 @@
+[[function]]
+va = 0x005551D0
+name = "SmokeEntity__Constructor"
+
+[[function]]
+va = 0x00555240
+name = "SmokeEntity__dtor_SmokeEntity"
+
+[[function]]
+va = 0x00555280
+name = "SmokeEntity__message"

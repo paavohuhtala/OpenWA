@@ -1,0 +1,673 @@
+[[function]]
+va = 0x004FF9F0
+name = "WormEntity__ApplyDragMods"
+
+[[function]]
+va = 0x004FFA60
+name = "WormEntity__AccumulateImpulse"
+
+[[function]]
+va = 0x004FFAF0
+name = "WormEntity__ApplyWind"
+
+[[function]]
+va = 0x005003D0
+name = "WormEntity__StepRopePhysics_Maybe"
+plate_comment = "Per-frame rope physics step. Not a \"snapshot\" — runs FUN_004FC280 (constraint solver), walks rope segments via FUN_004FBDC0 / FUN_004FD360 / FUN_004FD4C0 / FUN_004FD640, and (when +0xBC != 0) recomputes worm angle (+0x8C) from the segment list and damps velocity (+0x90/+0x94) by a factor at +0x78. __usercall(this on stack, AL = mode_flag): AL=0 runs full physics + segment loop; AL!=0 zeros worm flags +0x34 and skips the FUN_004FC280 call. Spills scratch globals at DAT_007740F4 etc. — those are not save/restore. Called from many entity per-frame paths; in WormEntity::HandleMessage case 0x3 (RenderScene) it advances the rope by render_interp_a for sub-frame interpolation."
+
+[[function]]
+va = 0x00500630
+name = "WormEntity__RestoreKamikazeState_Maybe"
+
+[[function]]
+va = 0x00500720
+name = "WormEntity__DrawAttachedRope"
+plate_comment = "WormEntity::DrawAttachedRope — draws the segmented rope polyline + anchor sprite for a worm currently attached to a ninja rope or bungee. The unattached/in-flight rope is drawn by a different (currently-unidentified) function. Operates directly on a WormEntity*; no separate \"BungeeTrailEntity\" class exists. Gated by +0xBC (1 = active, set by InitWormAttachedRope 0x005008D0). Fields: +0xC0/+0xC4 anchor, +0xD0 segment count, +0xE4 segment buffer (0x40 × 8 bytes; angle at +4+i*8), +0x84/+0x88 worm position (= rope's other endpoint). Caller: WormEntity::HandleMessage case 0x3 (RenderScene)."
+
+[[function]]
+va = 0x00501210
+name = "WormEntity__HitTestRopeLine"
+
+[[function]]
+va = 0x0050BFB0
+name = "WormEntity__Constructor"
+
+[[function]]
+va = 0x0050C7E0
+name = "WormEntity__Free"
+
+[[function]]
+va = 0x0050C800
+name = "WormEntity__Constructor_Maybe"
+
+[[function]]
+va = 0x0050CAA0
+name = "WormEntity__WriteReplayState"
+
+[[function]]
+va = 0x0050CC40
+name = "WormEntity__Destructor_Maybe"
+
+[[function]]
+va = 0x0050D3B0
+name = "WormEntity__OnKilled"
+
+[[function]]
+va = 0x0050D450
+name = "WormEntity__LandingCheck"
+
+[[function]]
+va = 0x0050D540
+name = "WormEntity__BroadcastWeaponName"
+
+[[function]]
+va = 0x0050D570
+name = "WormEntity__OnSink"
+
+[[function]]
+va = 0x0050D5D0
+name = "WormEntity__OnContactEntity"
+
+[[function]]
+va = 0x0050D810
+name = "WormEntity__OnLandBounce"
+
+[[function]]
+va = 0x0050D820
+name = "WormEntity__OnLandSlide"
+
+[[function]]
+va = 0x0050D9A0
+name = "WormEntity__OnWormPush"
+
+[[function]]
+va = 0x0050E500
+name = "WormEntity__EaseAimVecB"
+
+[[function]]
+va = 0x0050E5E0
+name = "WormEntity__CanIdleSound"
+
+[[function]]
+va = 0x0050E630
+name = "WormEntity__EaseAimVecA"
+
+[[function]]
+va = 0x0050E710
+name = "WormEntity__ClearWeaponState"
+
+[[function]]
+va = 0x0050E790
+name = "WormEntity__CancelActiveWeapon"
+
+[[function]]
+va = 0x0050E800
+name = "WormEntity__IsActionState"
+
+[[function]]
+va = 0x0050E850
+name = "WormEntity__SetState"
+
+[[function]]
+va = 0x0050F580
+name = "WormEntity__ApplyDamage"
+
+[[function]]
+va = 0x0050F730
+name = "WormEntity__NotifyMoved"
+
+[[function]]
+va = 0x0050F7F0
+name = "WormEntity__DeactivateOnIdle"
+
+[[function]]
+va = 0x0050F810
+name = "WormEntity__DrawTurnIndicator_Maybe"
+
+[[function]]
+va = 0x0050F900
+name = "WormEntity__DrawOffMapMarker_Maybe"
+
+[[function]]
+va = 0x0050FB10
+name = "WormEntity__EaseAuxValue"
+
+[[function]]
+va = 0x0050FB50
+name = "WormEntity__DrawWormName_Maybe"
+
+[[function]]
+va = 0x0050FCD0
+name = "WormEntity__DrawSprite_Maybe"
+
+[[function]]
+va = 0x0050FDC0
+name = "WormEntity__DrawHudLabels_Maybe"
+
+[[function]]
+va = 0x00510260
+name = "WormEntity__DrawHealthLabel_Maybe"
+
+[[function]]
+va = 0x00510370
+name = "WormEntity__BeginThinkingHide"
+
+[[function]]
+va = 0x005103A0
+name = "WormEntity__DrawCursorMarker_Maybe"
+
+[[function]]
+va = 0x00510430
+name = "WormEntity__SelectFuse"
+
+[[function]]
+va = 0x005104D0
+name = "WormEntity__SelectBounce"
+
+[[function]]
+va = 0x00510540
+name = "WormEntity__SelectHerd"
+
+[[function]]
+va = 0x00510600
+name = "WormEntity__BroadcastWeaponSettings"
+
+[[function]]
+va = 0x00510830
+name = "WormEntity__CommitPendingHealth"
+
+[[function]]
+va = 0x005108D0
+name = "WormEntity__SpawnDamageParticles"
+
+[[function]]
+va = 0x00510B40
+name = "WormEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[function]]
+va = 0x00513A90
+name = "WormEntity__DrawAimingArrow_Maybe"
+
+[[function]]
+va = 0x00513F90
+name = "WormEntity__ScrollAimX"
+
+[[function]]
+va = 0x00514050
+name = "WormEntity__ScrollAimSmooth"
+
+[[function]]
+va = 0x005148E0
+name = "WormEntity__DrainInputBuffer"
+
+[[function]]
+va = 0x00515020
+name = "WormEntity__PlaySound"
+
+[[function]]
+va = 0x00515650
+name = "WormEntity__BehaviorTick"
+
+[[function]]
+va = 0x00516780
+name = "WormEntity__GetEntityData"
+
+[[function]]
+va = 0x005168F0
+name = "WormEntity__GetTeamIndex"
+
+[[function]]
+va = 0x00516900
+name = "WormEntity__CheckPendingAction"
+
+[[function]]
+va = 0x00516920
+name = "WormEntity__IsNotOnRope"
+
+[[function]]
+va = 0x00516930
+name = "WormEntity__CanFireSubtype16"
+
+[[function]]
+va = 0x0051AE50
+name = "WormEntity__SelectWeapon"
+
+[[function]]
+va = 0x0051B120
+name = "WormEntity__TryFireWeaponSpecial"
+
+[[function]]
+va = 0x0051B2B0
+name = "WormEntity__TryFireWeapon"
+
+[[function]]
+va = 0x0051C010
+name = "WormEntity__ReleaseWeapon"
+
+[[function]]
+va = 0x0051D680
+name = "WormEntity__DrawAimCursor_Maybe"
+
+[[function]]
+va = 0x0051F350
+name = "WormEntity__IsSpawnAreaValid"
+
+[[function]]
+va = 0x0051F510
+name = "WormEntity__FindClearSpawnLocation"
+
+[[function]]
+va = 0x0051F970
+name = "WormEntity__LogWeaponFire"
+
+[[function]]
+va = 0x0051FD40
+name = "WormEntity__QuantizeAimAngle"
+
+[[function]]
+va = 0x0054AF90
+name = "WormEntity__PerFrameUpdate_Maybe"
+
+[[function]]
+va = 0x0054B2E0
+name = "WormEntity__PerFrameUpdate_Outer_Maybe"
+
+[[global]]
+va = 0x006644C8
+name = "WormEntity__vtable"
+
+[[function]]
+va = 0x0050CED0
+name = "WormEntity__qsort_cmp"
+
+[[function]]
+va = 0x0050CF10
+name = "WormEntity__construct_pointers"
+
+[[function]]
+va = 0x0050D370
+name = "WormEntity__calc_highest_fall"
+
+[[function]]
+va = 0x0050D830
+name = "WormEntity__sub_50D830"
+
+[[function]]
+va = 0x0050D910
+name = "WormEntity__sub_50D910"
+
+[[function]]
+va = 0x0050DC00
+name = "WormEntity__sub_50DC00"
+
+[[function]]
+va = 0x0050F6B0
+name = "WormEntity__create_cross"
+
+[[function]]
+va = 0x00512E80
+name = "WormEntity__calc_sprite"
+
+[[function]]
+va = 0x00513530
+name = "WormEntity__last_worm_of_ally"
+
+[[function]]
+va = 0x005135C0
+name = "WormEntity__create_donor_card"
+
+[[function]]
+va = 0x00513810
+name = "WormEntity__detonate"
+
+[[function]]
+va = 0x00513980
+name = "WormEntity__setup_JetPacking"
+
+[[function]]
+va = 0x005139E0
+name = "WormEntity__calc_jetpack"
+
+[[function]]
+va = 0x00513B40
+name = "WormEntity__update_jetpack"
+
+[[function]]
+va = 0x00513C50
+name = "WormEntity__handle_JetPacking"
+
+[[function]]
+va = 0x00513D90
+name = "WormEntity__control_jetpack"
+
+[[function]]
+va = 0x00513EB0
+name = "WormEntity__control_parachute"
+
+[[function]]
+va = 0x00513F00
+name = "WormEntity__control_rope_0"
+
+[[function]]
+va = 0x00513FF0
+name = "WormEntity__sub_513FF0"
+
+[[function]]
+va = 0x005140E0
+name = "WormEntity__control_walk"
+
+[[function]]
+va = 0x005144B0
+name = "WormEntity__update_smoke"
+
+[[function]]
+va = 0x005145B0
+name = "WormEntity__update_skid"
+
+[[function]]
+va = 0x005146D0
+name = "WormEntity__update_bubbles"
+
+[[function]]
+va = 0x005147C0
+name = "WormEntity__update_damage_display"
+
+[[function]]
+va = 0x00514AC0
+name = "WormEntity__update_movement"
+
+[[function]]
+va = 0x00514E00
+name = "WormEntity__flush_sounds"
+
+[[function]]
+va = 0x00514EA0
+name = "WormEntity__update_sounds"
+
+[[function]]
+va = 0x00514F80
+name = "WormEntity__Baseball_Jingle"
+
+[[function]]
+va = 0x005150D0
+name = "WormEntity__fire_sound"
+
+[[function]]
+va = 0x00515130
+name = "WormEntity__stop_worm_sound"
+
+[[function]]
+va = 0x00515180
+name = "WormEntity__stop_fire_sound"
+
+[[function]]
+va = 0x005151D0
+name = "WormEntity__try_to_aim"
+
+[[function]]
+va = 0x00515240
+name = "WormEntity__update_idle_anims"
+
+[[function]]
+va = 0x00515530
+name = "WormEntity__sub_515530"
+
+[[function]]
+va = 0x005155A0
+name = "WormEntity__update_jingle"
+
+[[function]]
+va = 0x00516950
+name = "WormEntity__sub_516950"
+
+[[function]]
+va = 0x00516A90
+name = "WormEntity__sub_516A90"
+
+[[function]]
+va = 0x00516B10
+name = "WormEntity__sub_516B10"
+
+[[function]]
+va = 0x00516B40
+name = "WormEntity__sub_516B40"
+
+[[function]]
+va = 0x00516B90
+name = "WormEntity__sub_516B90"
+
+[[function]]
+va = 0x00516CA0
+name = "WormEntity__setup_Standing"
+
+[[function]]
+va = 0x00516DA0
+name = "WormEntity__calc_breath"
+
+[[function]]
+va = 0x00516E90
+name = "WormEntity__handle_Standing"
+
+[[function]]
+va = 0x00517100
+name = "WormEntity__setup_Aiming"
+
+[[function]]
+va = 0x00517790
+name = "WormEntity__handle_Powerup"
+
+[[function]]
+va = 0x00517850
+name = "WormEntity__setup_PreFiring"
+
+[[function]]
+va = 0x00517BE0
+name = "WormEntity__handle_PreFiring"
+
+[[function]]
+va = 0x00517F00
+name = "WormEntity__setup_PostFiring"
+
+[[function]]
+va = 0x005180E0
+name = "WormEntity__handle_PostFiring"
+
+[[function]]
+va = 0x005181D0
+name = "WormEntity__setup_RepeatFiring"
+
+[[function]]
+va = 0x00518280
+name = "WormEntity__handle_RepeatFiring"
+
+[[function]]
+va = 0x00518340
+name = "WormEntity__setup_Punching"
+
+[[function]]
+va = 0x005183C0
+name = "WormEntity__handle_Punching"
+
+[[function]]
+va = 0x005186A0
+name = "WormEntity__setup_Drilling"
+
+[[function]]
+va = 0x00518770
+name = "WormEntity__handle_Drilling"
+
+[[function]]
+va = 0x00518A50
+name = "WormEntity__setup_Kamikaze"
+
+[[function]]
+va = 0x00518C10
+name = "WormEntity__handle_Kamikaze"
+
+[[function]]
+va = 0x00519140
+name = "WormEntity__handle_Suicide"
+
+[[function]]
+va = 0x005196D0
+name = "WormEntity__setup_Teleporting"
+
+[[function]]
+va = 0x00519740
+name = "WormEntity__handle_Teleporting"
+
+[[function]]
+va = 0x005199B0
+name = "WormEntity__sub_5199B0"
+
+[[function]]
+va = 0x00519A60
+name = "WormEntity__update_batrope"
+
+[[function]]
+va = 0x00519D80
+name = "WormEntity__setup_FiringBatrope"
+
+[[function]]
+va = 0x00519E50
+name = "WormEntity__setup_Batroping"
+
+[[function]]
+va = 0x00519F00
+name = "WormEntity__handle_Batroping"
+
+[[function]]
+va = 0x0051A3B0
+name = "WormEntity__setup_Bungeing"
+
+[[function]]
+va = 0x0051A400
+name = "WormEntity__handle_Bungeing"
+
+[[function]]
+va = 0x0051A540
+name = "WormEntity__sub_51A540"
+
+[[function]]
+va = 0x0051A680
+name = "WormEntity__fire_parachute"
+
+[[function]]
+va = 0x0051A710
+name = "WormEntity__setup_Parachuting"
+
+[[function]]
+va = 0x0051A750
+name = "WormEntity__setup_FiringNuke"
+
+[[function]]
+va = 0x0051A7B0
+name = "WormEntity__setup_Axeing"
+
+[[function]]
+va = 0x0051A8F0
+name = "WormEntity__handle_BlowTorching"
+
+[[function]]
+va = 0x0051AC50
+name = "WormEntity__sub_51AC50"
+
+[[function]]
+va = 0x0051AD10
+name = "WormEntity__handle_Axeing"
+
+[[function]]
+va = 0x0051B390
+name = "WormEntity__perform_air_missile"
+
+[[function]]
+va = 0x0051B4C0
+name = "WormEntity__perform_air_strike"
+
+[[function]]
+va = 0x0051B520
+name = "WormEntity__perform_air_drop"
+
+[[function]]
+va = 0x0051B640
+name = "WormEntity__perform_air_special"
+
+[[function]]
+va = 0x0051C060
+name = "WormEntity__calc_aiming"
+
+[[function]]
+va = 0x0051C390
+name = "WormEntity__release_weapon_0"
+
+[[function]]
+va = 0x0051CA90
+name = "WormEntity__aim_focus"
+
+[[function]]
+va = 0x0051CB60
+name = "WormEntity__release_focus"
+
+[[function]]
+va = 0x0051CEF0
+name = "WormEntity__render_power"
+
+[[function]]
+va = 0x0051CFC0
+name = "WormEntity__update_crosshair"
+
+[[function]]
+va = 0x0051D100
+name = "WormEntity__control_aim"
+
+[[function]]
+va = 0x0051D9F0
+name = "WormEntity__render_sight"
+
+[[function]]
+va = 0x0051DB20
+name = "WormEntity__bullet2object"
+
+[[function]]
+va = 0x0051E8C0
+name = "WormEntity__fire_utility"
+
+[[function]]
+va = 0x0051EBE0
+name = "WormEntity__fire_quake"
+
+[[function]]
+va = 0x0051F1C0
+name = "WormEntity__initialise_herd"
+
+[[function]]
+va = 0x0051F240
+name = "WormEntity__update_herd"
+
+[[function]]
+va = 0x0051FD90
+name = "WormEntity__analyse_sight"

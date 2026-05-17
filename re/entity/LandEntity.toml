@@ -1,0 +1,87 @@
+[[function]]
+va = 0x00505440
+name = "LandEntity__Constructor"
+
+[[function]]
+va = 0x00505510
+name = "LandEntity__Destructor"
+
+[[function]]
+va = 0x00505660
+name = "LandEntity__DeserializeConstructor_Maybe"
+
+[[function]]
+va = 0x005056F0
+name = "LandEntity__InitLandscape"
+
+[[function]]
+va = 0x005057D0
+name = "LandEntity__vt0_Serialize_Maybe"
+
+[[function]]
+va = 0x00505810
+name = "LandEntity__RenderLandscape"
+
+[[function]]
+va = 0x00506120
+name = "LandEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[global]]
+va = 0x00664388
+name = "LandEntity__vtable"
+
+[[function]]
+va = 0x00505540
+name = "LandEntity__init_windbar"
+
+[[function]]
+va = 0x00505BC0
+name = "LandEntity__create_bubbles"
+
+[[function]]
+va = 0x00505C70
+name = "LandEntity__init_stars"
+
+[[function]]
+va = 0x00505DB0
+name = "LandEntity__blast_star"
+
+[[function]]
+va = 0x00505E80
+name = "LandEntity__blast_stars"
+
+[[function]]
+va = 0x00505EF0
+name = "LandEntity__update_stars"
+
+[[function]]
+va = 0x00506020
+name = "LandEntity__render_stars"
+
+[[function]]
+va = 0x00506480
+name = "LandEntity__render_wind_indicator"

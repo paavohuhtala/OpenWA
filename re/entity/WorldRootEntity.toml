@@ -1,0 +1,260 @@
+[[function]]
+va = 0x0055B280
+name = "WorldRootEntity__Constructor"
+
+[[function]]
+va = 0x0055B540
+name = "WorldRootEntity__Free"
+
+[[function]]
+va = 0x0055B560
+name = "WorldRootEntity__Constructor_1"
+
+[[function]]
+va = 0x0055B5E0
+name = "WorldRootEntity__Init"
+
+[[function]]
+va = 0x0055B620
+name = "WorldRootEntity__Destructor_1"
+
+[[function]]
+va = 0x0055B850
+name = "WorldRootEntity__ConstructPointers"
+
+[[function]]
+va = 0x0055BB50
+name = "WorldRootEntity__SurrenderTeam"
+plate_comment = "Per-team HP delta detector: sums two HP fields across all worms in team (slot+0 and slot+8 at world.worm_record[team_idx_1based]) and broadcasts message 0x2B with team_idx if delta detected. Worm-record stride = 0x51C, worm-slot stride = 0x9C. Gate at +0x4618 (i32, !=0 = skip), worm count at +0x4624. Called from FUN_0055D020 / FUN_0055D080 with team_idx 1-based."
+
+[[function]]
+va = 0x0055DC00
+name = "WorldRootEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "uint *"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
+
+[[function]]
+va = 0x005612E0
+name = "WorldRootEntity__GetHUDState"
+
+[[global]]
+va = 0x00669F70
+name = "WorldRootEntity__vtable"
+
+[[label]]
+va = 0x0055B2B1
+name = "WorldRootEntity__Constructor"
+
+[[label]]
+va = 0x0055B58C
+name = "WorldRootEntity__Constructor_FromSave"
+
+[[label]]
+va = 0x0055B63E
+name = "WorldRootEntity__Destructor"
+
+[[function]]
+va = 0x0053F500
+name = "WorldRootEntity__clear_for_crate"
+
+[[function]]
+va = 0x0053F630
+name = "WorldRootEntity__pick_random_drop"
+
+[[function]]
+va = 0x0055BC20
+name = "WorldRootEntity__get_current_worm"
+
+[[function]]
+va = 0x0055BC80
+name = "WorldRootEntity__randomise_wind"
+
+[[function]]
+va = 0x0055BDD0
+name = "WorldRootEntity__start_team"
+
+[[function]]
+va = 0x0055C920
+name = "WorldRootEntity__initialise_turn_sequence"
+
+[[function]]
+va = 0x0055CA20
+name = "WorldRootEntity__predict_advance_ally"
+
+[[function]]
+va = 0x0055CA70
+name = "WorldRootEntity__advance_ally_1"
+
+[[function]]
+va = 0x0055CAB0
+name = "WorldRootEntity__advance_ally_0"
+
+[[function]]
+va = 0x0055CC40
+name = "WorldRootEntity__game_is_over"
+
+[[function]]
+va = 0x0055CCF0
+name = "WorldRootEntity__number_of_human_allies"
+
+[[function]]
+va = 0x0055CDC0
+name = "WorldRootEntity__number_of_cpu_allies"
+
+[[function]]
+va = 0x0055CE90
+name = "WorldRootEntity__number_of_allies"
+
+[[function]]
+va = 0x0055CF50
+name = "WorldRootEntity__allied_to_dead_vital_worm"
+
+[[function]]
+va = 0x0055D020
+name = "WorldRootEntity__check_for_vital_deaths"
+
+[[function]]
+va = 0x0055D080
+name = "WorldRootEntity__check_for_survival_deaths"
+
+[[function]]
+va = 0x0055D100
+name = "WorldRootEntity__lone_survival_team"
+
+[[function]]
+va = 0x0055D1C0
+name = "WorldRootEntity__allied_to_dead_survival_team"
+
+[[function]]
+va = 0x0055D270
+name = "WorldRootEntity__issue_next_win_message"
+
+[[function]]
+va = 0x0055D490
+name = "WorldRootEntity__setup_retreat"
+
+[[function]]
+va = 0x0055D580
+name = "WorldRootEntity__update_speech"
+
+[[function]]
+va = 0x0055D670
+name = "WorldRootEntity__emit_speech"
+
+[[function]]
+va = 0x0055DBA0
+name = "WorldRootEntity__reset_speech"
+
+[[function]]
+va = 0x0055E650
+name = "WorldRootEntity__initialise_timer_border"
+
+[[function]]
+va = 0x0055E760
+name = "WorldRootEntity__update_timer_pos"
+
+[[function]]
+va = 0x0055E7B0
+name = "WorldRootEntity__sub_55E7B0"
+
+[[function]]
+va = 0x0055E8C0
+name = "WorldRootEntity__sub_55E8C0"
+
+[[function]]
+va = 0x0055E9C0
+name = "WorldRootEntity__sub_55E9C0"
+
+[[function]]
+va = 0x0055EAF0
+name = "WorldRootEntity__render_timers"
+
+[[function]]
+va = 0x0055F340
+name = "WorldRootEntity__emit_worm_kills_comment"
+
+[[function]]
+va = 0x0055F430
+name = "WorldRootEntity__turn_can_end"
+
+[[function]]
+va = 0x0055F480
+name = "WorldRootEntity__timers_active"
+
+[[function]]
+va = 0x0055F4F0
+name = "WorldRootEntity__play_tick"
+
+[[function]]
+va = 0x0055F530
+name = "WorldRootEntity__check_for_recording_start"
+
+[[function]]
+va = 0x0055F650
+name = "WorldRootEntity__check_for_replay_start"
+
+[[function]]
+va = 0x0055F730
+name = "WorldRootEntity__sub_55F730"
+
+[[function]]
+va = 0x0055F770
+name = "WorldRootEntity__sub_55F770"
+
+[[function]]
+va = 0x0055F8C0
+name = "WorldRootEntity__sub_55F8C0"
+
+[[function]]
+va = 0x00561040
+name = "WorldRootEntity__flush_surrendered_teams"
+
+[[function]]
+va = 0x005613E0
+name = "WorldRootEntity__check_for_crate_drop_0"
+
+[[function]]
+va = 0x00561480
+name = "WorldRootEntity__check_for_crate_drop_1"
+
+[[function]]
+va = 0x00561B20
+name = "WorldRootEntity__create_supershopper_crates"
+
+[[function]]
+va = 0x00562160
+name = "WorldRootEntity__process_turn_event"
+
+[[function]]
+va = 0x00562370
+name = "WorldRootEntity__process_turn_events"
+
+[[function]]
+va = 0x00562420
+name = "WorldRootEntity__process_sequence_event"
+
+[[function]]
+va = 0x005624A0
+name = "WorldRootEntity__process_sequence_events"

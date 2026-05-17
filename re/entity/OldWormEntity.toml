@@ -1,0 +1,95 @@
+[[function]]
+va = 0x0051FEB0
+name = "OldWormEntity__Constructor"
+
+[[function]]
+va = 0x005201C0
+name = "OldWormEntity__Constructor_Maybe"
+
+[[global]]
+va = 0x00664530
+name = "OldWormEntity__vtable"
+
+[[function]]
+va = 0x00520150
+name = "OldWormEntity__dtor0_OldWormEntity"
+
+[[function]]
+va = 0x00520170
+name = "OldWormEntity__save"
+
+[[function]]
+va = 0x00520230
+name = "OldWormEntity__water_splish"
+
+[[function]]
+va = 0x00520280
+name = "OldWormEntity__track"
+
+[[function]]
+va = 0x005202C0
+name = "OldWormEntity__transfer"
+
+[[function]]
+va = 0x005203D0
+name = "OldWormEntity__collide"
+
+[[function]]
+va = 0x00520740
+name = "OldWormEntity__set_state"
+
+[[function]]
+va = 0x00520A90
+name = "OldWormEntity__setup_Standing"
+
+[[function]]
+va = 0x00520AD0
+name = "OldWormEntity__render_worm"
+
+[[function]]
+va = 0x00520B50
+name = "OldWormEntity__create_blood"
+
+[[function]]
+va = 0x00520CF0
+name = "OldWormEntity__message"
+
+[[function]]
+va = 0x00520F10
+name = "OldWormEntity__calc_sprite"
+
+[[function]]
+va = 0x005212B0
+name = "OldWormEntity__detonate"
+
+[[function]]
+va = 0x00521310
+name = "OldWormEntity__update_smoke"
+
+[[function]]
+va = 0x00521410
+name = "OldWormEntity__update_skid"
+
+[[function]]
+va = 0x00521530
+name = "OldWormEntity__update_bubbles"
+
+[[function]]
+va = 0x00521610
+name = "OldWormEntity__flush_sounds"
+
+[[function]]
+va = 0x005216D0
+name = "OldWormEntity__worm_sound"
+
+[[function]]
+va = 0x00521740
+name = "OldWormEntity__fire_sound"
+
+[[function]]
+va = 0x00521790
+name = "OldWormEntity__stop_worm_sound"
+
+[[function]]
+va = 0x005217E0
+name = "OldWormEntity__update_logic"

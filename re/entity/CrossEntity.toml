@@ -1,0 +1,19 @@
+[[function]]
+va = 0x005045C0
+name = "CrossEntity__Constructor"
+
+[[function]]
+va = 0x005046F0
+name = "CrossEntity__dtor0_CrossEntity"
+
+[[function]]
+va = 0x00504730
+name = "CrossEntity__save"
+
+[[function]]
+va = 0x00504770
+name = "CrossEntity__collide"
+
+[[function]]
+va = 0x005047D0
+name = "CrossEntity__message"
