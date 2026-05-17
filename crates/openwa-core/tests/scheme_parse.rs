@@ -1,69 +1,106 @@
 use std::path::Path;
 
+use deku::DekuContainerWrite;
 use openwa_core::scheme::{
-    EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE, ExtendedOptions, SCHEME_PAYLOAD_V1,
-    SCHEME_PAYLOAD_V2, SchemeFile, SchemeVersion, WEAPONS_V1_COUNT,
+    Ammunition, ExtendedOptions, Scheme, SchemeVersion, StockpilingMode, SuddenDeathEvent,
+    WormSelect,
 };
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures");
 
+fn fixture_bytes(name: &str) -> Vec<u8> {
+    std::fs::read(Path::new(FIXTURES).join(name)).unwrap()
+}
+
+fn canonical_payload_len() -> usize {
+    Scheme::default().payload_bytes().len()
+}
+
+fn canonical_file_len() -> usize {
+    Scheme::default().to_bytes().len()
+}
+
+fn assert_canonical_v3_roundtrip(scheme: &Scheme) {
+    let written = scheme.to_bytes();
+    assert!(written.starts_with(b"SCHM"));
+    assert_eq!(written[4], SchemeVersion::V3 as u8);
+    assert_eq!(written.len(), canonical_file_len());
+    let reparsed = Scheme::try_from(written.as_slice()).unwrap();
+    assert_eq!(reparsed, *scheme);
+    assert_eq!(reparsed.to_bytes(), written);
+}
+
 #[test]
 fn parse_beginner_v2() {
-    let path = Path::new(FIXTURES).join("beginner.wsc");
-    let scheme = SchemeFile::from_file(&path).expect("failed to parse beginner.wsc");
-    assert_eq!(scheme.version, SchemeVersion::V2);
-    assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V2);
-    assert_eq!(scheme.file_size(), 297);
+    let bytes = fixture_bytes("beginner.wsc");
+    assert_eq!(bytes[4], SchemeVersion::V2 as u8);
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    assert_eq!(scheme.payload_bytes().len(), canonical_payload_len());
+    assert_eq!(scheme.file_size(), canonical_file_len());
+    assert_eq!(scheme.extended_options, ExtendedOptions::default());
+    assert_canonical_v3_roundtrip(&scheme);
 }
 
 #[test]
 fn parse_classic_v1() {
-    let path = Path::new(FIXTURES).join("classic.wsc");
-    let scheme = SchemeFile::from_file(&path).expect("failed to parse classic.wsc");
-    assert_eq!(scheme.version, SchemeVersion::V1);
-    assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V1);
-    assert_eq!(scheme.file_size(), 221);
+    let bytes = fixture_bytes("classic.wsc");
+    assert_eq!(bytes[4], SchemeVersion::V1 as u8);
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    assert_eq!(scheme.payload_bytes().len(), canonical_payload_len());
+    assert_eq!(scheme.file_size(), canonical_file_len());
+    assert_eq!(scheme.super_weapons, Default::default());
+    assert_eq!(scheme.extended_options, ExtendedOptions::default());
+    assert_canonical_v3_roundtrip(&scheme);
 }
 
 #[test]
 fn parse_shopping_v1() {
-    let path = Path::new(FIXTURES).join("shopping.wsc");
-    let scheme = SchemeFile::from_file(&path).expect("failed to parse shopping.wsc");
-    assert_eq!(scheme.version, SchemeVersion::V1);
-    assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V1);
+    let bytes = fixture_bytes("shopping.wsc");
+    assert_eq!(bytes[4], SchemeVersion::V1 as u8);
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    assert_eq!(scheme.payload_bytes().len(), canonical_payload_len());
+    assert_eq!(scheme.super_weapons, Default::default());
+    assert_eq!(scheme.extended_options, ExtendedOptions::default());
+    assert_canonical_v3_roundtrip(&scheme);
 }
 
 #[test]
-fn roundtrip_beginner() {
-    let path = Path::new(FIXTURES).join("beginner.wsc");
-    let original = std::fs::read(&path).unwrap();
-    let scheme = SchemeFile::from_bytes(&original).unwrap();
-    assert_eq!(scheme.to_bytes(), original);
+fn canonical_roundtrip_beginner() {
+    let original = fixture_bytes("beginner.wsc");
+    let scheme = Scheme::try_from(original.as_slice()).unwrap();
+    assert_canonical_v3_roundtrip(&scheme);
 }
 
 #[test]
-fn roundtrip_classic() {
-    let path = Path::new(FIXTURES).join("classic.wsc");
-    let original = std::fs::read(&path).unwrap();
-    let scheme = SchemeFile::from_bytes(&original).unwrap();
-    assert_eq!(scheme.to_bytes(), original);
+fn flat_scheme_fields_beginner() {
+    let original = fixture_bytes("beginner.wsc");
+    let scheme = Scheme::try_from(original.as_slice()).unwrap();
+
+    assert_eq!(scheme.weapons.bazooka.ammo, Ammunition::Infinite);
+    assert_canonical_v3_roundtrip(&scheme);
 }
 
 #[test]
-fn roundtrip_shopping() {
-    let path = Path::new(FIXTURES).join("shopping.wsc");
-    let original = std::fs::read(&path).unwrap();
-    let scheme = SchemeFile::from_bytes(&original).unwrap();
-    assert_eq!(scheme.to_bytes(), original);
+fn canonical_roundtrip_classic() {
+    let original = fixture_bytes("classic.wsc");
+    let scheme = Scheme::try_from(original.as_slice()).unwrap();
+    assert_canonical_v3_roundtrip(&scheme);
+}
+
+#[test]
+fn canonical_roundtrip_shopping() {
+    let original = fixture_bytes("shopping.wsc");
+    let scheme = Scheme::try_from(original.as_slice()).unwrap();
+    assert_canonical_v3_roundtrip(&scheme);
 }
 
 // === Typed field accessor tests ===
 
 #[test]
 fn beginner_options() {
-    let path = Path::new(FIXTURES).join("beginner.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
-    let opts = scheme.options();
+    let bytes = fixture_bytes("beginner.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    let opts = scheme.options;
 
     // Verified against hex dump of beginner.wsc payload bytes
     assert_eq!(opts.hot_seat_delay, 10); // 0x0A
@@ -74,17 +111,17 @@ fn beginner_options() {
     assert_eq!(opts.fall_damage, 0);
     assert!(!opts.artillery_mode);
     assert_eq!(opts.bounty_mode, 0);
-    assert_eq!(opts.stockpiling, 1); // On
-    assert_eq!(opts.worm_select, 1); // Manual
-    assert_eq!(opts.sudden_death_event, 3); // Nothing
+    assert_eq!(opts.stockpiling, StockpilingMode::On);
+    assert_eq!(opts.worm_select, WormSelect::On);
+    assert_eq!(opts.sudden_death_event, SuddenDeathEvent::Nothing);
     assert_eq!(opts.worm_energy, 150); // 0x96
 }
 
 #[test]
 fn classic_options() {
-    let path = Path::new(FIXTURES).join("classic.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
-    let opts = scheme.options();
+    let bytes = fixture_bytes("classic.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    let opts = scheme.options;
 
     // Verified against hex dump: 05 05 05 00 01 01 00 00 00 01 02 ...
     assert_eq!(opts.hot_seat_delay, 5);
@@ -94,88 +131,104 @@ fn classic_options() {
     assert!(opts.automatic_replays);
     assert_eq!(opts.fall_damage, 1);
     assert!(!opts.artillery_mode);
-    assert_eq!(opts.stockpiling, 0); // Off
-    assert_eq!(opts.worm_select, 1); // Manual
+    assert_eq!(opts.stockpiling, StockpilingMode::Off);
+    assert_eq!(opts.worm_select, WormSelect::On);
     assert_eq!(opts.worm_energy, 100); // hex: 0x64
 }
 
 #[test]
 fn beginner_weapons() {
-    let path = Path::new(FIXTURES).join("beginner.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
+    let bytes = fixture_bytes("beginner.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
 
     // Weapon 0 = Bazooka: at payload offset 36
     // hex bytes at file offset 0x29: 0A 03 00 00
-    let bazooka = scheme.weapon(0).unwrap();
-    assert_eq!(bazooka.ammo, 10);
+    let bazooka = scheme.weapons.bazooka;
+    assert_eq!(bazooka.ammo, Ammunition::Infinite);
     assert_eq!(bazooka.power, 3);
     assert_eq!(bazooka.delay, 0);
     assert_eq!(bazooka.crate_probability, 0);
 
     // V2 weapon: index 45 = Freeze, at payload offset 36 + 45*4 = 216
     // Should be available for V2 scheme
-    let freeze = scheme.weapon(45);
-    assert!(freeze.is_some());
-
-    // Total weapon count for V2
-    assert_eq!(scheme.weapon_count(), 64);
+    let freeze = scheme.super_weapons.freeze;
+    let _ = freeze.ammo;
 }
 
 #[test]
 fn classic_weapons_v1_limits() {
-    let path = Path::new(FIXTURES).join("classic.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
-
-    // V1 has 45 weapons
-    assert_eq!(scheme.weapon_count(), WEAPONS_V1_COUNT);
+    let bytes = fixture_bytes("classic.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
 
     // Weapon 0 = Bazooka — classic has 10 ammo too
-    let bazooka = scheme.weapon(0).unwrap();
-    assert_eq!(bazooka.ammo, 10);
+    let bazooka = scheme.weapons.bazooka;
+    assert_eq!(bazooka.ammo, Ammunition::Infinite);
 
-    // V2 super weapon index should return None for V1 scheme
-    assert!(scheme.weapon(45).is_none());
-    assert!(scheme.weapon(63).is_none());
+    // V1 files are canonicalized with a default V2 super weapon block.
+    assert_eq!(scheme.super_weapons, Default::default());
 }
 
 #[test]
-fn weapon_out_of_range() {
-    let path = Path::new(FIXTURES).join("beginner.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
-    assert!(scheme.weapon(64).is_none());
-    assert!(scheme.weapon(100).is_none());
+fn named_weapon_fields_cover_last_slots() {
+    let bytes = fixture_bytes("beginner.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    let damage_x2 = scheme.weapons.damage_x2;
+    let armageddon = scheme.super_weapons.armageddon;
+    let _ = (damage_x2.ammo, armageddon.ammo);
 }
 
 #[test]
 fn options_roundtrip() {
-    let path = Path::new(FIXTURES).join("beginner.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
-    let opts = scheme.options();
-    let serialized = opts.to_bytes();
-    assert_eq!(&serialized[..], &scheme.payload[..36]);
+    let bytes = fixture_bytes("beginner.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    let opts = scheme.options;
+    let serialized = opts.to_bytes().unwrap();
+    let payload_bytes = scheme.payload_bytes();
+    assert_eq!(&serialized[..], &payload_bytes[..serialized.len()]);
+}
+
+#[test]
+fn extended_options_default_bytes_roundtrip() {
+    let defaults = ExtendedOptions::default();
+    assert_eq!(
+        defaults.to_bytes().unwrap(),
+        ExtendedOptions::default_bytes()
+    );
 }
 
 #[test]
 fn v1_no_extended_options() {
-    let path = Path::new(FIXTURES).join("classic.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
-    assert!(scheme.extended_options().is_none());
+    let bytes = fixture_bytes("classic.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    assert_eq!(scheme.extended_options, ExtendedOptions::default());
 
     // But defaults should still work
-    let defaults = scheme.extended_options_or_defaults();
+    let defaults = ExtendedOptions::default();
     assert_eq!(defaults.data_version, 0);
 }
 
 #[test]
 fn v2_super_weapons_zeroed_region() {
     // In the beginner.wsc V2 file, super weapons after the used ones should exist
-    let path = Path::new(FIXTURES).join("beginner.wsc");
-    let scheme = SchemeFile::from_file(&path).unwrap();
+    let bytes = fixture_bytes("beginner.wsc");
+    let scheme = Scheme::try_from(bytes.as_slice()).unwrap();
+    assert_eq!(scheme.extended_options, ExtendedOptions::default());
 
     // Armageddon is weapon index 63 (last V2 super weapon)
-    let armageddon = scheme.weapon(63).unwrap();
+    let armageddon = scheme.super_weapons.armageddon;
     // It should be parseable (values may be zero)
     let _ = armageddon.ammo;
+}
+
+#[test]
+fn serialization_always_writes_v3() {
+    let mut scheme = Scheme::default();
+    scheme.super_weapons.freeze.ammo = Ammunition::finite(7).unwrap();
+    scheme.extended_options.double_time_stack_limit = 2;
+
+    assert_eq!(scheme.payload_bytes().len(), canonical_payload_len());
+    assert_eq!(scheme.to_bytes().len(), canonical_file_len());
+    assert_eq!(scheme.to_bytes()[4], SchemeVersion::V3 as u8);
 }
 
 /// Parse all .wsc files from the game directory if available.
@@ -196,47 +249,21 @@ fn parse_all_game_schemes() {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.extension().is_some_and(|e| e == "wsc") {
-            let scheme = SchemeFile::from_file(&path)
-                .unwrap_or_else(|e| panic!("failed to parse {}: {e}", path.display()));
-
-            // Roundtrip check
             let original = std::fs::read(&path).unwrap();
-            assert_eq!(
-                scheme.to_bytes(),
-                original,
-                "roundtrip failed for {}",
-                path.display()
-            );
+            let scheme = Scheme::try_from(original.as_slice())
+                .unwrap_or_else(|e| panic!("failed to parse {}: {e}", path.display()));
+            assert_canonical_v3_roundtrip(&scheme);
             count += 1;
         }
     }
-    eprintln!("Successfully parsed and round-tripped {count} scheme files");
+    eprintln!("Successfully parsed and canonicalized {count} scheme files");
 }
 
 // === ExtendedOptions validation tests ===
 
-/// Build a valid 110-byte extended options buffer from scratch.
-/// ROM defaults contain intentionally invalid V3 values (0x80 in bool fields),
-/// so we construct a minimal valid buffer instead.
-fn make_valid_extended_options() -> [u8; EXTENDED_OPTIONS_SIZE] {
-    let mut b = [0u8; EXTENDED_OPTIONS_SIZE];
-    // data_version = 0 (already zero)
-    // gravity must be >= 1
-    b[0x08..0x0C].copy_from_slice(&1i32.to_le_bytes());
-    // terrain_friction < 0x28CCD (leave at 0 — valid)
-    // petrol_touch_decay must be nonzero
-    b[0x31] = 1;
-    // max_flamelet_count must be nonzero
-    b[0x32..0x34].copy_from_slice(&1u16.to_le_bytes());
-    // speeds must be positive (> 0)
-    b[0x34..0x38].copy_from_slice(&1i32.to_le_bytes()); // max_projectile_speed
-    b[0x38..0x3C].copy_from_slice(&1i32.to_le_bytes()); // max_rope_speed
-    b[0x3C..0x40].copy_from_slice(&1i32.to_le_bytes()); // max_jet_pack_speed
-    // game_engine_speed in [0x1000, 0x800000]
-    b[0x40..0x44].copy_from_slice(&0x10000i32.to_le_bytes());
-    // sheep_heavens_gate in [1, 7]
-    b[0x6A] = 1;
-    b
+/// Build a valid extended-options buffer for byte-level validation tests.
+fn make_valid_extended_options() -> Vec<u8> {
+    ExtendedOptions::default_bytes().to_vec()
 }
 
 #[test]
@@ -306,13 +333,13 @@ fn validate_rejects_zero_petrol_touch_decay() {
 #[test]
 fn validate_rejects_bad_sheep_heavens_gate() {
     let mut b = make_valid_extended_options();
-    b[0x6A] = 0; // must be in [1, 7]
+    b[0x6A] = 0; // must include at least one bit
     assert!(!ExtendedOptions::validate_bytes(&b));
 
-    b[0x6A] = 8; // too high
+    b[0x6A] = 8; // unknown bit
     assert!(!ExtendedOptions::validate_bytes(&b));
 
-    b[0x6A] = 7; // max valid
+    b[0x6A] = 7; // all known bits
     assert!(ExtendedOptions::validate_bytes(&b));
 }
 
@@ -348,5 +375,7 @@ fn validate_game_engine_speed_range() {
 #[test]
 fn validate_rom_defaults_pass() {
     // ROM defaults (byte-exact from WA.exe at 0x649AB8) must pass validation.
-    assert!(ExtendedOptions::validate_bytes(&EXTENDED_OPTIONS_DEFAULTS));
+    assert!(ExtendedOptions::validate_bytes(
+        &ExtendedOptions::default_bytes()
+    ));
 }

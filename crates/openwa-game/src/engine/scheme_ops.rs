@@ -15,8 +15,8 @@ use std::path::Path;
 
 use openwa_core::log::log_line;
 use openwa_core::scheme::{
-    EXTENDED_OPTIONS_DEFAULTS, EXTENDED_OPTIONS_SIZE, ExtendedOptions, SCHEME_PAYLOAD_V1,
-    SCHEME_PAYLOAD_V2, SCHEME_PAYLOAD_V3, SchemeFile, SchemeVersion,
+    EXTENDED_OPTIONS_OFFSET, EXTENDED_OPTIONS_SIZE, ExtendedOptions, SCHEME_PAYLOAD_V1,
+    SCHEME_PAYLOAD_V3, SUPER_WEAPONS_OFFSET, SUPER_WEAPONS_SIZE, Scheme, SchemeVersion,
 };
 
 use crate::address::va;
@@ -35,10 +35,6 @@ pub const DEST_PAYLOAD: usize = 0x14;
 /// Unassigned scheme index sentinel value.
 pub const SCHEME_INDEX_UNASSIGNED: u32 = 0xFFFFFFFF;
 
-const PAYLOAD_SUPER_WEAPONS: usize = SCHEME_PAYLOAD_V1; // 0xD8
-const SUPER_WEAPONS_SIZE: usize = SCHEME_PAYLOAD_V2 - SCHEME_PAYLOAD_V1; // 0x4C = 76
-const PAYLOAD_EXTENDED: usize = SCHEME_PAYLOAD_V2; // 0x124
-
 const SCHEME_SLOT_COUNT: u32 = 13;
 const SCHEME_PE_RESOURCE_BASE: u32 = 0x2742;
 const SCHEME_WEAPON_CHECK_COUNT: usize = 39;
@@ -48,69 +44,6 @@ const STRING_RES_DEFAULT_NAME: u32 = 0x0E;
 
 pub type OriginalReadFile = unsafe extern "stdcall" fn(u32, u32, u32, u32) -> u32;
 pub type OriginalSaveFile = unsafe extern "fastcall" fn(u32, u32, u32, u32) -> u32;
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-/// Write a parsed SchemeFile into the WA dest struct at the correct offsets.
-///
-/// Replicates the memory writes from Scheme__ReadFile:
-/// - V1: payload(0xD8) + zero super weapons(0x4C) + defaults(0x6E)
-/// - V2: payload(0x124) + defaults(0x6E)
-/// - V3: payload(0x192), with validation fallback to defaults
-unsafe fn write_scheme_to_dest(scheme: &SchemeFile, dest: u32) {
-    unsafe {
-        let payload_ptr = (dest as usize + DEST_PAYLOAD) as *mut u8;
-
-        match scheme.version {
-            SchemeVersion::V1 => {
-                core::ptr::copy_nonoverlapping(
-                    scheme.payload.as_ptr(),
-                    payload_ptr,
-                    SCHEME_PAYLOAD_V1,
-                );
-                core::ptr::write_bytes(
-                    payload_ptr.add(PAYLOAD_SUPER_WEAPONS),
-                    0,
-                    SUPER_WEAPONS_SIZE,
-                );
-                core::ptr::copy_nonoverlapping(
-                    EXTENDED_OPTIONS_DEFAULTS.as_ptr(),
-                    payload_ptr.add(PAYLOAD_EXTENDED),
-                    EXTENDED_OPTIONS_SIZE,
-                );
-            }
-            SchemeVersion::V2 => {
-                core::ptr::copy_nonoverlapping(
-                    scheme.payload.as_ptr(),
-                    payload_ptr,
-                    SCHEME_PAYLOAD_V2,
-                );
-                core::ptr::copy_nonoverlapping(
-                    EXTENDED_OPTIONS_DEFAULTS.as_ptr(),
-                    payload_ptr.add(PAYLOAD_EXTENDED),
-                    EXTENDED_OPTIONS_SIZE,
-                );
-            }
-            SchemeVersion::V3 => {
-                core::ptr::copy_nonoverlapping(
-                    scheme.payload.as_ptr(),
-                    payload_ptr,
-                    SCHEME_PAYLOAD_V3,
-                );
-                let ext_bytes = &scheme.payload[PAYLOAD_EXTENDED..];
-                if !ExtendedOptions::validate_bytes(ext_bytes) {
-                    core::ptr::copy_nonoverlapping(
-                        EXTENDED_OPTIONS_DEFAULTS.as_ptr(),
-                        payload_ptr.add(PAYLOAD_EXTENDED),
-                        EXTENDED_OPTIONS_SIZE,
-                    );
-                }
-            }
-        }
-
-        *((dest as usize + DEST_INDEX) as *mut u32) = SCHEME_INDEX_UNASSIGNED;
-    }
-}
 
 // ─── Scheme__ReadFile (0x4D3890) ────────────────────────────────────────────
 
@@ -150,13 +83,18 @@ pub unsafe fn read_file(
         };
 
         let path = Path::new(name);
-        match SchemeFile::from_file(path) {
+        match Scheme::from_file(path) {
             Ok(scheme) => {
-                write_scheme_to_dest(&scheme, dest_struct);
+                let payload = scheme.payload_bytes();
+                core::ptr::copy_nonoverlapping(
+                    payload.as_ptr(),
+                    (dest_struct as usize + DEST_PAYLOAD) as *mut u8,
+                    payload.len(),
+                );
+                *((dest_struct as usize + DEST_INDEX) as *mut u32) = SCHEME_INDEX_UNASSIGNED;
                 *((dest_struct as usize + DEST_FLAG) as *mut u8) = 0;
                 let _ = log_line(&format!(
-                    "[Scheme] ReadFile OK: {name} -> {:?}, dest=0x{dest_struct:08X}",
-                    scheme.version
+                    "[Scheme] ReadFile OK: {name} -> canonical V3, dest=0x{dest_struct:08X}"
                 ));
                 0
             }
@@ -201,52 +139,16 @@ pub unsafe fn file_exists(name: u32) -> u32 {
 
 // ─── Scheme__DetectVersion (0x4D4480) ───────────────────────────────────────
 
-/// usercall(ESI=dest, [stack]=output_ptr), RET 0x4. Returns 1=V1, 2=V2, 3=V3.
+/// usercall(ESI=dest, [stack]=output_ptr), RET 0x4.
 ///
-/// Determines scheme version from in-memory data by comparing extended options
-/// against ROM defaults (V3 check) and checking super weapon slots (V1 vs V2).
-pub unsafe fn detect_version(dest: u32, output_ptr: u32) -> u32 {
+/// Schemes are canonicalized to V3 in memory, so version detection no longer
+/// needs to scan for V1/V2-compatible truncation.
+pub unsafe fn detect_version(_dest: u32, output_ptr: u32) -> u32 {
     unsafe {
-        let defaults_base = rb(va::SCHEME_V3_DEFAULTS) as *const u8;
-
-        // Scan extended options backwards (110 bytes at dest+0x138, vs ROM at 0x649AB8).
-        // Original loops i from 0x6E down to 1, comparing dest[0x137+i] vs ROM_base[i]
-        // where ROM_base = 0x649AB7 (so ROM_base[1] = 0x649AB8 = SCHEME_V3_DEFAULTS).
-        for i in (1u32..=0x6E).rev() {
-            let scheme_byte = *((dest + 0x137 + i) as *const u8);
-            let default_byte = *defaults_base.add(i as usize - 1);
-            if scheme_byte != default_byte {
-                *(output_ptr as *mut u32) = i;
-                return 3;
-            }
+        if output_ptr != 0 {
+            *(output_ptr as *mut u32) = EXTENDED_OPTIONS_SIZE as u32;
         }
-
-        // 19 super weapon slots at dest+0xEC; check bytes 0, 2, 3 of each 4-byte entry
-        // (original: pcVar2 starts at dest+0xEE, checks pcVar2[-2], pcVar2[0], pcVar2[1]).
-        for i in 0u32..19 {
-            let base = dest + 0xEE + i * 4;
-            if *((base - 2) as *const u8) != 0
-                || *(base as *const u8) != 0
-                || *((base + 1) as *const u8) != 0
-            {
-                return 2;
-            }
-        }
-
-        1
-    }
-}
-
-/// Helper for SaveFile: detect version from in-memory scheme struct.
-unsafe fn detect_version_for_save(dest: u32) -> (u8, usize) {
-    unsafe {
-        let mut mismatch_offset: u32 = 0;
-        let version = detect_version(dest, &mut mismatch_offset as *mut u32 as u32);
-        match version {
-            1 => (1, SCHEME_PAYLOAD_V1),
-            2 => (2, SCHEME_PAYLOAD_V2),
-            _ => (version as u8, mismatch_offset as usize + SCHEME_PAYLOAD_V2),
-        }
+        SchemeVersion::V3 as u32
     }
 }
 
@@ -254,8 +156,7 @@ unsafe fn detect_version_for_save(dest: u32) -> (u8, usize) {
 
 /// fastcall(this, name, flag) -> u32, RET 0x8. Returns 0 on success.
 ///
-/// Detects scheme version from in-memory data, writes SCHM header + payload.
-/// For V3, writes variable-length payload (only bytes differing from defaults).
+/// Writes a full canonical V3 scheme file.
 /// On invalid UTF-8 name or I/O failure, delegates to `original`.
 pub unsafe fn save_file(this: u32, name: u32, flag: u32, original: OriginalSaveFile) -> u32 {
     unsafe {
@@ -268,18 +169,24 @@ pub unsafe fn save_file(this: u32, name: u32, flag: u32, original: OriginalSaveF
         };
 
         let path = format!("User\\Schemes\\{c_name}.wsc");
-        let (version_byte, payload_size) = detect_version_for_save(this);
 
-        let mut buf = Vec::with_capacity(5 + payload_size);
-        buf.extend_from_slice(b"SCHM");
-        buf.push(version_byte);
-        let payload = core::slice::from_raw_parts((this + 0x14) as *const u8, payload_size);
-        buf.extend_from_slice(payload);
+        let payload = core::slice::from_raw_parts(
+            (this as usize + DEST_PAYLOAD) as *const u8,
+            SCHEME_PAYLOAD_V3,
+        );
 
-        match std::fs::write(&path, &buf) {
+        let save_result = Scheme::from_payload_bytes(payload)
+            .map_err(|e| format!("parse runtime payload: {e}"))
+            .and_then(|scheme| {
+                scheme
+                    .to_file(Path::new(&path))
+                    .map_err(|e| format!("write file: {e}"))
+            });
+
+        match save_result {
             Ok(()) => {
                 let _ = log_line(&format!(
-                    "[Scheme] SaveFile OK (Rust): {c_name} -> V{version_byte}, {payload_size} bytes"
+                    "[Scheme] SaveFile OK (Rust): {c_name} -> canonical V3, {SCHEME_PAYLOAD_V3} payload bytes"
                 ));
                 0
             }
@@ -299,23 +206,27 @@ pub unsafe fn save_file(this: u32, name: u32, flag: u32, original: OriginalSaveF
 /// applies V3 defaults from ROM, sets flag/index fields, assigns name.
 pub unsafe fn init_from_data(src_data: u32, dest: u32, name_cstring: u32) {
     unsafe {
-        // Copy 0xD8 bytes (V1 payload) from src_data to dest+0x14.
+        let payload_dest = dest as usize + DEST_PAYLOAD;
+        let super_weapons_dest = payload_dest + SUPER_WEAPONS_OFFSET;
+        let extended_options_dest = payload_dest + EXTENDED_OPTIONS_OFFSET;
+
+        // Copy the V1 payload from src_data into the runtime payload.
         core::ptr::copy_nonoverlapping(
             src_data as *const u8,
-            (dest + 0x14) as *mut u8,
+            payload_dest as *mut u8,
             SCHEME_PAYLOAD_V1,
         );
 
-        // Zero 0x4C bytes at dest+0xEC (super weapons area).
-        core::ptr::write_bytes(
-            (dest + 0xEC) as *mut u8,
-            0,
-            SCHEME_PAYLOAD_V2 - SCHEME_PAYLOAD_V1,
-        );
+        // Zero the V2 super-weapons payload.
+        core::ptr::write_bytes(super_weapons_dest as *mut u8, 0, SUPER_WEAPONS_SIZE);
 
-        // Copy 110 bytes of V3 defaults from ROM to dest+0x138.
+        // Copy V3 extended-option defaults from ROM.
         let defaults = rb(va::SCHEME_V3_DEFAULTS) as *const u8;
-        core::ptr::copy_nonoverlapping(defaults, (dest + 0x138) as *mut u8, EXTENDED_OPTIONS_SIZE);
+        core::ptr::copy_nonoverlapping(
+            defaults,
+            extended_options_dest as *mut u8,
+            EXTENDED_OPTIONS_SIZE,
+        );
 
         *((dest + 0x04) as *mut u8) = 0;
         *((dest + 0x08) as *mut u32) = SCHEME_INDEX_UNASSIGNED;

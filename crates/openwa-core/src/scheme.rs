@@ -16,204 +16,823 @@
 //! Source: Ghidra decompilation of Scheme__ReadFile (0x4D3890),
 //!         Scheme__SaveFile (0x4D44F0), worms2d.info/Game_scheme_file
 
-/// Magic header bytes for .wsc files.
+use deku::prelude::*;
+
+use crate::fixed::Fixed;
+
+/// Magic bytes that identify .wsc scheme files.
 pub const SCHEME_MAGIC: [u8; 4] = *b"SCHM";
 
 /// Size of the file header (magic + version byte).
-pub const SCHEME_HEADER_SIZE: usize = 5;
+pub const SCHEME_HEADER_SIZE: usize = SCHEME_MAGIC.len() + SchemeVersion::SIZE_BYTES.unwrap();
+
+/// Byte offset within the payload where game options start.
+pub const OPTIONS_OFFSET: usize = 0;
+
+/// Size of the game options section in the payload.
+pub const OPTIONS_SIZE: usize = SchemeOptions::SIZE_BYTES.unwrap();
+
+/// Byte offset within the payload where standard weapon settings start.
+pub const WEAPONS_V1_OFFSET: usize = OPTIONS_OFFSET + OPTIONS_SIZE;
+
+/// Bytes per weapon entry.
+pub const WEAPON_ENTRY_SIZE: usize = WeaponSettings::SIZE_BYTES.unwrap();
+
+/// Number of weapons in V1 schemes.
+pub const WEAPONS_V1_COUNT: usize = StandardWeapons::SIZE_BYTES.unwrap() / WEAPON_ENTRY_SIZE;
+
+/// Number of super weapons added in V2.
+pub const WEAPONS_V2_COUNT: usize = SuperWeapons::SIZE_BYTES.unwrap() / WEAPON_ENTRY_SIZE;
+
+/// Total weapon entries in canonical V3 payloads.
+pub const WEAPONS_TOTAL_COUNT: usize = WEAPONS_V1_COUNT + WEAPONS_V2_COUNT;
+
+/// Size of the standard weapons section in the payload.
+pub const STANDARD_WEAPONS_SIZE: usize = StandardWeapons::SIZE_BYTES.unwrap();
+
+/// Byte offset within the payload where standard weapon settings start.
+pub const STANDARD_WEAPONS_OFFSET: usize = WEAPONS_V1_OFFSET;
+
+/// Byte offset where V2 super weapons start.
+pub const WEAPONS_V2_OFFSET: usize = WEAPONS_V1_OFFSET + STANDARD_WEAPONS_SIZE;
+
+/// Size of the super-weapons section in the payload.
+pub const SUPER_WEAPONS_SIZE: usize = SuperWeapons::SIZE_BYTES.unwrap();
+
+/// Byte offset within the payload where super weapon settings start.
+pub const SUPER_WEAPONS_OFFSET: usize = WEAPONS_V2_OFFSET;
+
+/// Size of the V3 extended options section.
+pub const EXTENDED_OPTIONS_SIZE: usize = ExtendedOptions::SIZE_BYTES.unwrap();
+
+/// Byte offset where V3 extended options start.
+pub const EXTENDED_OPTIONS_OFFSET: usize = WEAPONS_V2_OFFSET + SUPER_WEAPONS_SIZE;
 
 /// Payload size for version 1 schemes.
-pub const SCHEME_PAYLOAD_V1: usize = 0xD8;
+pub const SCHEME_PAYLOAD_V1: usize = WEAPONS_V2_OFFSET;
 
 /// Payload size for version 2 schemes.
-pub const SCHEME_PAYLOAD_V2: usize = 0x124;
+pub const SCHEME_PAYLOAD_V2: usize = EXTENDED_OPTIONS_OFFSET;
 
 /// Payload size for version 3 schemes.
-pub const SCHEME_PAYLOAD_V3: usize = 0x192;
+pub const SCHEME_PAYLOAD_V3: usize = EXTENDED_OPTIONS_OFFSET + EXTENDED_OPTIONS_SIZE;
 
 /// Scheme file version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8")]
+#[repr(u8)]
 pub enum SchemeVersion {
     /// Version 1: 0xD8 byte payload (total file: 221 bytes)
-    V1,
+    V1 = 1,
     /// Version 2: 0x124 byte payload (total file: 297 bytes)
-    V2,
+    V2 = 2,
     /// Version 3: 0x192 byte payload (total file: 407 bytes)
     /// V2 + 110 bytes extended options.
-    V3,
+    V3 = 3,
 }
 
-impl SchemeVersion {
-    /// Raw version byte as stored in the file.
-    pub fn to_byte(self) -> u8 {
+/// Weapon ammunition stored in a scheme file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ammunition {
+    Finite(u8),
+    Infinite,
+}
+
+impl Ammunition {
+    const MAX_FINITE: u8 = 9;
+    const INFINITE_RAW: u8 = Self::MAX_FINITE + 1;
+
+    pub fn finite(value: u8) -> Option<Self> {
+        if value <= Self::MAX_FINITE {
+            Some(Self::Finite(value))
+        } else {
+            None
+        }
+    }
+
+    fn from_raw(value: u8) -> Self {
+        Self::finite(value).unwrap_or(Self::Infinite)
+    }
+
+    fn to_raw(self) -> Result<u8, DekuError> {
         match self {
-            SchemeVersion::V1 => 1,
-            SchemeVersion::V2 => 2,
-            SchemeVersion::V3 => 3,
-        }
-    }
-
-    /// Parse version from the raw byte. Returns `None` for unknown versions.
-    pub fn from_byte(b: u8) -> Option<Self> {
-        match b {
-            1 => Some(SchemeVersion::V1),
-            2 => Some(SchemeVersion::V2),
-            3 => Some(SchemeVersion::V3),
-            _ => None,
-        }
-    }
-
-    /// Expected payload size for this version.
-    pub fn payload_size(self) -> usize {
-        match self {
-            SchemeVersion::V1 => SCHEME_PAYLOAD_V1,
-            SchemeVersion::V2 => SCHEME_PAYLOAD_V2,
-            SchemeVersion::V3 => SCHEME_PAYLOAD_V3,
+            Self::Finite(value) if value <= Self::MAX_FINITE => Ok(value),
+            Self::Finite(_) => Err(DekuError::Parse("finite ammunition must be 0..=9")),
+            Self::Infinite => Ok(Self::INFINITE_RAW),
         }
     }
 }
 
-/// Errors from parsing a .wsc scheme file.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SchemeError {
-    /// File is too short to contain the header.
-    TooShort { len: usize },
-    /// Magic bytes don't match "SCHM".
-    BadMagic([u8; 4]),
-    /// Unknown version byte (not 1, 2, or 3).
-    UnknownVersion(u8),
-    /// Payload size doesn't match what the version byte expects.
-    PayloadMismatch { expected: usize, got: usize },
-}
-
-impl core::fmt::Display for SchemeError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            SchemeError::TooShort { len } => {
-                write!(
-                    f,
-                    "file too short ({len} bytes, need at least {SCHEME_HEADER_SIZE})"
-                )
-            }
-            SchemeError::BadMagic(m) => {
-                write!(
-                    f,
-                    "bad magic: {:02X} {:02X} {:02X} {:02X} (expected SCHM)",
-                    m[0], m[1], m[2], m[3]
-                )
-            }
-            SchemeError::UnknownVersion(v) => {
-                write!(f, "unknown version byte: 0x{v:02X}")
-            }
-            SchemeError::PayloadMismatch { expected, got } => {
-                write!(f, "payload size mismatch: expected {expected}, got {got}")
-            }
-        }
+impl Default for Ammunition {
+    fn default() -> Self {
+        Self::Finite(0)
     }
 }
 
-/// A parsed .wsc scheme file.
+/// Settings stored for each individual weapon.
 ///
-/// The payload bytes are initially opaque. Typed field accessors will be
-/// added incrementally as we map individual byte offsets through RE.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SchemeFile {
-    pub version: SchemeVersion,
-    /// Raw payload bytes (game options + per-weapon settings).
-    /// Length matches `version.payload_size()`.
-    pub payload: Vec<u8>,
+/// Weapon order in the file differs from the runtime weapon-id enum —
+/// the .wsc uses the "scheme order" defined by the original game UI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+pub struct WeaponSettings {
+    /// Ammunition count; raw values above 9 mean unlimited ammunition.
+    #[deku(
+        bytes = "1",
+        reader = "u8::from_reader_with_ctx(deku::reader, ()).map(Ammunition::from_raw)",
+        writer = "self.ammo.to_raw()?.to_writer(deku::writer, ())"
+    )]
+    pub ammo: Ammunition,
+    /// Weapon strength. The effect varies by weapon; for Jet Pack, this sets fuel.
+    pub power: u8,
+    /// Turns before the weapon becomes available; 0x80 through 0xFF blocks it indefinitely.
+    pub delay: u8,
+    /// Chance of the weapon appearing in a crate.
+    pub crate_probability: u8,
 }
 
-impl SchemeFile {
-    /// Parse a scheme file from raw bytes (entire file contents).
-    pub fn from_bytes(data: &[u8]) -> Result<Self, SchemeError> {
-        if data.len() < SCHEME_HEADER_SIZE {
-            return Err(SchemeError::TooShort { len: data.len() });
+/// These are the core game settings displayed in the scheme editor.
+///
+/// Source: worms2d.info/Game_scheme_file, Ghidra analysis of Scheme__ReadFile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+pub struct SchemeOptions {
+    /// Extra time added between turns so players can switch seats or plan.
+    pub hot_seat_delay: u8,
+    /// Time available after using a weapon while grounded.
+    pub retreat_time: u8,
+    /// Time available after using a weapon while roping.
+    pub rope_retreat_time: u8,
+    /// Shows total round time along with turn time.
+    pub display_total_round_time: bool,
+    /// Automatically replays the ending of a significant turn outside online games.
+    pub automatic_replays: bool,
+    /// Damage dealt when a worm hits the ground at critical velocity.
+    pub fall_damage: u8,
+    /// Prevents worms from moving by walking or jumping.
+    pub artillery_mode: bool,
+    /// Unused by the game; scheme editors may use it as an editor marker.
+    pub bounty_mode: u8,
+    /// Controls what happens to unused weapons between rounds.
+    pub stockpiling: StockpilingMode,
+    /// Chooses how the active worm is selected each turn.
+    pub worm_select: WormSelect,
+    /// Event triggered after the remaining round time reaches zero.
+    pub sudden_death_event: SuddenDeathEvent,
+    /// Rate that water rises after each turn during sudden death.
+    pub water_rise_rate: u8,
+    /// Relative chance that a crate drop contains weapons.
+    pub weapon_crate_probability: i8,
+    /// Makes defeated teams drop a collectible donor card.
+    pub donor_cards: bool,
+    /// Relative chance that a crate drop contains energy.
+    pub health_crate_probability: i8,
+    /// Energy gained by collecting a health crate.
+    pub health_crate_energy: u8,
+    /// Relative chance that a crate drop contains a utility.
+    pub utility_crate_probability: i8,
+    /// Selects which hazards appear on the landscape.
+    pub hazardous_object_types: u8,
+    /// Time between activating a mine and it exploding.
+    pub mine_delay: i8,
+    /// Makes some landscape mines trigger as duds.
+    pub dud_mines: bool,
+    /// Lets players place worms on the landscape at the start of the round.
+    pub manual_worm_placement: bool,
+    /// Energy each worm begins the round with.
+    pub worm_energy: u8,
+    /// Time available to make a move.
+    pub turn_time: u8,
+    /// Time before sudden death is triggered.
+    pub round_time: u8,
+    /// Round wins required to win the match.
+    pub number_of_wins: u8,
+    /// Draws red particles instead of pink when worms are damaged.
+    pub blood: bool,
+    /// Converts Super Sheep into Aqua Sheep that can swim underwater.
+    pub aqua_sheep: bool,
+    /// Makes exploding sheep jump out of destroyed weapon crates.
+    pub sheep_heaven: bool,
+    /// Gives all worms infinite health except against drowning.
+    pub god_worms: bool,
+    /// Prevents the landscape from being destroyed except by rising water.
+    pub indestructible_land: bool,
+    /// Makes grenades more powerful.
+    pub upgraded_grenade: bool,
+    /// Makes the shotgun fire two consecutive shots.
+    pub upgraded_shotgun: bool,
+    /// Makes cluster weapons contain more clusters.
+    pub upgraded_clusters: bool,
+    /// Makes longbows more powerful.
+    pub upgraded_longbow: bool,
+    /// Lets teams start with their preselected team weapon.
+    pub team_weapons: bool,
+    /// Allows super weapons to appear in weapon crate drops.
+    pub super_weapons: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8")]
+#[repr(u8)]
+pub enum StockpilingMode {
+    #[default]
+    Off = 0,
+    On = 1,
+    Anti = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8")]
+#[repr(u8)]
+pub enum WormSelect {
+    #[default]
+    Sequential = 0,
+    On = 1,
+    Random = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8")]
+#[repr(u8)]
+pub enum SuddenDeathEvent {
+    #[default]
+    RoundEnds = 0,
+    NuclearStrike = 1,
+    HpDrops = 2,
+    Nothing = 3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum TriState {
+    False = 0,
+    True = 1,
+    #[default]
+    Default = 0x80,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum PhasedWorms {
+    #[default]
+    Off = 0,
+    Worms = 1,
+    WormsWeapons = 2,
+    WormsWeaponsDamage = 3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum RopeRollDrops {
+    #[default]
+    Disabled = 0,
+    AsFromRopeOnly = 1,
+    AsFromRopeOrJump = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum KeepControlAfterSkimming {
+    #[default]
+    LoseControl = 0,
+    KeepControl = 1,
+    KeepControlAndRope = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum Skipwalking {
+    Disabled = 0xFF,
+    #[default]
+    Possible = 0,
+    Facilitated = 1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum BlockRoofing {
+    #[default]
+    Allow = 0,
+    BlockAbove = 1,
+    BlockEverywhere = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum RubberWormGravityType {
+    #[default]
+    Unmodified = 0,
+    Standard = 1,
+    BlackHoleConstant = 2,
+    BlackHoleLinear = 3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DekuRead, DekuWrite, DekuSize)]
+#[deku(endian = "endian", ctx = "endian: deku::ctx::Endian")]
+pub struct RubberwormOptions {
+    /// Makes worms spring back on collision and sets the strength of that bounce.
+    #[deku(assert = "(bounciness.to_raw() as u32) < 0x1_0001")]
+    pub bounciness: Fixed,
+    /// Makes airborne objects experience friction and sets the strength of that friction.
+    #[deku(assert = "(air_viscosity.to_raw() as u32) < 0x4001")]
+    pub air_viscosity: Fixed,
+    /// Applies air viscosity to worms as well.
+    pub air_viscosity_applies_to_worms: bool,
+    /// Extends the set of objects influenced by wind and sets the strength of that influence.
+    #[deku(assert = "(wind_influence.to_raw() as u32) < 0x1_0001")]
+    pub wind_influence: Fixed,
+    /// Applies wind influence to worms as well.
+    pub wind_influence_applies_to_worms: bool,
+    /// Selects the RubberWorm gravity behavior.
+    pub gravity_type: RubberWormGravityType,
+    /// Sets the strength or distance basis for RubberWorm gravity.
+    #[deku(assert = "(gravity_strength.to_raw() as u32).wrapping_add(0x40000000) < 0x80000001")]
+    pub gravity_strength: Fixed,
+    /// Number of crates that can potentially spawn at the start of a turn.
+    pub crate_rate: u8,
+    /// Makes crates drop continuously during turns.
+    pub crate_shower: bool,
+    /// Teleports worms back to their last land position after touching the sea once.
+    pub anti_sink: bool,
+    /// Prevents weapon selection from resetting to a common weapon after rarer weapons are used.
+    pub remember_weapons: bool,
+    /// Allows all numeric keys to select weapon fuses and herd sizes.
+    pub extended_fuses_herds: bool,
+    /// Resets aiming angle to zero degrees after each shot.
+    pub anti_lock_aim: bool,
+}
+
+impl Default for RubberwormOptions {
+    fn default() -> Self {
+        Self {
+            bounciness: Fixed::from_raw(0),
+            air_viscosity: Fixed::from_raw(0),
+            air_viscosity_applies_to_worms: false,
+            wind_influence: Fixed::from_raw(0),
+            wind_influence_applies_to_worms: false,
+            gravity_type: RubberWormGravityType::default(),
+            gravity_strength: Fixed::from_raw(0x1_0000),
+            crate_rate: 0,
+            crate_shower: false,
+            anti_sink: false,
+            remember_weapons: false,
+            extended_fuses_herds: false,
+            anti_lock_aim: false,
         }
+    }
+}
 
-        let magic: [u8; 4] = data[0..4].try_into().unwrap();
-        if magic != SCHEME_MAGIC {
-            return Err(SchemeError::BadMagic(magic));
-        }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+#[deku(id_type = "u8", ctx = "_: deku::ctx::Endian")]
+#[repr(u8)]
+pub enum HealthCratesCurePoison {
+    Disabled = 0xFF,
+    CollectingWorm = 0,
+    #[default]
+    CollectingWormTeam = 1,
+    CollectingWormTeamsAllied = 2,
+}
 
-        let version =
-            SchemeVersion::from_byte(data[4]).ok_or(SchemeError::UnknownVersion(data[4]))?;
-        let expected_payload = version.payload_size();
-        let actual_payload = data.len() - SCHEME_HEADER_SIZE;
+/// Controls what the Sheep Heaven scheme option enables.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DekuRead, DekuWrite, DekuSize)]
+#[deku(ctx = "_: deku::ctx::Endian")]
+#[repr(transparent)]
+pub struct SheepHeavensGate(#[deku(assert = "*field_0 != 0 && (*field_0 & !0x07) == 0")] u8);
 
-        // V3 schemes are saved with variable length: only extended options bytes
-        // that differ from defaults are included. The original game pre-fills the
-        // extended region with SCHEME_V3_DEFAULTS then reads the file on top, so
-        // short V3 files get defaults for the missing tail. We replicate this by
-        // accepting any size between V2 (0x124) and V3 (0x192) and padding.
-        if version == SchemeVersion::V3 {
-            if !(SCHEME_PAYLOAD_V2..=SCHEME_PAYLOAD_V3).contains(&actual_payload) {
-                return Err(SchemeError::PayloadMismatch {
-                    expected: expected_payload,
-                    got: actual_payload,
-                });
-            }
-            let file_payload = &data[SCHEME_HEADER_SIZE..];
-            let mut payload = vec![0u8; SCHEME_PAYLOAD_V3];
-            // Copy file data (V2 portion + whatever extended bytes are present)
-            payload[..actual_payload].copy_from_slice(file_payload);
-            // Fill remaining extended options with defaults
-            if actual_payload < SCHEME_PAYLOAD_V3 {
-                let defaults_start = actual_payload.saturating_sub(SCHEME_PAYLOAD_V2);
-                payload[actual_payload..SCHEME_PAYLOAD_V3]
-                    .copy_from_slice(&EXTENDED_OPTIONS_DEFAULTS[defaults_start..]);
-            }
-            return Ok(SchemeFile { version, payload });
-        }
+bitflags::bitflags! {
+    impl SheepHeavensGate: u8 {
+        const SHEEP_EXPLODE_FROM_ALL_CRATES = 0x01;
+        const EXTENDED_SHEEP_FUSE_TIME = 0x02;
+        const BOOST_SHEEP_WEAPON_CRATE_PROBABILITY = 0x04;
+    }
+}
 
-        if actual_payload != expected_payload {
-            return Err(SchemeError::PayloadMismatch {
-                expected: expected_payload,
-                got: actual_payload,
-            });
-        }
+impl Default for SheepHeavensGate {
+    fn default() -> Self {
+        Self::all()
+    }
+}
 
-        Ok(SchemeFile {
-            version,
-            payload: data[SCHEME_HEADER_SIZE..].to_vec(),
-        })
+/// Options found only in Version 3 schemes.
+///
+/// Invalid values are reset to defaults when a scheme is loaded. Many settings
+/// here were previously controlled through game logic versions or RubberWorm.
+///
+/// Source: worms2d.info/Game_scheme_file, Ghidra Scheme__ValidateExtendedOptions validation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, DekuRead, DekuWrite, DekuSize)]
+#[deku(endian = "endian", ctx = "endian: deku::ctx::Endian")]
+pub struct ExtendedOptions {
+    /// Format discriminator reserved for future interpretation changes.
+    #[deku(assert = "*data_version == 0")]
+    pub data_version: u32,
+    /// Interprets the wind field as a constant value.
+    pub constant_wind: bool,
+    /// Wind strength and direction, or random-wind maximum when constant wind is off.
+    pub wind: i16,
+    /// Biases wind direction based on which side of the map worms occupy.
+    pub wind_bias: u8,
+    /// Acceleration due to gravity in pixels per frame per frame.
+    #[deku(assert = "(gravity.to_raw() as u32).wrapping_sub(1) < 0xC8_0000")]
+    pub gravity: Fixed,
+    /// Proportion of velocity retained during terrain collisions.
+    #[deku(assert = "(terrain_friction.to_raw() as u32) < 0x2_8CCD")]
+    pub terrain_friction: Fixed,
+    /// Rope knocking force relative to ordinary rope knocking.
+    pub rope_knocking: u8,
+    /// Amount of blood emitted from worms, without changing blood color.
+    pub blood_level: u8,
+    /// Allows the rope to fire below the horizontal and reduces rope friction.
+    pub unrestrict_rope: bool,
+    /// Groups worms by allied color during automatic worm placement.
+    pub auto_place_worms_by_ally: bool,
+    /// Probability that no crate falls at the start of a turn.
+    pub no_crate_probability: u8,
+    /// Maximum crates that may exist before the game stops spawning new ones.
+    pub max_crate_count: u16,
+    /// Disables Worm Select when sudden death starts.
+    pub sd_disables_worm_select: bool,
+    /// Health lost each turn when sudden death is set to nuclear strike.
+    pub sd_worm_damage_per_turn: u8,
+    /// Controls how allied worms move through and otherwise affect each other.
+    pub phased_worms_allied: PhasedWorms,
+    /// Controls how enemy worms move through and otherwise affect each other.
+    pub phased_worms_enemy: PhasedWorms,
+    /// Lets the crosshair continue past the top or bottom of its limits.
+    pub circular_aim: bool,
+    /// Resets aim between turns to make repeat shots more challenging.
+    pub anti_lock_aim: bool,
+    /// Makes power decrease after reaching maximum instead of firing the weapon.
+    pub anti_lock_power: bool,
+    /// Prevents worm selection at turn start from ending the hot-seat timer.
+    pub worm_select_no_end_hot_seat: bool,
+    /// Prevents Worm Selection from being cancelled by movement or similar actions.
+    pub worm_select_never_cancelled: bool,
+    /// Lets worms keep Ninja Rope, Bungee, or Jet Pack when a turn ends.
+    pub batty_rope: bool,
+    /// Controls which weapons may be dropped during a rope roll.
+    pub rope_roll_drops: RopeRollDrops,
+    /// Controls whether fast horizontal collisions make worms lose control.
+    #[deku(assert = "*x_impact_loss_of_control == 0 || *x_impact_loss_of_control == 0xFF")]
+    pub x_impact_loss_of_control: u8,
+    /// Retains control after upward terrain collisions during rope or bungee rolls.
+    pub keep_control_bump_head: bool,
+    /// Controls what happens to worm control after skimming on water.
+    pub keep_control_skimming: KeepControlAfterSkimming,
+    /// Adds fall damage when worms are thrown by explosions.
+    pub explosion_fall_damage: bool,
+    /// Makes explosions push all objects.
+    pub explosions_push_all: TriState,
+    /// Delays crate content selection until pickup or Crate Spy collection.
+    pub undetermined_crates: TriState,
+    /// Delays random mine fuse selection until the mine is triggered.
+    pub undetermined_fuses: TriState,
+    /// Pauses the turn timer while a weapon is being fired.
+    pub pause_timer_while_firing: bool,
+    /// Prevents losing worm control from ending the turn.
+    pub loss_of_control_no_end_turn: bool,
+    /// Prevents weapon use from ending the turn.
+    pub weapon_use_no_end_turn: bool,
+    /// Keeps Earthquake, Armageddon, and Indian Nuclear Test available with weapon-use continuation.
+    pub weapon_use_no_block: bool,
+    /// Makes Pneumatic Drill hits impart horizontal velocity to the target worm.
+    pub drill_imparts_velocity: TriState,
+    /// Prevents the cursor from moving outside the valid girder placement radius.
+    pub girder_radius_assist: bool,
+    /// How much Petrol Bomb flames decay per turn.
+    pub petrol_turn_decay: u16,
+    /// How much Petrol Bomb flames decay when touched by a worm.
+    #[deku(assert = "*petrol_touch_decay != 0")]
+    pub petrol_touch_decay: u8,
+    /// Maximum number of fire objects that can exist at once.
+    #[deku(assert = "*max_flamelet_count != 0")]
+    pub max_flamelet_count: u16,
+    /// Maximum speed for objects following projectile physics.
+    #[deku(assert = "(max_projectile_speed.to_raw() as u32) < 0x80000000")]
+    pub max_projectile_speed: Fixed,
+    /// Maximum speed for a worm attached to Ninja Rope or Bungee.
+    #[deku(assert = "(max_rope_speed.to_raw() as u32) < 0x80000000")]
+    pub max_rope_speed: Fixed,
+    /// Maximum speed for a worm using Jet Pack.
+    #[deku(assert = "(max_jet_pack_speed.to_raw() as u32) < 0x80000000")]
+    pub max_jet_pack_speed: Fixed,
+    /// Speed at which physics and sound effects occur.
+    #[deku(assert = "(game_engine_speed.to_raw() as u32).wrapping_sub(0x1000) < 0x7F_F001")]
+    pub game_engine_speed: Fixed,
+    /// Allows moving worms to fire Ninja Rope vertically downwards.
+    pub indian_rope_glitch: TriState,
+    /// Allows well-timed jumps to release twice the selected Mad Cow herd count.
+    pub herd_doubling_glitch: TriState,
+    /// Allows Bungee to trigger from Jet Pack.
+    pub jet_pack_bungee_glitch: bool,
+    /// Allows moving worms to bypass angle limits on Baseball Bat and Longbow.
+    pub angle_cheat_glitch: bool,
+    /// Allows certain leftward collisions to continue motion instead of landing.
+    pub glide_glitch: bool,
+    /// Controls skip-walking behavior.
+    pub skipwalking: Skipwalking,
+    /// Controls whether roofing is allowed or blocked.
+    pub block_roofing: BlockRoofing,
+    /// Allows precisely dropped impact weapons to rest on surfaces until their fuse expires.
+    pub floating_weapon_glitch: bool,
+    /// RubberWorm physics and utility behavior.
+    pub rubberworm: RubberwormOptions,
+    /// Lets objects overlapping land pass through it until reaching open space.
+    pub terrain_overlap_glitch: TriState,
+    /// Counts sudden-death round time in fractions of seconds.
+    pub fractional_round_timer: bool,
+    /// Triggers retreat time when turn time expires.
+    pub auto_retreat: bool,
+    /// Chooses which worms are cured of poison when a health crate is collected.
+    pub health_crates_cure_poison: HealthCratesCurePoison,
+    /// Selects a RubberWorm Kaos utility-crate probability preset.
+    #[deku(assert = "*rw_kaos_mod < 6")]
+    pub rw_kaos_mod: u8,
+    /// Controls which Sheep Heaven behaviors are enabled.
+    pub sheep_heavens_gate: SheepHeavensGate,
+    /// Conserves remaining instant utilities for later automatic use.
+    pub conserve_instant_utilities: bool,
+    /// Consumes instant utilities as soon as they are collected.
+    pub expedite_instant_utilities: bool,
+    /// Number of times Double Time can be activated in a single turn.
+    pub double_time_stack_limit: u8,
+}
+
+impl ExtendedOptions {
+    /// V3 extended options defaults from WA.exe ROM at 0x649AB8, serialized by Deku.
+    pub fn default_bytes() -> [u8; EXTENDED_OPTIONS_SIZE] {
+        Self::default()
+            .to_bytes()
+            .expect("default extended options should serialize")
+            .try_into()
+            .expect("extended options defaults should be 110 bytes")
     }
 
-    /// Serialize back to .wsc format.
+    /// Parse the V3 extended options block using the scheme file byte order.
+    pub fn from_bytes(b: &[u8]) -> Result<Self, DekuError> {
+        Self::from_bytes_with_endian(b, deku::ctx::Endian::Little)
+    }
+
+    fn from_bytes_with_endian(b: &[u8], endian: deku::ctx::Endian) -> Result<Self, DekuError> {
+        if b.len() != EXTENDED_OPTIONS_SIZE {
+            return Err(DekuError::Parse("extended options should be 110 bytes"));
+        }
+
+        let mut cursor = deku::no_std_io::Cursor::new(b);
+        let mut reader = deku::reader::Reader::new(&mut cursor);
+        Self::from_reader_with_ctx(&mut reader, endian)
+    }
+
+    /// Serialize V3 extended options using the scheme file byte order.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, DekuError> {
+        let mut out_buf = Vec::new();
+        let mut cursor = deku::no_std_io::Cursor::new(&mut out_buf);
+        let mut writer = deku::writer::Writer::new(&mut cursor);
+        DekuWriter::to_writer(self, &mut writer, deku::ctx::Endian::Little)?;
+        writer.finalize()?;
+        Ok(out_buf)
+    }
+
+    /// Validate raw extended options bytes against WA's field constraints.
     ///
-    /// For V3 schemes, trailing extended options bytes that match the defaults
-    /// are trimmed, matching WA's minimal file format.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let payload =
-            if self.version == SchemeVersion::V3 && self.payload.len() == SCHEME_PAYLOAD_V3 {
-                // Trim trailing extended options bytes that match defaults
-                let ext = &self.payload[EXTENDED_OPTIONS_OFFSET..];
-                let mut trim_len = EXTENDED_OPTIONS_SIZE;
-                while trim_len > 0 && ext[trim_len - 1] == EXTENDED_OPTIONS_DEFAULTS[trim_len - 1] {
-                    trim_len -= 1;
-                }
-                &self.payload[..EXTENDED_OPTIONS_OFFSET + trim_len]
-            } else {
-                &self.payload
-            };
-        let mut buf = Vec::with_capacity(SCHEME_HEADER_SIZE + payload.len());
-        buf.extend_from_slice(&SCHEME_MAGIC);
-        buf.push(self.version.to_byte());
-        buf.extend_from_slice(payload);
-        buf
-    }
-
-    /// Total file size (header + payload).
-    pub fn file_size(&self) -> usize {
-        SCHEME_HEADER_SIZE + self.payload.len()
+    /// Returns `true` if all fields are within valid ranges, exactly matching
+    /// the logic of `Scheme__ValidateExtendedOptions` (0x4D5110).
+    ///
+    /// Deku enforces WA's exact 0x00/0x01 bools, enum domains, and field
+    /// range assertions while parsing the layout.
+    pub fn validate_bytes(b: &[u8]) -> bool {
+        Self::from_bytes(b).is_ok()
     }
 }
 
-impl SchemeFile {
+impl Default for ExtendedOptions {
+    fn default() -> Self {
+        Self {
+            data_version: 0,
+            constant_wind: false,
+            wind: 100,
+            wind_bias: 0x0F,
+            gravity: Fixed::from_raw(0x3D70),
+            terrain_friction: Fixed::from_raw(0xF5C2),
+            rope_knocking: 0xFF,
+            blood_level: 0xFF,
+            unrestrict_rope: false,
+            auto_place_worms_by_ally: false,
+            no_crate_probability: 0xFF,
+            max_crate_count: 5,
+            sd_disables_worm_select: true,
+            sd_worm_damage_per_turn: 5,
+            phased_worms_allied: PhasedWorms::default(),
+            phased_worms_enemy: PhasedWorms::default(),
+            circular_aim: false,
+            anti_lock_aim: false,
+            anti_lock_power: false,
+            worm_select_no_end_hot_seat: false,
+            worm_select_never_cancelled: false,
+            batty_rope: false,
+            rope_roll_drops: RopeRollDrops::default(),
+            x_impact_loss_of_control: 0,
+            keep_control_bump_head: false,
+            keep_control_skimming: KeepControlAfterSkimming::default(),
+            explosion_fall_damage: false,
+            explosions_push_all: TriState::default(),
+            undetermined_crates: TriState::default(),
+            undetermined_fuses: TriState::default(),
+            pause_timer_while_firing: true,
+            loss_of_control_no_end_turn: false,
+            weapon_use_no_end_turn: false,
+            weapon_use_no_block: false,
+            drill_imparts_velocity: TriState::default(),
+            girder_radius_assist: false,
+            petrol_turn_decay: 0x3332,
+            petrol_touch_decay: 0x1E,
+            max_flamelet_count: 0xC8,
+            max_projectile_speed: Fixed::from_raw(0x20_0000),
+            max_rope_speed: Fixed::from_raw(0x10_0000),
+            max_jet_pack_speed: Fixed::from_raw(0x5_0000),
+            game_engine_speed: Fixed::from_raw(0x1_0000),
+            indian_rope_glitch: TriState::default(),
+            herd_doubling_glitch: TriState::default(),
+            jet_pack_bungee_glitch: true,
+            angle_cheat_glitch: true,
+            glide_glitch: true,
+            skipwalking: Skipwalking::default(),
+            block_roofing: BlockRoofing::default(),
+            floating_weapon_glitch: true,
+            rubberworm: RubberwormOptions::default(),
+            terrain_overlap_glitch: TriState::default(),
+            fractional_round_timer: false,
+            auto_retreat: false,
+            health_crates_cure_poison: HealthCratesCurePoison::default(),
+            rw_kaos_mod: 0,
+            sheep_heavens_gate: SheepHeavensGate::default(),
+            conserve_instant_utilities: false,
+            expedite_instant_utilities: false,
+            double_time_stack_limit: 1,
+        }
+    }
+}
+
+/// Standard weapon settings present in every scheme version.
+#[derive(Debug, Clone, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+pub struct StandardWeapons {
+    pub bazooka: WeaponSettings,
+    pub homing_missile: WeaponSettings,
+    pub mortar: WeaponSettings,
+    pub grenade: WeaponSettings,
+    pub cluster_bomb: WeaponSettings,
+    pub skunk: WeaponSettings,
+    pub petrol_bomb: WeaponSettings,
+    pub banana_bomb: WeaponSettings,
+    pub handgun: WeaponSettings,
+    pub shotgun: WeaponSettings,
+    pub uzi: WeaponSettings,
+    pub minigun: WeaponSettings,
+    pub longbow: WeaponSettings,
+    pub airstrike: WeaponSettings,
+    pub napalm_strike: WeaponSettings,
+    pub mine: WeaponSettings,
+    pub fire_punch: WeaponSettings,
+    pub dragon_ball: WeaponSettings,
+    pub kamikaze: WeaponSettings,
+    pub prod: WeaponSettings,
+    pub battle_axe: WeaponSettings,
+    pub blowtorch: WeaponSettings,
+    pub pneumatic_drill: WeaponSettings,
+    pub girder: WeaponSettings,
+    pub ninja_rope: WeaponSettings,
+    pub parachute: WeaponSettings,
+    pub bungee: WeaponSettings,
+    pub teleport: WeaponSettings,
+    pub dynamite: WeaponSettings,
+    pub sheep: WeaponSettings,
+    pub baseball_bat: WeaponSettings,
+    pub flame_thrower: WeaponSettings,
+    pub homing_pigeon: WeaponSettings,
+    pub mad_cow: WeaponSettings,
+    pub holy_hand_grenade: WeaponSettings,
+    pub old_woman: WeaponSettings,
+    pub sheep_launcher: WeaponSettings,
+    pub super_sheep: WeaponSettings,
+    pub mole_bomb: WeaponSettings,
+    pub jet_pack: WeaponSettings,
+    pub low_gravity: WeaponSettings,
+    pub laser_sight: WeaponSettings,
+    pub fast_walk: WeaponSettings,
+    pub invisibility: WeaponSettings,
+    pub damage_x2: WeaponSettings,
+}
+
+/// Super weapon settings added by V2 schemes.
+#[derive(Debug, Clone, PartialEq, Eq, Default, DekuRead, DekuWrite, DekuSize)]
+pub struct SuperWeapons {
+    pub freeze: WeaponSettings,
+    pub super_banana_bomb: WeaponSettings,
+    pub mine_strike: WeaponSettings,
+    pub girder_starter_pack: WeaponSettings,
+    pub earthquake: WeaponSettings,
+    pub scales_of_justice: WeaponSettings,
+    pub ming_vase: WeaponSettings,
+    pub mikes_carpet_bomb: WeaponSettings,
+    pub patsys_magic_bullet: WeaponSettings,
+    pub indian_nuclear_test: WeaponSettings,
+    pub select_worm: WeaponSettings,
+    pub salvation_army: WeaponSettings,
+    pub mole_squadron: WeaponSettings,
+    pub mb_bomb: WeaponSettings,
+    pub concrete_donkey: WeaponSettings,
+    pub suicide_bomber: WeaponSettings,
+    pub sheep_strike: WeaponSettings,
+    pub mail_strike: WeaponSettings,
+    pub armageddon: WeaponSettings,
+}
+
+fn read_v3_extended_options<R: deku::no_std_io::Read + deku::no_std_io::Seek>(
+    reader: &mut deku::reader::Reader<R>,
+    endian: deku::ctx::Endian,
+) -> Result<ExtendedOptions, DekuError> {
+    let mut bytes = ExtendedOptions::default_bytes();
+    let mut len = 0;
+
+    while len < EXTENDED_OPTIONS_SIZE && !reader.end() {
+        reader.read_bytes(1, &mut bytes[len..len + 1], deku::ctx::Order::Msb0)?;
+        len += 1;
+    }
+
+    if !reader.end() {
+        return Err(DekuError::Parse("too many V3 extended option bytes"));
+    }
+
+    ExtendedOptions::from_bytes_with_endian(bytes.as_slice(), endian)
+}
+
+/// Fully typed .wsc scheme.
+#[deku_derive(DekuRead, DekuWrite)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[deku(
+    magic = b"SCHM",
+    ctx = "endian: deku::ctx::Endian",
+    ctx_default = "deku::ctx::Endian::Little"
+)]
+pub struct Scheme {
+    #[deku(temp, temp_value = "SchemeVersion::V3")]
+    version: SchemeVersion,
+    pub options: SchemeOptions,
+    pub weapons: StandardWeapons,
+    #[deku(
+        cond = "*version != SchemeVersion::V1",
+        default = "SuperWeapons::default()"
+    )]
+    pub super_weapons: SuperWeapons,
+    #[deku(
+        cond = "*version == SchemeVersion::V3",
+        default = "ExtendedOptions::default()",
+        ctx = "endian",
+        reader = "read_v3_extended_options(deku::reader, endian)"
+    )]
+    pub extended_options: ExtendedOptions,
+}
+
+impl Scheme {
+    /// Parse a canonical V3 payload section without the `SCHM` header.
+    pub fn from_payload_bytes(payload: &[u8]) -> Result<Self, DekuError> {
+        if payload.len() != SCHEME_PAYLOAD_V3 {
+            return Err(DekuError::Parse("scheme payload must be full V3 size"));
+        }
+
+        let mut bytes = Vec::with_capacity(SCHEME_HEADER_SIZE + SCHEME_PAYLOAD_V3);
+        bytes.extend_from_slice(&SCHEME_MAGIC);
+        bytes.push(SchemeVersion::V3 as u8);
+        bytes.extend_from_slice(payload);
+        Self::try_from(bytes.as_slice())
+    }
+
+    /// Serialize the V3 typed payload section without the `SCHM` header.
+    pub fn payload_bytes(&self) -> [u8; SCHEME_PAYLOAD_V3] {
+        let bytes = self.to_bytes();
+        bytes[SCHEME_HEADER_SIZE..]
+            .try_into()
+            .expect("canonical V3 payload should be full-sized")
+    }
+
+    /// Serialized file size.
+    pub fn file_size(&self) -> usize {
+        SCHEME_HEADER_SIZE + SCHEME_PAYLOAD_V3
+    }
+
+    /// Serialize to .wsc format as a full V3 file.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        <Self as DekuContainerWrite>::to_bytes(self).expect("scheme should serialize")
+    }
+
     /// Load a scheme file from disk.
     pub fn from_file(path: &std::path::Path) -> Result<Self, SchemeFileError> {
         let data = std::fs::read(path).map_err(SchemeFileError::Io)?;
-        Self::from_bytes(&data).map_err(SchemeFileError::Parse)
+        Self::try_from(data.as_slice()).map_err(SchemeFileError::Parse)
     }
 
     /// Save a scheme file to disk.
@@ -222,794 +841,11 @@ impl SchemeFile {
     }
 }
 
-// === Payload layout constants ===
-
-/// Byte offset within the payload where game options start.
-pub const OPTIONS_OFFSET: usize = 0;
-/// Size of the game options section in the payload.
-pub const OPTIONS_SIZE: usize = 36;
-/// Byte offset within the payload where V1 weapon settings start.
-pub const WEAPONS_V1_OFFSET: usize = OPTIONS_SIZE; // 36
-/// Number of weapons in V1 schemes.
-pub const WEAPONS_V1_COUNT: usize = 45;
-/// Number of super weapons added in V2.
-pub const WEAPONS_V2_COUNT: usize = 19;
-/// Total weapons in V2+ schemes.
-pub const WEAPONS_TOTAL_COUNT: usize = WEAPONS_V1_COUNT + WEAPONS_V2_COUNT; // 64
-/// Bytes per weapon entry.
-pub const WEAPON_ENTRY_SIZE: usize = 4;
-/// Byte offset where V2 super weapons start.
-pub const WEAPONS_V2_OFFSET: usize = WEAPONS_V1_OFFSET + WEAPONS_V1_COUNT * WEAPON_ENTRY_SIZE; // 216 = 0xD8
-/// Byte offset where V3 extended options start.
-pub const EXTENDED_OPTIONS_OFFSET: usize = WEAPONS_V2_OFFSET + WEAPONS_V2_COUNT * WEAPON_ENTRY_SIZE; // 292 = 0x124
-/// Size of the V3 extended options section.
-pub const EXTENDED_OPTIONS_SIZE: usize = 110; // 0x6E
-
-/// Per-weapon settings (4 bytes each in the .wsc file).
-///
-/// Weapon order in the file differs from the runtime `Weapon` enum —
-/// the .wsc uses the "scheme order" defined by the original game UI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WeaponSettings {
-    /// Ammo count. 0 = none, 1-10 = count, 10/0x80+ = infinite.
-    pub ammo: u8,
-    /// Power level. 0-20 (max varies by weapon).
-    pub power: u8,
-    /// Turn delay before weapon becomes available. 0 = immediate.
-    pub delay: u8,
-    /// Crate probability. 0-100 percentage.
-    pub crate_probability: u8,
-}
-
-impl WeaponSettings {
-    pub fn from_bytes(b: &[u8]) -> Self {
-        Self {
-            ammo: b[0],
-            power: b[1],
-            delay: b[2],
-            crate_probability: b[3],
-        }
-    }
-
-    pub fn to_bytes(self) -> [u8; 4] {
-        [self.ammo, self.power, self.delay, self.crate_probability]
-    }
-}
-
-/// Game options (first 36 bytes of payload).
-///
-/// These are the core game settings displayed in the scheme editor.
-/// All offsets are relative to the start of the payload (file offset 0x05).
-///
-/// Source: worms2d.info/Game_scheme_file, Ghidra analysis of Scheme__ReadFile.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SchemeOptions {
-    /// Seconds between turns (hot-seat delay). Payload +0x00, file 0x05.
-    pub hot_seat_delay: u8,
-    /// Seconds to retreat after weapon use (grounded). Payload +0x01, file 0x06.
-    pub retreat_time: u8,
-    /// Seconds to retreat after weapon use (on rope). Payload +0x02, file 0x07.
-    pub rope_retreat_time: u8,
-    /// Display total round time on screen. Payload +0x03, file 0x08.
-    pub display_total_round_time: bool,
-    /// Enable automatic replays. Payload +0x04, file 0x09.
-    pub automatic_replays: bool,
-    /// Fall damage amount at critical velocity. Payload +0x05, file 0x0A.
-    pub fall_damage: u8,
-    /// Artillery mode (worms can't move). Payload +0x06, file 0x0B.
-    pub artillery_mode: bool,
-    /// Bounty mode marker. 0x00=unset, 0x5F/0x89=editor magic. Payload +0x07, file 0x0C.
-    pub bounty_mode: u8,
-    /// Stockpiling mode: 0=Off, 1=On, 2=Anti. Payload +0x08, file 0x0D.
-    pub stockpiling: u8,
-    /// Worm selection: 0=Sequential, 1=Manual, 2=Random. Payload +0x09, file 0x0E.
-    pub worm_select: u8,
-    /// Sudden death event: 0=RoundEnds, 1=NuclearStrike, 2=HP→1, 3=Nothing. Payload +0x0A, file 0x0F.
-    pub sudden_death_event: u8,
-    /// Water rise rate during sudden death. Payload +0x0B, file 0x10.
-    pub water_rise_rate: u8,
-    /// Weapon crate probability (-100 to 100, signed). Payload +0x0C, file 0x11.
-    pub weapon_crate_probability: i8,
-    /// Donor cards enabled. Payload +0x0D, file 0x12.
-    pub donor_cards: bool,
-    /// Health crate probability (-100 to 100, signed). Payload +0x0E, file 0x13.
-    pub health_crate_probability: i8,
-    /// Energy gained from health crates. Payload +0x0F, file 0x14.
-    pub health_crate_energy: u8,
-    /// Utility crate probability (-100 to 100, signed). Payload +0x10, file 0x15.
-    pub utility_crate_probability: i8,
-    /// Hazardous object type bitmask. Payload +0x11, file 0x16.
-    pub hazardous_object_types: u8,
-    /// Mine fuse delay in seconds. 0x80+ = random. Payload +0x12, file 0x17.
-    pub mine_delay: i8,
-    /// Dud mines (some mines don't explode). Payload +0x13, file 0x18.
-    pub dud_mines: bool,
-    /// Manual worm placement at start. Payload +0x14, file 0x19.
-    pub manual_worm_placement: bool,
-    /// Initial worm energy. 0=instant death. Payload +0x15, file 0x1A.
-    pub worm_energy: u8,
-    /// Turn time in seconds. Encoding varies by range. Payload +0x16, file 0x1B.
-    pub turn_time: u8,
-    /// Round time in minutes. 0=immediate SD. Payload +0x17, file 0x1C.
-    pub round_time: u8,
-    /// Number of round wins required to win match. Payload +0x18, file 0x1D.
-    pub number_of_wins: u8,
-    /// Blood color: false=pink, true=red. Payload +0x19, file 0x1E.
-    pub blood: bool,
-    /// Aqua Sheep mode. Payload +0x1A, file 0x1F.
-    pub aqua_sheep: bool,
-    /// Sheep Heaven mode. Payload +0x1B, file 0x20.
-    pub sheep_heaven: bool,
-    /// God Worms (infinite health). Payload +0x1C, file 0x21.
-    pub god_worms: bool,
-    /// Indestructible terrain. Payload +0x1D, file 0x22.
-    pub indestructible_land: bool,
-    /// Upgraded grenades. Payload +0x1E, file 0x23.
-    pub upgraded_grenade: bool,
-    /// Upgraded shotgun. Payload +0x1F, file 0x24.
-    pub upgraded_shotgun: bool,
-    /// Upgraded cluster bombs. Payload +0x20, file 0x25.
-    pub upgraded_clusters: bool,
-    /// Upgraded longbow. Payload +0x21, file 0x26.
-    pub upgraded_longbow: bool,
-    /// Team weapons enabled. Payload +0x22, file 0x27.
-    pub team_weapons: bool,
-    /// Super weapons enabled. Payload +0x23, file 0x28.
-    pub super_weapons: bool,
-}
-
-impl SchemeOptions {
-    /// Read options from the first 36 bytes of a payload slice.
-    pub fn from_bytes(b: &[u8]) -> Self {
-        Self {
-            hot_seat_delay: b[0],
-            retreat_time: b[1],
-            rope_retreat_time: b[2],
-            display_total_round_time: b[3] != 0,
-            automatic_replays: b[4] != 0,
-            fall_damage: b[5],
-            artillery_mode: b[6] != 0,
-            bounty_mode: b[7],
-            stockpiling: b[8],
-            worm_select: b[9],
-            sudden_death_event: b[10],
-            water_rise_rate: b[11],
-            weapon_crate_probability: b[12] as i8,
-            donor_cards: b[13] != 0,
-            health_crate_probability: b[14] as i8,
-            health_crate_energy: b[15],
-            utility_crate_probability: b[16] as i8,
-            hazardous_object_types: b[17],
-            mine_delay: b[18] as i8,
-            dud_mines: b[19] != 0,
-            manual_worm_placement: b[20] != 0,
-            worm_energy: b[21],
-            turn_time: b[22],
-            round_time: b[23],
-            number_of_wins: b[24],
-            blood: b[25] != 0,
-            aqua_sheep: b[26] != 0,
-            sheep_heaven: b[27] != 0,
-            god_worms: b[28] != 0,
-            indestructible_land: b[29] != 0,
-            upgraded_grenade: b[30] != 0,
-            upgraded_shotgun: b[31] != 0,
-            upgraded_clusters: b[32] != 0,
-            upgraded_longbow: b[33] != 0,
-            team_weapons: b[34] != 0,
-            super_weapons: b[35] != 0,
-        }
-    }
-
-    /// Serialize options back to 36 bytes.
-    pub fn to_bytes(&self) -> [u8; OPTIONS_SIZE] {
-        [
-            self.hot_seat_delay,
-            self.retreat_time,
-            self.rope_retreat_time,
-            self.display_total_round_time as u8,
-            self.automatic_replays as u8,
-            self.fall_damage,
-            self.artillery_mode as u8,
-            self.bounty_mode,
-            self.stockpiling,
-            self.worm_select,
-            self.sudden_death_event,
-            self.water_rise_rate,
-            self.weapon_crate_probability as u8,
-            self.donor_cards as u8,
-            self.health_crate_probability as u8,
-            self.health_crate_energy,
-            self.utility_crate_probability as u8,
-            self.hazardous_object_types,
-            self.mine_delay as u8,
-            self.dud_mines as u8,
-            self.manual_worm_placement as u8,
-            self.worm_energy,
-            self.turn_time,
-            self.round_time,
-            self.number_of_wins,
-            self.blood as u8,
-            self.aqua_sheep as u8,
-            self.sheep_heaven as u8,
-            self.god_worms as u8,
-            self.indestructible_land as u8,
-            self.upgraded_grenade as u8,
-            self.upgraded_shotgun as u8,
-            self.upgraded_clusters as u8,
-            self.upgraded_longbow as u8,
-            self.team_weapons as u8,
-            self.super_weapons as u8,
-        ]
-    }
-}
-
-/// Weapon order in .wsc scheme files (indices 0-63).
-///
-/// This order differs from the runtime `Weapon` enum. The scheme file uses
-/// the UI panel order established by the original game.
-///
-/// Source: worms2d.info/Game_scheme_file
-pub const SCHEME_WEAPON_ORDER: [&str; 64] = [
-    // V1 weapons (0-44)
-    "Bazooka",           // 0
-    "Homing Missile",    // 1
-    "Mortar",            // 2
-    "Grenade",           // 3
-    "Cluster Bomb",      // 4
-    "Skunk",             // 5
-    "Petrol Bomb",       // 6
-    "Banana Bomb",       // 7
-    "Handgun",           // 8
-    "Shotgun",           // 9
-    "Uzi",               // 10
-    "Minigun",           // 11
-    "Longbow",           // 12
-    "Airstrike",         // 13
-    "Napalm Strike",     // 14
-    "Mine",              // 15
-    "Fire Punch",        // 16
-    "Dragon Ball",       // 17
-    "Kamikaze",          // 18
-    "Prod",              // 19
-    "Battle Axe",        // 20
-    "Blowtorch",         // 21
-    "Pneumatic Drill",   // 22
-    "Girder",            // 23
-    "Ninja Rope",        // 24
-    "Parachute",         // 25
-    "Bungee",            // 26
-    "Teleport",          // 27
-    "Dynamite",          // 28
-    "Sheep",             // 29
-    "Baseball Bat",      // 30
-    "Flame Thrower",     // 31
-    "Homing Pigeon",     // 32
-    "Mad Cow",           // 33
-    "Holy Hand Grenade", // 34
-    "Old Woman",         // 35
-    "Sheep Launcher",    // 36
-    "Super Sheep",       // 37
-    "Mole Bomb",         // 38
-    "Jet Pack",          // 39
-    "Low Gravity",       // 40
-    "Laser Sight",       // 41
-    "Fast Walk",         // 42
-    "Invisibility",      // 43
-    "Damage x2",         // 44
-    // V2 super weapons (45-63)
-    "Freeze",               // 45
-    "Super Banana Bomb",    // 46
-    "Mine Strike",          // 47
-    "Girder Starter Pack",  // 48
-    "Earthquake",           // 49
-    "Scales of Justice",    // 50
-    "Ming Vase",            // 51
-    "Mike's Carpet Bomb",   // 52
-    "Patsy's Magic Bullet", // 53
-    "Indian Nuclear Test",  // 54
-    "Select Worm",          // 55
-    "Salvation Army",       // 56
-    "Mole Squadron",        // 57
-    "MB Bomb",              // 58
-    "Concrete Donkey",      // 59
-    "Suicide Bomber",       // 60
-    "Sheep Strike",         // 61
-    "Mail Strike",          // 62
-    "Armageddon",           // 63
-];
-
-/// V3 extended options (110 bytes, payload offset 0x124).
-///
-/// Present in V3 schemes; for V1/V2, the game fills this region from
-/// ROM defaults at 0x649AB8.
-///
-/// Many fields use fixed-point 16.16 format (`Fixed`), tri-state (0/1/0x80),
-/// or small enums. See field docs for valid ranges.
-///
-/// Source: worms2d.info/Game_scheme_file, Ghidra Scheme__ValidateExtendedOptions validation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ExtendedOptions {
-    /// Data version (currently 0). Offset +0x00.
-    pub data_version: u32,
-    /// Constant wind enabled. Offset +0x04.
-    pub constant_wind: bool,
-    /// Wind strength (signed). Offset +0x05.
-    pub wind: i16,
-    /// Wind bias. Offset +0x07.
-    pub wind_bias: u8,
-    /// Gravity (fixed 16.16). Offset +0x08. Default 0xF5C2.
-    pub gravity: i32,
-    /// Terrain friction (fixed 16.16). Offset +0x0C. Default 0xF5C2.
-    pub terrain_friction: i32,
-    /// Rope knocking. 0xFF = use default. Offset +0x10.
-    pub rope_knocking: u8,
-    /// Blood level. 0xFF = use default. Offset +0x11.
-    pub blood_level: u8,
-    /// Unrestrict rope. Offset +0x12.
-    pub unrestrict_rope: bool,
-    /// Auto-place worms by ally. Offset +0x13.
-    pub auto_place_worms_by_ally: bool,
-    /// No-crate probability. 0xFF = ignore. Offset +0x14.
-    pub no_crate_probability: u8,
-    /// Maximum crate count. Offset +0x15.
-    pub max_crate_count: u16,
-    /// Sudden death disables worm select. Offset +0x17.
-    pub sd_disables_worm_select: bool,
-    /// Sudden death worm damage per turn. Offset +0x18.
-    pub sd_worm_damage_per_turn: u8,
-    /// Phased worms (allied). 0-3. Offset +0x19.
-    pub phased_worms_allied: u8,
-    /// Phased worms (enemy). 0-3. Offset +0x1A.
-    pub phased_worms_enemy: u8,
-    /// Circular aim. Offset +0x1B.
-    pub circular_aim: bool,
-    /// Anti-lock aim. Offset +0x1C.
-    pub anti_lock_aim: bool,
-    /// Anti-lock power. Offset +0x1D.
-    pub anti_lock_power: bool,
-    /// Worm selection doesn't end hot seat. Offset +0x1E.
-    pub worm_select_no_end_hot_seat: bool,
-    /// Worm selection is never cancelled. Offset +0x1F.
-    pub worm_select_never_cancelled: bool,
-    /// Batty rope. Offset +0x20.
-    pub batty_rope: bool,
-    /// Rope-roll drops. 0-2. Offset +0x21.
-    pub rope_roll_drops: u8,
-    /// X-impact loss of control. 0 or 0xFF. Offset +0x22.
-    pub x_impact_loss_of_control: u8,
-    /// Keep control after bumping head. Offset +0x23.
-    pub keep_control_bump_head: bool,
-    /// Keep control after skimming. 0-2. Offset +0x24.
-    pub keep_control_skimming: u8,
-    /// Fall damage triggered by explosions. Offset +0x25.
-    pub explosion_fall_damage: bool,
-    /// Explosions push all objects. Tri-state: 0/1/0x80. Offset +0x26.
-    pub explosions_push_all: u8,
-    /// Undetermined crates. Tri-state. Offset +0x27.
-    pub undetermined_crates: u8,
-    /// Undetermined fuses. Tri-state. Offset +0x28.
-    pub undetermined_fuses: u8,
-    /// Pause timer while firing. Offset +0x29.
-    pub pause_timer_while_firing: bool,
-    /// Loss of control doesn't end turn. Offset +0x2A.
-    pub loss_of_control_no_end_turn: bool,
-    /// Weapon use doesn't end turn. Offset +0x2B.
-    pub weapon_use_no_end_turn: bool,
-    /// Above option doesn't block any weapons. Offset +0x2C.
-    pub weapon_use_no_block: bool,
-    /// Pneumatic drill imparts velocity. Tri-state. Offset +0x2D.
-    pub drill_imparts_velocity: u8,
-    /// Girder radius assist. Offset +0x2E.
-    pub girder_radius_assist: bool,
-    /// Petrol turn decay (fixed 16.16 fractional part). Offset +0x2F.
-    pub petrol_turn_decay: u16,
-    /// Petrol touch decay. Offset +0x31.
-    pub petrol_touch_decay: u8,
-    /// Maximum flamelet count. Offset +0x32.
-    pub max_flamelet_count: u16,
-    /// Maximum projectile speed (fixed 16.16). Offset +0x34.
-    pub max_projectile_speed: i32,
-    /// Maximum rope speed (fixed 16.16). Offset +0x38.
-    pub max_rope_speed: i32,
-    /// Maximum jet pack speed (fixed 16.16). Offset +0x3C.
-    pub max_jet_pack_speed: i32,
-    /// Game engine speed (fixed 16.16). Offset +0x40.
-    pub game_engine_speed: i32,
-    /// Indian rope glitch. Tri-state. Offset +0x44.
-    pub indian_rope_glitch: u8,
-    /// Herd-doubling glitch. Tri-state. Offset +0x45.
-    pub herd_doubling_glitch: u8,
-    /// Jet pack bungee glitch. Offset +0x46.
-    pub jet_pack_bungee_glitch: bool,
-    /// Angle cheat glitch. Offset +0x47.
-    pub angle_cheat_glitch: bool,
-    /// Glide glitch. Offset +0x48.
-    pub glide_glitch: bool,
-    /// Skipwalking. 0/1/0xFF. Offset +0x49.
-    pub skipwalking: i8,
-    /// Block roofing. 0-2. Offset +0x4A.
-    pub block_roofing: u8,
-    /// Floating weapon glitch. Offset +0x4B.
-    pub floating_weapon_glitch: bool,
-    /// RubberWorm bounciness (fixed 16.16). Offset +0x4C.
-    pub rw_bounciness: i32,
-    /// RubberWorm air viscosity (fixed 16.16). Offset +0x50.
-    pub rw_air_viscosity: i32,
-    /// RW air viscosity applies to worms. Offset +0x54.
-    pub rw_air_viscosity_worms: bool,
-    /// RubberWorm wind influence (fixed 16.16). Offset +0x55.
-    pub rw_wind_influence: u32,
-    /// RW wind influence applies to worms. Offset +0x59.
-    pub rw_wind_influence_worms: bool,
-    /// RW gravity type. 0-3. Offset +0x5A.
-    pub rw_gravity_type: u8,
-    /// RW gravity strength (fixed 16.16). Offset +0x5B.
-    pub rw_gravity_strength: i32,
-    /// RW crate rate. Offset +0x5F.
-    pub rw_crate_rate: u8,
-    /// RW crate shower. Offset +0x60.
-    pub rw_crate_shower: bool,
-    /// RW anti-sink. Offset +0x61.
-    pub rw_anti_sink: bool,
-    /// RW remember weapons. Offset +0x62.
-    pub rw_remember_weapons: bool,
-    /// RW extended fuses/herds. Offset +0x63.
-    pub rw_extended_fuses: bool,
-    /// RW anti-lock aim. Offset +0x64.
-    pub rw_anti_lock_aim: bool,
-    /// Terrain overlap phasing glitch. Tri-state. Offset +0x65.
-    pub terrain_overlap_glitch: u8,
-    /// Fractional round timer. Offset +0x66.
-    pub fractional_round_timer: bool,
-    /// Automatic end-of-turn retreat. Offset +0x67.
-    pub auto_retreat: bool,
-    /// Health crates cure poison. 0/1/2/0xFF. Offset +0x68.
-    pub health_crates_cure_poison: i8,
-    /// RW Kaos mod. 0-5. Offset +0x69.
-    pub rw_kaos_mod: u8,
-    /// Sheep Heaven's Gate bitmask. Offset +0x6A.
-    pub sheep_heavens_gate: u8,
-    /// Conserve instant utilities. Offset +0x6B.
-    pub conserve_instant_utilities: bool,
-    /// Expedite instant utilities. Offset +0x6C.
-    pub expedite_instant_utilities: bool,
-    /// Double time stack limit. Offset +0x6D.
-    pub double_time_stack_limit: u8,
-}
-
-/// Helper: read a little-endian u16 from a byte slice.
-fn read_u16_le(b: &[u8], offset: usize) -> u16 {
-    u16::from_le_bytes([b[offset], b[offset + 1]])
-}
-
-/// Helper: read a little-endian i32 from a byte slice.
-fn read_i32_le(b: &[u8], offset: usize) -> i32 {
-    i32::from_le_bytes([b[offset], b[offset + 1], b[offset + 2], b[offset + 3]])
-}
-
-/// Helper: read a little-endian u32 from a byte slice.
-fn read_u32_le(b: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes([b[offset], b[offset + 1], b[offset + 2], b[offset + 3]])
-}
-
-impl ExtendedOptions {
-    /// Read extended options from a 110-byte slice (payload offset 0x124).
-    pub fn from_bytes(b: &[u8]) -> Self {
-        Self {
-            data_version: read_u32_le(b, 0x00),
-            constant_wind: b[0x04] != 0,
-            wind: read_u16_le(b, 0x05) as i16,
-            wind_bias: b[0x07],
-            gravity: read_i32_le(b, 0x08),
-            terrain_friction: read_i32_le(b, 0x0C),
-            rope_knocking: b[0x10],
-            blood_level: b[0x11],
-            unrestrict_rope: b[0x12] != 0,
-            auto_place_worms_by_ally: b[0x13] != 0,
-            no_crate_probability: b[0x14],
-            max_crate_count: read_u16_le(b, 0x15),
-            sd_disables_worm_select: b[0x17] != 0,
-            sd_worm_damage_per_turn: b[0x18],
-            phased_worms_allied: b[0x19],
-            phased_worms_enemy: b[0x1A],
-            circular_aim: b[0x1B] != 0,
-            anti_lock_aim: b[0x1C] != 0,
-            anti_lock_power: b[0x1D] != 0,
-            worm_select_no_end_hot_seat: b[0x1E] != 0,
-            worm_select_never_cancelled: b[0x1F] != 0,
-            batty_rope: b[0x20] != 0,
-            rope_roll_drops: b[0x21],
-            x_impact_loss_of_control: b[0x22],
-            keep_control_bump_head: b[0x23] != 0,
-            keep_control_skimming: b[0x24],
-            explosion_fall_damage: b[0x25] != 0,
-            explosions_push_all: b[0x26],
-            undetermined_crates: b[0x27],
-            undetermined_fuses: b[0x28],
-            pause_timer_while_firing: b[0x29] != 0,
-            loss_of_control_no_end_turn: b[0x2A] != 0,
-            weapon_use_no_end_turn: b[0x2B] != 0,
-            weapon_use_no_block: b[0x2C] != 0,
-            drill_imparts_velocity: b[0x2D],
-            girder_radius_assist: b[0x2E] != 0,
-            petrol_turn_decay: read_u16_le(b, 0x2F),
-            petrol_touch_decay: b[0x31],
-            max_flamelet_count: read_u16_le(b, 0x32),
-            max_projectile_speed: read_i32_le(b, 0x34),
-            max_rope_speed: read_i32_le(b, 0x38),
-            max_jet_pack_speed: read_i32_le(b, 0x3C),
-            game_engine_speed: read_i32_le(b, 0x40),
-            indian_rope_glitch: b[0x44],
-            herd_doubling_glitch: b[0x45],
-            jet_pack_bungee_glitch: b[0x46] != 0,
-            angle_cheat_glitch: b[0x47] != 0,
-            glide_glitch: b[0x48] != 0,
-            skipwalking: b[0x49] as i8,
-            block_roofing: b[0x4A],
-            floating_weapon_glitch: b[0x4B] != 0,
-            rw_bounciness: read_i32_le(b, 0x4C),
-            rw_air_viscosity: read_i32_le(b, 0x50),
-            rw_air_viscosity_worms: b[0x54] != 0,
-            rw_wind_influence: read_u32_le(b, 0x55),
-            rw_wind_influence_worms: b[0x59] != 0,
-            rw_gravity_type: b[0x5A],
-            rw_gravity_strength: read_i32_le(b, 0x5B),
-            rw_crate_rate: b[0x5F],
-            rw_crate_shower: b[0x60] != 0,
-            rw_anti_sink: b[0x61] != 0,
-            rw_remember_weapons: b[0x62] != 0,
-            rw_extended_fuses: b[0x63] != 0,
-            rw_anti_lock_aim: b[0x64] != 0,
-            terrain_overlap_glitch: b[0x65],
-            fractional_round_timer: b[0x66] != 0,
-            auto_retreat: b[0x67] != 0,
-            health_crates_cure_poison: b[0x68] as i8,
-            rw_kaos_mod: b[0x69],
-            sheep_heavens_gate: b[0x6A],
-            conserve_instant_utilities: b[0x6B] != 0,
-            expedite_instant_utilities: b[0x6C] != 0,
-            double_time_stack_limit: b[0x6D],
-        }
-    }
-
-    /// Serialize extended options to 110 bytes.
-    pub fn to_bytes(&self) -> [u8; EXTENDED_OPTIONS_SIZE] {
-        let mut b = [0u8; EXTENDED_OPTIONS_SIZE];
-        b[0x00..0x04].copy_from_slice(&self.data_version.to_le_bytes());
-        b[0x04] = self.constant_wind as u8;
-        b[0x05..0x07].copy_from_slice(&self.wind.to_le_bytes());
-        b[0x07] = self.wind_bias;
-        b[0x08..0x0C].copy_from_slice(&self.gravity.to_le_bytes());
-        b[0x0C..0x10].copy_from_slice(&self.terrain_friction.to_le_bytes());
-        b[0x10] = self.rope_knocking;
-        b[0x11] = self.blood_level;
-        b[0x12] = self.unrestrict_rope as u8;
-        b[0x13] = self.auto_place_worms_by_ally as u8;
-        b[0x14] = self.no_crate_probability;
-        b[0x15..0x17].copy_from_slice(&self.max_crate_count.to_le_bytes());
-        b[0x17] = self.sd_disables_worm_select as u8;
-        b[0x18] = self.sd_worm_damage_per_turn;
-        b[0x19] = self.phased_worms_allied;
-        b[0x1A] = self.phased_worms_enemy;
-        b[0x1B] = self.circular_aim as u8;
-        b[0x1C] = self.anti_lock_aim as u8;
-        b[0x1D] = self.anti_lock_power as u8;
-        b[0x1E] = self.worm_select_no_end_hot_seat as u8;
-        b[0x1F] = self.worm_select_never_cancelled as u8;
-        b[0x20] = self.batty_rope as u8;
-        b[0x21] = self.rope_roll_drops;
-        b[0x22] = self.x_impact_loss_of_control;
-        b[0x23] = self.keep_control_bump_head as u8;
-        b[0x24] = self.keep_control_skimming;
-        b[0x25] = self.explosion_fall_damage as u8;
-        b[0x26] = self.explosions_push_all;
-        b[0x27] = self.undetermined_crates;
-        b[0x28] = self.undetermined_fuses;
-        b[0x29] = self.pause_timer_while_firing as u8;
-        b[0x2A] = self.loss_of_control_no_end_turn as u8;
-        b[0x2B] = self.weapon_use_no_end_turn as u8;
-        b[0x2C] = self.weapon_use_no_block as u8;
-        b[0x2D] = self.drill_imparts_velocity;
-        b[0x2E] = self.girder_radius_assist as u8;
-        b[0x2F..0x31].copy_from_slice(&self.petrol_turn_decay.to_le_bytes());
-        b[0x31] = self.petrol_touch_decay;
-        b[0x32..0x34].copy_from_slice(&self.max_flamelet_count.to_le_bytes());
-        b[0x34..0x38].copy_from_slice(&self.max_projectile_speed.to_le_bytes());
-        b[0x38..0x3C].copy_from_slice(&self.max_rope_speed.to_le_bytes());
-        b[0x3C..0x40].copy_from_slice(&self.max_jet_pack_speed.to_le_bytes());
-        b[0x40..0x44].copy_from_slice(&self.game_engine_speed.to_le_bytes());
-        b[0x44] = self.indian_rope_glitch;
-        b[0x45] = self.herd_doubling_glitch;
-        b[0x46] = self.jet_pack_bungee_glitch as u8;
-        b[0x47] = self.angle_cheat_glitch as u8;
-        b[0x48] = self.glide_glitch as u8;
-        b[0x49] = self.skipwalking as u8;
-        b[0x4A] = self.block_roofing;
-        b[0x4B] = self.floating_weapon_glitch as u8;
-        b[0x4C..0x50].copy_from_slice(&self.rw_bounciness.to_le_bytes());
-        b[0x50..0x54].copy_from_slice(&self.rw_air_viscosity.to_le_bytes());
-        b[0x54] = self.rw_air_viscosity_worms as u8;
-        b[0x55..0x59].copy_from_slice(&self.rw_wind_influence.to_le_bytes());
-        b[0x59] = self.rw_wind_influence_worms as u8;
-        b[0x5A] = self.rw_gravity_type;
-        b[0x5B..0x5F].copy_from_slice(&self.rw_gravity_strength.to_le_bytes());
-        b[0x5F] = self.rw_crate_rate;
-        b[0x60] = self.rw_crate_shower as u8;
-        b[0x61] = self.rw_anti_sink as u8;
-        b[0x62] = self.rw_remember_weapons as u8;
-        b[0x63] = self.rw_extended_fuses as u8;
-        b[0x64] = self.rw_anti_lock_aim as u8;
-        b[0x65] = self.terrain_overlap_glitch;
-        b[0x66] = self.fractional_round_timer as u8;
-        b[0x67] = self.auto_retreat as u8;
-        b[0x68] = self.health_crates_cure_poison as u8;
-        b[0x69] = self.rw_kaos_mod;
-        b[0x6A] = self.sheep_heavens_gate;
-        b[0x6B] = self.conserve_instant_utilities as u8;
-        b[0x6C] = self.expedite_instant_utilities as u8;
-        b[0x6D] = self.double_time_stack_limit;
-        b
-    }
-
-    /// Validate raw extended options bytes (110 bytes) against WA's field constraints.
-    ///
-    /// Returns `true` if all fields are within valid ranges, exactly matching
-    /// the logic of `Scheme__ValidateExtendedOptions` (0x4D5110).
-    ///
-    /// Note: operates on raw bytes, not parsed struct fields, because WA validates
-    /// at the byte level (e.g., bool fields must be exactly 0x00 or 0x01).
-    pub fn validate_bytes(b: &[u8]) -> bool {
-        fn is_bool(v: u8) -> bool {
-            v == 0 || v == 1
-        }
-        fn is_tristate(v: u8) -> bool {
-            v == 0 || v == 1 || v == 0x80
-        }
-
-        read_u32_le(b, 0x00) == 0                                        // data_version
-        && (read_i32_le(b, 0x08) as u32).wrapping_sub(1) < 0xC8_0000     // gravity [1, 0xC80000]
-        && (read_i32_le(b, 0x0C) as u32) < 0x2_8CCD                     // terrain_friction
-        && is_bool(b[0x12])                                              // unrestrict_rope
-        && is_bool(b[0x13])                                              // auto_place_worms_by_ally
-        && is_bool(b[0x17])                                              // sd_disables_worm_select
-        && b[0x19] < 4                                                   // phased_worms_allied
-        && b[0x1A] < 4                                                   // phased_worms_enemy
-        && is_bool(b[0x1B])                                              // circular_aim
-        && is_bool(b[0x1C])                                              // anti_lock_aim
-        && is_bool(b[0x1D])                                              // anti_lock_power
-        && is_bool(b[0x1E])                                              // worm_select_no_end_hot_seat
-        && is_bool(b[0x1F])                                              // worm_select_never_cancelled
-        && is_bool(b[0x20])                                              // batty_rope
-        && b[0x21] < 3                                                   // rope_roll_drops
-        && (b[0x22] == 0 || b[0x22] == 0xFF)                             // x_impact_loss_of_control
-        && is_bool(b[0x23])                                              // keep_control_bump_head
-        && b[0x24] < 3                                                   // keep_control_skimming
-        && is_bool(b[0x25])                                              // explosion_fall_damage
-        && is_tristate(b[0x26])                                          // explosions_push_all
-        && is_tristate(b[0x27])                                          // undetermined_crates
-        && is_tristate(b[0x28])                                          // undetermined_fuses
-        && is_bool(b[0x29])                                              // pause_timer_while_firing
-        && is_bool(b[0x2A])                                              // loss_of_control_no_end_turn
-        && is_bool(b[0x2B])                                              // weapon_use_no_end_turn
-        && is_bool(b[0x2C])                                              // weapon_use_no_block
-        && is_tristate(b[0x2D])                                          // drill_imparts_velocity
-        && is_bool(b[0x2E])                                              // girder_radius_assist
-        && b[0x31] != 0                                                  // petrol_touch_decay nonzero
-        && read_u16_le(b, 0x32) != 0                                    // max_flamelet_count nonzero
-        && (read_i32_le(b, 0x34) as u32) < 0x80000000                  // max_projectile_speed > 0
-        && (read_i32_le(b, 0x38) as u32) < 0x80000000                  // max_rope_speed > 0
-        && (read_i32_le(b, 0x3C) as u32) < 0x80000000                  // max_jet_pack_speed > 0
-        && (read_i32_le(b, 0x40) as u32).wrapping_sub(0x1000) < 0x7F_F001 // game_engine_speed
-        && is_tristate(b[0x44])                                          // indian_rope_glitch
-        && is_tristate(b[0x45])                                          // herd_doubling_glitch
-        && is_bool(b[0x46])                                              // jet_pack_bungee_glitch
-        && is_bool(b[0x47])                                              // angle_cheat_glitch
-        && is_bool(b[0x48])                                              // glide_glitch
-        && (b[0x49] as i8 as i32 + 1) as u32 <= 2                       // skipwalking {-1,0,1}
-        && b[0x4A] < 3                                                   // block_roofing
-        && is_bool(b[0x4B])                                              // floating_weapon_glitch
-        && (read_i32_le(b, 0x4C) as u32) < 0x1_0001                     // rw_bounciness
-        && (read_i32_le(b, 0x50) as u32) < 0x4001                       // rw_air_viscosity
-        && is_bool(b[0x54])                                              // rw_air_viscosity_worms
-        && read_u32_le(b, 0x55) < 0x1_0001                              // rw_wind_influence
-        && is_bool(b[0x59])                                              // rw_wind_influence_worms
-        && b[0x5A] < 4                                                   // rw_gravity_type
-        && (read_i32_le(b, 0x5B) as u32).wrapping_add(0x40000000) < 0x80000001 // rw_gravity_strength
-        && is_bool(b[0x60])                                              // rw_crate_shower
-        && is_bool(b[0x61])                                              // rw_anti_sink
-        && is_bool(b[0x62])                                              // rw_remember_weapons
-        && is_bool(b[0x63])                                              // rw_extended_fuses
-        && is_bool(b[0x64])                                              // rw_anti_lock_aim
-        && is_tristate(b[0x65])                                          // terrain_overlap_glitch
-        && is_bool(b[0x66])                                              // fractional_round_timer
-        && is_bool(b[0x67])                                              // auto_retreat
-        && (b[0x68] as i8 as i32 + 1) as u32 <= 3                       // health_crates_cure_poison
-        && b[0x69] < 6                                                   // rw_kaos_mod
-        && b[0x6A].wrapping_sub(1) < 7                                   // sheep_heavens_gate [1,7]
-        && is_bool(b[0x6B])                                              // conserve_instant_utilities
-        && is_bool(b[0x6C]) // expedite_instant_utilities
-    }
-}
-
-/// V3 extended options defaults from WA.exe ROM at 0x649AB8 (110 bytes).
-///
-/// Applied to V1/V2 schemes at struct+0x138 (payload+0x124).
-/// Dumped directly from the binary — tri-state fields use 0x80 = "engine default".
-pub const EXTENDED_OPTIONS_DEFAULTS: [u8; EXTENDED_OPTIONS_SIZE] = [
-    // Byte-exact copy of WA.exe ROM at 0x649AB8 (110 bytes).
-    // Dumped at runtime to avoid transcription errors.
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x0F, // +0x00
-    0x70, 0x3D, 0x00, 0x00, 0xC2, 0xF5, 0x00, 0x00, // +0x08
-    0xFF, 0xFF, 0x00, 0x00, 0xFF, 0x05, 0x00, 0x01, // +0x10
-    0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // +0x18
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80, // +0x20
-    0x80, 0x01, 0x00, 0x00, 0x00, 0x80, 0x00, 0x32, // +0x28
-    0x33, 0x1E, 0xC8, 0x00, 0x00, 0x00, 0x20, 0x00, // +0x30
-    0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x05, 0x00, // +0x38
-    0x00, 0x00, 0x01, 0x00, 0x80, 0x80, 0x01, 0x01, // +0x40
-    0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, // +0x48
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // +0x50
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, // +0x58
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, // +0x60
-    0x01, 0x00, 0x07, 0x00, 0x00, 0x01, // +0x68
-];
-
-// === Typed accessors on SchemeFile ===
-
-impl SchemeFile {
-    /// Get the game options from the payload.
-    pub fn options(&self) -> SchemeOptions {
-        SchemeOptions::from_bytes(&self.payload[OPTIONS_OFFSET..])
-    }
-
-    /// Get weapon settings for a weapon by scheme index (0-63).
-    ///
-    /// Indices 0-44 are V1 weapons, 45-63 are V2 super weapons.
-    /// Returns `None` if the index is out of range for this scheme version.
-    pub fn weapon(&self, scheme_index: usize) -> Option<WeaponSettings> {
-        if scheme_index >= WEAPONS_TOTAL_COUNT {
-            return None;
-        }
-        // V1 schemes only have weapons 0-44
-        if scheme_index >= WEAPONS_V1_COUNT && self.version == SchemeVersion::V1 {
-            return None;
-        }
-        let offset = WEAPONS_V1_OFFSET + scheme_index * WEAPON_ENTRY_SIZE;
-        Some(WeaponSettings::from_bytes(&self.payload[offset..]))
-    }
-
-    /// Get extended options (V3 only). Returns `None` for V1/V2 schemes.
-    pub fn extended_options(&self) -> Option<ExtendedOptions> {
-        if self.payload.len() > EXTENDED_OPTIONS_OFFSET {
-            Some(ExtendedOptions::from_bytes(
-                &self.payload[EXTENDED_OPTIONS_OFFSET..],
-            ))
-        } else {
-            None
-        }
-    }
-
-    /// Get extended options, falling back to ROM defaults for V1/V2 schemes.
-    pub fn extended_options_or_defaults(&self) -> ExtendedOptions {
-        self.extended_options()
-            .unwrap_or_else(|| ExtendedOptions::from_bytes(&EXTENDED_OPTIONS_DEFAULTS))
-    }
-
-    /// Number of weapons available in this scheme version.
-    pub fn weapon_count(&self) -> usize {
-        match self.version {
-            SchemeVersion::V1 => WEAPONS_V1_COUNT,
-            _ => WEAPONS_TOTAL_COUNT,
-        }
-    }
-}
-
 /// Error type for file-based scheme operations.
 #[derive(Debug)]
 pub enum SchemeFileError {
     Io(std::io::Error),
-    Parse(SchemeError),
+    Parse(DekuError),
 }
 
 impl core::fmt::Display for SchemeFileError {
@@ -1025,76 +861,121 @@ impl core::fmt::Display for SchemeFileError {
 mod tests {
     use super::*;
 
-    #[test]
-    fn version_roundtrip() {
-        for v in [SchemeVersion::V1, SchemeVersion::V2, SchemeVersion::V3] {
-            assert_eq!(SchemeVersion::from_byte(v.to_byte()), Some(v));
-        }
-        // Unknown versions return None
-        assert_eq!(SchemeVersion::from_byte(0), None);
-        assert_eq!(SchemeVersion::from_byte(4), None);
+    fn scheme_bytes(version: SchemeVersion, payload: &[u8]) -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(b"SCHM");
+        data.push(version as u8);
+        data.extend_from_slice(payload);
+        data
+    }
+
+    fn v1_payload(options: SchemeOptions, weapons: StandardWeapons) -> Vec<u8> {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&options.to_bytes().unwrap());
+        payload.extend_from_slice(&weapons.to_bytes().unwrap());
+        payload
+    }
+
+    fn v2_payload(
+        options: SchemeOptions,
+        weapons: StandardWeapons,
+        super_weapons: SuperWeapons,
+    ) -> Vec<u8> {
+        let mut payload = v1_payload(options, weapons);
+        payload.extend_from_slice(&super_weapons.to_bytes().unwrap());
+        payload
+    }
+
+    fn default_v1_payload() -> Vec<u8> {
+        v1_payload(SchemeOptions::default(), StandardWeapons::default())
+    }
+
+    fn default_v2_payload() -> Vec<u8> {
+        v2_payload(
+            SchemeOptions::default(),
+            StandardWeapons::default(),
+            SuperWeapons::default(),
+        )
     }
 
     #[test]
-    fn payload_sizes() {
-        assert_eq!(SchemeVersion::V1.payload_size(), 0xD8);
-        assert_eq!(SchemeVersion::V2.payload_size(), 0x124);
-        assert_eq!(SchemeVersion::V3.payload_size(), 0x192);
+    fn ammunition_maps_raw_values() {
+        let finite = WeaponSettings::try_from([9, 0, 0, 0].as_slice()).unwrap();
+        assert_eq!(finite.ammo, Ammunition::Finite(9));
+
+        let infinite_10 = WeaponSettings::try_from([10, 0, 0, 0].as_slice()).unwrap();
+        assert_eq!(infinite_10.ammo, Ammunition::Infinite);
+
+        let infinite_high = WeaponSettings::try_from([0x80, 0, 0, 0].as_slice()).unwrap();
+        assert_eq!(infinite_high.ammo, Ammunition::Infinite);
+
+        let weapon = WeaponSettings {
+            ammo: Ammunition::finite(7).unwrap(),
+            ..Default::default()
+        };
+        assert_eq!(weapon.to_bytes().unwrap()[0], 7);
+
+        let weapon = WeaponSettings {
+            ammo: Ammunition::Infinite,
+            ..Default::default()
+        };
+        assert_eq!(weapon.to_bytes().unwrap()[0], 10);
+
+        let weapon = WeaponSettings {
+            ammo: Ammunition::Finite(11),
+            ..Default::default()
+        };
+        assert!(weapon.to_bytes().is_err());
     }
 
     #[test]
     fn parse_v1_synthetic() {
-        let mut data = Vec::new();
-        data.extend_from_slice(b"SCHM");
-        data.push(0x01);
-        data.extend_from_slice(&[0xAA; SCHEME_PAYLOAD_V1]);
-        assert_eq!(data.len(), 221);
-
-        let scheme = SchemeFile::from_bytes(&data).unwrap();
-        assert_eq!(scheme.version, SchemeVersion::V1);
-        assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V1);
-        assert!(scheme.payload.iter().all(|&b| b == 0xAA));
+        let data = scheme_bytes(SchemeVersion::V1, &default_v1_payload());
+        let scheme = Scheme::try_from(data.as_slice()).unwrap();
+        assert_eq!(scheme.to_bytes()[4], SchemeVersion::V3 as u8);
+        assert_eq!(scheme.super_weapons, SuperWeapons::default());
+        assert_eq!(scheme.extended_options, ExtendedOptions::default());
+        assert_eq!(
+            Scheme::try_from(scheme.to_bytes().as_slice()).unwrap(),
+            scheme
+        );
     }
 
     #[test]
     fn parse_v2_synthetic() {
-        let mut data = Vec::new();
-        data.extend_from_slice(b"SCHM");
-        data.push(0x02);
-        data.extend_from_slice(&[0xBB; SCHEME_PAYLOAD_V2]);
-        assert_eq!(data.len(), 297);
-
-        let scheme = SchemeFile::from_bytes(&data).unwrap();
-        assert_eq!(scheme.version, SchemeVersion::V2);
-        assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V2);
+        let data = scheme_bytes(SchemeVersion::V2, &default_v2_payload());
+        let scheme = Scheme::try_from(data.as_slice()).unwrap();
+        assert_eq!(scheme.to_bytes()[4], SchemeVersion::V3 as u8);
+        assert_eq!(scheme.extended_options, ExtendedOptions::default());
+        assert_eq!(
+            Scheme::try_from(scheme.to_bytes().as_slice()).unwrap(),
+            scheme
+        );
     }
 
     #[test]
     fn roundtrip_synthetic() {
-        let mut data = Vec::new();
-        data.extend_from_slice(b"SCHM");
-        data.push(0x01);
-        data.extend_from_slice(&[0x42; SCHEME_PAYLOAD_V1]);
-
-        let scheme = SchemeFile::from_bytes(&data).unwrap();
-        assert_eq!(scheme.to_bytes(), data);
+        let data = scheme_bytes(SchemeVersion::V1, &default_v1_payload());
+        let scheme = Scheme::try_from(data.as_slice()).unwrap();
+        assert_eq!(scheme.to_bytes()[4], SchemeVersion::V3 as u8);
+        assert_eq!(
+            Scheme::try_from(scheme.to_bytes().as_slice()).unwrap(),
+            scheme
+        );
     }
 
     #[test]
     fn error_too_short() {
-        assert_eq!(
-            SchemeFile::from_bytes(b"SCH"),
-            Err(SchemeError::TooShort { len: 3 })
-        );
+        assert!(Scheme::try_from(b"SCH".as_slice()).is_err());
     }
 
     #[test]
     fn error_bad_magic() {
         let mut data = vec![b'N', b'O', b'P', b'E', 0x01];
-        data.extend_from_slice(&[0; SCHEME_PAYLOAD_V1]);
+        data.extend_from_slice(&default_v1_payload());
         assert!(matches!(
-            SchemeFile::from_bytes(&data),
-            Err(SchemeError::BadMagic([b'N', b'O', b'P', b'E']))
+            Scheme::try_from(data.as_slice()),
+            Err(DekuError::Parse(_))
         ));
     }
 
@@ -1107,57 +988,134 @@ mod tests {
         data.extend_from_slice(&[0; 10]);
 
         assert!(matches!(
-            SchemeFile::from_bytes(&data),
-            Err(SchemeError::PayloadMismatch {
-                expected: 0xD8,
-                got: 10
-            })
+            Scheme::try_from(data.as_slice()),
+            Err(DekuError::Incomplete(_))
         ));
     }
 
     #[test]
     fn v3_variable_length_padded_with_defaults() {
-        // V3 scheme with only V2-length payload (no extended options in file)
-        let mut data = Vec::new();
-        data.extend_from_slice(b"SCHM");
-        data.push(0x03);
-        data.extend_from_slice(&[0xAA; SCHEME_PAYLOAD_V2]); // V2 portion filled with 0xAA
-        // No extended options bytes — should be padded with defaults
-
-        let scheme = SchemeFile::from_bytes(&data).expect("should accept short V3");
-        assert_eq!(scheme.version, SchemeVersion::V3);
-        assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V3);
-        // V2 portion should be file data
-        assert_eq!(scheme.payload[0], 0xAA);
-        assert_eq!(scheme.payload[SCHEME_PAYLOAD_V2 - 1], 0xAA);
-        // Extended portion should be defaults
-        assert_eq!(
-            &scheme.payload[SCHEME_PAYLOAD_V2..],
-            &EXTENDED_OPTIONS_DEFAULTS[..]
+        let mut super_weapons = SuperWeapons::default();
+        super_weapons.armageddon.crate_probability = 0xAA;
+        let payload = v2_payload(
+            SchemeOptions::default(),
+            StandardWeapons::default(),
+            super_weapons.clone(),
         );
+        let data = scheme_bytes(SchemeVersion::V3, &payload);
+
+        let scheme = Scheme::try_from(data.as_slice()).expect("should accept short V3");
+        assert_eq!(scheme.super_weapons, super_weapons);
+        assert_eq!(scheme.extended_options, ExtendedOptions::default());
     }
 
     #[test]
     fn v3_full_length_accepted() {
-        // V3 scheme with full 0x192 payload
-        let mut data = Vec::new();
-        data.extend_from_slice(b"SCHM");
-        data.push(0x03);
-        data.extend_from_slice(&[0; SCHEME_PAYLOAD_V3]);
+        let mut payload = default_v2_payload();
+        payload.extend_from_slice(&ExtendedOptions::default_bytes());
+        let data = scheme_bytes(SchemeVersion::V3, &payload);
 
-        let scheme = SchemeFile::from_bytes(&data).expect("should accept full V3");
-        assert_eq!(scheme.version, SchemeVersion::V3);
-        assert_eq!(scheme.payload.len(), SCHEME_PAYLOAD_V3);
+        let scheme = Scheme::try_from(data.as_slice()).expect("should accept full V3");
+        assert_eq!(scheme.extended_options, ExtendedOptions::default());
     }
 
     #[test]
     fn v3_too_short_rejected() {
-        // V3 with less than V2-length payload should be rejected
-        let mut data = Vec::new();
-        data.extend_from_slice(b"SCHM");
-        data.push(0x03);
-        data.extend_from_slice(&[0; 0x100]); // less than V2 (0x124)
+        let data = scheme_bytes(SchemeVersion::V3, &default_v1_payload());
 
-        assert!(SchemeFile::from_bytes(&data).is_err());
+        assert!(Scheme::try_from(data.as_slice()).is_err());
+    }
+
+    #[test]
+    fn default_scheme_is_valid_v3() {
+        let scheme = Scheme::default();
+        assert_eq!(scheme.extended_options, ExtendedOptions::default());
+        assert!(ExtendedOptions::validate_bytes(
+            &ExtendedOptions::default_bytes()
+        ));
+        assert_eq!(scheme.payload_bytes().len(), SCHEME_PAYLOAD_V3);
+    }
+
+    #[test]
+    fn from_payload_bytes_roundtrips_canonical_payload() {
+        let scheme = Scheme::default();
+
+        assert_eq!(
+            Scheme::from_payload_bytes(&scheme.payload_bytes()).unwrap(),
+            scheme
+        );
+        assert!(Scheme::from_payload_bytes(&[]).is_err());
+    }
+
+    #[test]
+    fn payload_bytes_pads_legacy_inputs_for_runtime() {
+        let mut standard_weapons = StandardWeapons::default();
+        standard_weapons.damage_x2.crate_probability = 0xAA;
+        let v1 = scheme_bytes(
+            SchemeVersion::V1,
+            &v1_payload(SchemeOptions::default(), standard_weapons.clone()),
+        );
+        let v1 = Scheme::try_from(v1.as_slice()).unwrap();
+        assert_eq!(v1.weapons, standard_weapons);
+        assert_eq!(v1.super_weapons, SuperWeapons::default());
+        assert_eq!(v1.extended_options, ExtendedOptions::default());
+        assert_eq!(v1.payload_bytes().len(), SCHEME_PAYLOAD_V3);
+
+        let mut super_weapons = SuperWeapons::default();
+        super_weapons.armageddon.crate_probability = 0xBB;
+        let v2 = scheme_bytes(
+            SchemeVersion::V2,
+            &v2_payload(
+                SchemeOptions::default(),
+                StandardWeapons::default(),
+                super_weapons.clone(),
+            ),
+        );
+        let v2 = Scheme::try_from(v2.as_slice()).unwrap();
+        assert_eq!(v2.super_weapons, super_weapons);
+        assert_eq!(v2.extended_options, ExtendedOptions::default());
+        assert_eq!(v2.payload_bytes().len(), SCHEME_PAYLOAD_V3);
+    }
+
+    #[test]
+    fn v3_writes_through_last_non_default_extended_byte() {
+        let mut scheme = Scheme::default();
+        scheme.extended_options.double_time_stack_limit = 2;
+
+        assert_eq!(scheme.payload_bytes().last(), Some(&2));
+    }
+
+    #[test]
+    fn extended_option_nested_defaults_match_rom_defaults() {
+        let defaults = ExtendedOptions::default();
+
+        assert_eq!(TriState::default(), TriState::Default);
+        assert_eq!(PhasedWorms::default(), PhasedWorms::Off);
+        assert_eq!(RopeRollDrops::default(), RopeRollDrops::Disabled);
+        assert_eq!(
+            KeepControlAfterSkimming::default(),
+            KeepControlAfterSkimming::LoseControl
+        );
+        assert_eq!(Skipwalking::default(), Skipwalking::Possible);
+        assert_eq!(BlockRoofing::default(), BlockRoofing::Allow);
+        assert_eq!(
+            RubberWormGravityType::default(),
+            RubberWormGravityType::Unmodified
+        );
+        assert_eq!(
+            HealthCratesCurePoison::default(),
+            HealthCratesCurePoison::CollectingWormTeam
+        );
+        assert_eq!(SheepHeavensGate::default().bits(), 0x07);
+        assert!(
+            SheepHeavensGate::default().contains(SheepHeavensGate::SHEEP_EXPLODE_FROM_ALL_CRATES)
+        );
+        assert!(SheepHeavensGate::default().contains(SheepHeavensGate::EXTENDED_SHEEP_FUSE_TIME));
+        assert!(
+            SheepHeavensGate::default()
+                .contains(SheepHeavensGate::BOOST_SHEEP_WEAPON_CRATE_PROBABILITY)
+        );
+        assert_eq!(RubberwormOptions::default(), defaults.rubberworm);
+        assert_eq!(SheepHeavensGate::default(), defaults.sheep_heavens_gate);
     }
 }
