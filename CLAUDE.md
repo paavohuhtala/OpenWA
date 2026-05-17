@@ -97,15 +97,17 @@ See `crates/openwa-dll/CLAUDE.md` for hooking patterns (passthrough, full replac
 
 Use the `/desync-debug` skill for desync diagnosis (trace-desync, per-frame analysis). Only after a headless test has already detected a failure.
 
-## Ghidra MCP
+## RE database (`re/*.toml`) and Ghidra MCP
 
-A Ghidra MCP bridge is configured in `.mcp.json`. When using Ghidra tools:
+The reverse-engineering metadata — function names, prototypes, calling conventions, plate comments, globals, labels, struct/union/enum/typedef layouts — is canonical in `re/**/*.toml` and pushed to Ghidra via the `openwa-re` CLI. **Edit the TOML files; do not write changes through Ghidra MCP.** See `re/CLAUDE.md` for the schema, file layout, and the `openwa-re validate / export / import` workflow.
 
-- **Prefer batch tools** (`batch_create_labels`, `batch_rename_function_components`) — single-item tools have address parsing bugs.
-- WA.exe is loaded at image base 0x400000 in Ghidra.
-- When you encounter unnamed functions, globals or structs, name them in Ghidra if you know their purpose. Even a guess is helpful for future reference, but add `_Maybe` suffix if uncertain.
-- Remove `_Maybe` suffix when you confirm the purpose.
-- When you learn more about a function or address, update both the Ghidra database (rename function / label and update signature) and the corresponding Rust code.
+Ghidra MCP is configured in `.mcp.json` and is **read-only** as far as agent work goes:
+
+- **OK** — decompile, disassemble, xrefs, call-graph, search, struct/vtable layout inspection, finding undefined functions, validating prototypes. WA.exe is loaded at image base 0x400000.
+- **Not OK** — `rename_*`, `set_function_prototype`, `set_variable_storage`, `create_struct`/`modify_struct_field`, `batch_create_labels`, comment-setting tools, `save_program`, anything else that mutates the Ghidra DB. Make the change in `re/*.toml` and `openwa-re export` instead.
+- **Exception** — `run_ghidra_script` invoking `OpenWAImport.java` / `OpenWAExport.java` is fine; those scripts are how the canonical TOML state gets pushed into Ghidra (or pulled back for absorbing UI-side edits). Use them to close the loop without involving the user.
+
+When you encounter an unnamed function/global/struct or learn a new fact about one, name it (with a `_Maybe` suffix if uncertain; drop the suffix once confirmed) by editing the relevant `re/*.toml` file. `openwa-re validate` to check, then `openwa-re export` + `OpenWAImport.java` to push to Ghidra so subsequent MCP reads see the new name.
 
 ## Address Registry, FieldRegistry & Vtable Macros
 
