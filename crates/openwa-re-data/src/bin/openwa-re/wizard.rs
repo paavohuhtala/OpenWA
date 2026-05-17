@@ -24,6 +24,7 @@ pub enum BootstrapMode {
     No,
 }
 
+#[allow(clippy::field_reassign_with_default)] // cfg built incrementally with save_partial between steps
 pub fn run(
     repo_root: &Path,
     re_dir: &Path,
@@ -108,10 +109,10 @@ fn prompt_game_dir(theme: &ColorfulTheme, prior: Option<&Path>) -> Result<PathBu
     let detected = openwa_config::find_wa_dir();
     let initial = prior.map(|p| p.to_path_buf()).or_else(|| detected.clone());
 
-    if let Some(d) = &detected {
-        if prior.is_none() {
-            eprintln!("Detected Worms Armageddon at {}", d.display());
-        }
+    if let Some(d) = &detected
+        && prior.is_none()
+    {
+        eprintln!("Detected Worms Armageddon at {}", d.display());
     }
 
     let default_text = initial

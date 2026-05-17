@@ -16,8 +16,8 @@
 //! and use fixed file conventions inside it:
 //!   - `wa_export.xml`         — XML dump produced by `OpenWAExport.java`
 //!   - `wa_export_extras.json` — sidecar produced alongside the XML; carries
-//!                               calling_convention, no_return, custom_storage
-//!                               (attributes Ghidra's XML DTD cannot represent)
+//!     calling_convention, no_return, custom_storage
+//!     (attributes Ghidra's XML DTD cannot represent)
 //!   - `wa_import.json`        — manifest consumed by `OpenWAImport.java`
 //!
 //! The extras sidecar is load-bearing: without it, custom-storage functions

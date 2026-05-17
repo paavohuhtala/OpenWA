@@ -632,10 +632,7 @@ fn parse_function<R: std::io::BufRead>(
     if filter::is_auto_function_name(&name) {
         prog.stats.functions_dropped_auto += 1;
         keep = false;
-    } else if library == "y" {
-        prog.stats.functions_dropped_library += 1;
-        keep = false;
-    } else if filter::is_qualified_import_name(&name) {
+    } else if library == "y" || filter::is_qualified_import_name(&name) {
         prog.stats.functions_dropped_library += 1;
         keep = false;
     }
