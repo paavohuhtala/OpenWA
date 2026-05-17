@@ -8,7 +8,7 @@ calling_convention = "__stdcall"
 
   [[function.param]]
   name = "prefix_ptr"
-  type = "int"
+  type = "byte *"
 
   [[function.param]]
   name = "type_label"
@@ -28,4 +28,4 @@ calling_convention = "__stdcall"
 
   [[function.param]]
   name = "prefix_ptr"
-  type = "int"
+  type = "byte *"

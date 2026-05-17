@@ -134,19 +134,37 @@ fn generate_re_artifacts() {
     }
 
     let cat = openwa_re_codegen::Catalog::load_from(&re_dir).expect("loading re/ catalog");
-
-    let (source, stats) = openwa_re_codegen::emit_addresses::generate(&cat);
     let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
-    fs::write(out_dir.join("generated_addresses.rs"), source)
+
+    // generated_addresses.rs — `pub const NAME: u32` + inventory entries.
+    let (addr_source, addr_stats) = openwa_re_codegen::emit_addresses::generate(&cat);
+    fs::write(out_dir.join("generated_addresses.rs"), addr_source)
         .expect("writing generated_addresses.rs");
 
     println!(
-        "cargo:warning=openwa-re-codegen: emitted {} fns + {} globals; skipped {} fns + {} globals (invalid ident), {} fns + {} globals (dup name)",
-        stats.functions_emitted,
-        stats.globals_emitted,
-        stats.functions_skipped_invalid_ident,
-        stats.globals_skipped_invalid_ident,
-        stats.functions_skipped_duplicate_name,
-        stats.globals_skipped_duplicate_name,
+        "cargo:warning=addresses: emitted {} fns + {} globals; skipped {} fns + {} globals (invalid ident), {} fns + {} globals (dup name)",
+        addr_stats.functions_emitted,
+        addr_stats.globals_emitted,
+        addr_stats.functions_skipped_invalid_ident,
+        addr_stats.globals_skipped_invalid_ident,
+        addr_stats.functions_skipped_duplicate_name,
+        addr_stats.globals_skipped_duplicate_name,
+    );
+
+    // generated_wa_calls.rs — typed Path-A wrappers (transmute call-throughs).
+    let (calls_source, calls_stats) = openwa_re_codegen::emit_wa_calls::generate(&cat);
+    fs::write(out_dir.join("generated_wa_calls.rs"), calls_source)
+        .expect("writing generated_wa_calls.rs");
+
+    println!(
+        "cargo:warning=wa_calls: emitted {} fns; skipped {} (no conv), {} (unknown conv), {} (usercall), {} (no ret type), {} (unresolved type), {} (invalid ident), {} (dup member)",
+        calls_stats.functions_emitted,
+        calls_stats.skipped_no_convention,
+        calls_stats.skipped_unknown_convention,
+        calls_stats.skipped_usercall,
+        calls_stats.skipped_no_return_type,
+        calls_stats.skipped_unresolved_type,
+        calls_stats.skipped_invalid_member_ident,
+        calls_stats.skipped_duplicate_member,
     );
 }

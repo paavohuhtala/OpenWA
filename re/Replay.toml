@@ -32,7 +32,7 @@ calling_convention = "__stdcall"
 
   [[function.param]]
   name = "prefix_ptr"
-  type = "int"
+  type = "byte *"
 
 [[function]]
 va = 0x004670F0

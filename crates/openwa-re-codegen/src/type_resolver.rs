@@ -13,11 +13,11 @@
 //!        - `FunctionDef` → `ResolvedTy::Fn` (for function-pointer fields)
 //!   4. Any unresolved base bubbles up as [`ResolvedTy::Unresolved`].
 //!
-//! `rust_path` on TOML types does not exist yet — schema change pending in
-//! step 2 of the rollout. The resolver checks `Struct/Union/Enum/Typedef`
-//! by name today; once `rust_path` is added the lookup chooses it
-//! preferentially. Until then, every user type resolves as `Unresolved` and
-//! codegen skips the wrapper — exactly the documented best-effort behaviour.
+//! User types resolve only when their TOML entry carries an explicit
+//! `rust_path` (e.g. `rust_path = "openwa_game::engine::game_info::GameInfo"`).
+//! Otherwise the name surfaces as [`ResolvedTy::Unresolved`] and the
+//! consumer (e.g. `emit_wa_calls`) silently skips the wrapper — the
+//! documented best-effort behaviour.
 
 use anyhow::{Result, anyhow};
 use openwa_re_data::toml_io::Catalog;

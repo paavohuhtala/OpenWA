@@ -11,5 +11,6 @@
 pub use openwa_re_data::toml_io::Catalog;
 
 pub mod emit_addresses;
+pub mod emit_wa_calls;
 pub mod storage;
 pub mod type_resolver;

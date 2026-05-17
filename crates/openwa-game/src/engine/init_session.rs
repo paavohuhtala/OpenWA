@@ -32,6 +32,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use crate::address::va;
 use crate::engine::GameInfo;
 use crate::engine::config_load::load_options;
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 
 /// Set by [`init_session_shim`] each time the Rust orchestrator runs. The
@@ -79,35 +80,11 @@ unsafe fn wa_time64() -> i64 {
 
 // ─── Bridges to unported WA helpers ────────────────────────────────────────
 
-unsafe fn wa_init_teams_from_lobby(prefix: *mut u8) {
-    unsafe {
-        let f: unsafe extern "stdcall" fn(*mut u8) =
-            core::mem::transmute(rb(va::GAME_INFO_INIT_TEAMS_FROM_LOBBY));
-        f(prefix);
-    }
-}
-
 unsafe fn wa_create_wa_game_replay(prefix: *mut u8, label: *const c_char, time_val: i64) {
     unsafe {
         let f: unsafe extern "stdcall" fn(*mut u8, *const c_char, u32, u32) =
             core::mem::transmute(rb(va::CGAMEINFO_CREATE_WA_GAME_REPLAY));
         f(prefix, label, time_val as u32, (time_val >> 32) as u32);
-    }
-}
-
-unsafe fn wa_convert_scheme(prefix: *mut u8) {
-    unsafe {
-        let f: unsafe extern "stdcall" fn(*mut u8) =
-            core::mem::transmute(rb(va::CGAMEINFO_CONVERT_SCHEME));
-        f(prefix);
-    }
-}
-
-unsafe fn wa_validate_team_setup(prefix: *mut u8) {
-    unsafe {
-        let f: unsafe extern "stdcall" fn(*mut u8) =
-            core::mem::transmute(rb(va::REPLAY_VALIDATE_TEAM_SETUP));
-        f(prefix);
     }
 }
 
@@ -248,7 +225,7 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
             crate::engine::pending_match::apply_map_globals(&pending);
         }
 
-        wa_init_teams_from_lobby(prefix);
+        wa_calls::GameInfo::InitTeamsFromLobby(prefix);
 
         if is_frontend && let Some(label) = type_label {
             let t = wa_time64();
@@ -267,9 +244,9 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
         // mine_list_capacity, object_slot_count, the 0xD78C..0xD924
         // per-weapon overlay, etc.) stay at zero and the dispatch loop
         // divides by `game_speed_target = 0`.
-        wa_convert_scheme(prefix);
+        wa_calls::CGameInfo::ConvertScheme(prefix);
 
-        wa_validate_team_setup(prefix);
+        wa_calls::Replay::ValidateTeamSetup(prefix);
 
         process_replay_flags(gi);
 
