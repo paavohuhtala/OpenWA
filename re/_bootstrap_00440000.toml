@@ -1,7 +1,7 @@
 [[function]]
 va = 0x00447A20
 name = "FrontendChangeScreen"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 
   [[function.param]]

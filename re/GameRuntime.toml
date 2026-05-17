@@ -48,7 +48,7 @@ plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra r
 [[function]]
 va = 0x0052A840
 name = "GameRuntime__ShouldContinueFrameLoop"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 
   [function.signature]
@@ -81,7 +81,7 @@ plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET
 [[function]]
 va = 0x0052A9C0
 name = "GameRuntime__BroadcastFrameTiming"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
 
@@ -111,7 +111,7 @@ plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RE
 [[function]]
 va = 0x0052AAA0
 name = "GameRuntime__UpdateNetworkHudAnimations"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 plate_comment = """
 GameRuntime::UpdateNetworkHudAnimations
@@ -183,7 +183,7 @@ Ported to Rust as engine::main_loop::dispatch_frame::update_network_hud_animatio
 [[function]]
 va = 0x0052ABF0
 name = "GameRuntime__CalcTimingRatio"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 plate_comment = "usercall: ESI = DDGameWrapper* this. 1 stdcall stack param (ratio), RET 0x4. Ported to Rust in dispatch_frame.rs."
 
@@ -307,7 +307,7 @@ plate_comment = "Returns 1 only when the HUD slew state should remain active. Ca
 [[function]]
 va = 0x00534CA0
 name = "GameRuntime__SetupFrameParams"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 plate_comment = "usercall: EAX = DDGameWrapper* this. 3 stdcall stack params."
 
@@ -499,7 +499,7 @@ plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET
 [[function]]
 va = 0x0053DF00
 name = "GameRuntime__ProcessNetworkFrame"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
 

@@ -37,7 +37,7 @@ calling_convention = "__stdcall"
 [[function]]
 va = 0x004670F0
 name = "Replay__ProcessSchemeDefaults"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 
   [function.signature]
@@ -51,7 +51,7 @@ custom_storage = true
 [[function]]
 va = 0x00467280
 name = "Replay__ProcessReplayFlags"
-calling_convention = "__usercall"
+calling_convention = "__stdcall"
 custom_storage = true
 
   [function.signature]
