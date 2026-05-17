@@ -1,8 +1,12 @@
-//! Generate symbolic names for WA.exe's `g_LocalizationKeyTable` entries.
+//! Build-time codegen for openwa-game.
 //!
-//! Input: `data/string_resources.txt` — one name per line, in order.
-//! Output: `$OUT_DIR/string_resource.rs` — `StringRes` newtype, `res::*` constants,
-//! and a `NAMES` lookup table. See `src/wa/string_resource.rs` for the wrapping API.
+//! Two outputs, both written to `$OUT_DIR` and included via `src/`:
+//! 1. `string_resource.rs` — `StringRes` newtype + `res::*` constants from
+//!    `data/string_resources.txt`. See `src/wa/string_resource.rs`.
+//! 2. `generated_addresses.rs` — `pub const NAME: u32` + `inventory::submit!`
+//!    entries derived from `re/**/*.toml` via `openwa-re-codegen`. Included
+//!    by `src/generated/mod.rs`. See plan
+//!    `C:\Users\Paavo\.claude\plans\we-ve-recently-added-the-structured-snowflake.md`.
 
 use std::env;
 use std::fs;
@@ -10,6 +14,11 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() {
+    generate_string_resources();
+    generate_re_artifacts();
+}
+
+fn generate_string_resources() {
     let input = "data/string_resources.txt";
     println!("cargo:rerun-if-changed={input}");
 
@@ -99,4 +108,45 @@ fn main() {
         .unwrap();
     }
     writeln!(out, "}}").unwrap();
+}
+
+fn generate_re_artifacts() {
+    // Workspace root = crates/openwa-game/.. -> crates/.. -> workspace root.
+    let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let workspace = manifest_dir
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("workspace root above crates/openwa-game");
+    let re_dir = workspace.join("re");
+
+    // Track every TOML so cargo rebuilds when any of them change. Also emit
+    // the directory itself — covers added/removed files on cargo versions
+    // that hash dir mtimes.
+    println!("cargo:rerun-if-changed={}", re_dir.display());
+    for entry in walkdir::WalkDir::new(&re_dir)
+        .into_iter()
+        .filter_map(|r| r.ok())
+    {
+        let p = entry.path();
+        if p.extension().and_then(|e| e.to_str()) == Some("toml") {
+            println!("cargo:rerun-if-changed={}", p.display());
+        }
+    }
+
+    let cat = openwa_re_codegen::Catalog::load_from(&re_dir).expect("loading re/ catalog");
+
+    let (source, stats) = openwa_re_codegen::emit_addresses::generate(&cat);
+    let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
+    fs::write(out_dir.join("generated_addresses.rs"), source)
+        .expect("writing generated_addresses.rs");
+
+    println!(
+        "cargo:warning=openwa-re-codegen: emitted {} fns + {} globals; skipped {} fns + {} globals (invalid ident), {} fns + {} globals (dup name)",
+        stats.functions_emitted,
+        stats.globals_emitted,
+        stats.functions_skipped_invalid_ident,
+        stats.globals_skipped_invalid_ident,
+        stats.functions_skipped_duplicate_name,
+        stats.globals_skipped_duplicate_name,
+    );
 }

@@ -898,6 +898,7 @@ size = 0x24E28
 name = "GameInfo"
 namespace = "/OpenWA"
 size = 0x491
+rust_path = "openwa_game::engine::game_info::GameInfo"
 
   [[struct.field]]
   offset = 0x40
@@ -943,6 +944,7 @@ size = 0x491
 name = "GameInfoTeamRecord"
 namespace = "/OpenWA"
 size = 0xBB8
+rust_path = "openwa_game::engine::game_info::GameInfoTeamRecord"
 
   [[struct.field]]
   offset = 0x0
@@ -1014,6 +1016,7 @@ name = "WeaponReleaseContext"
 namespace = "/OpenWA"
 size = 0x2C
 plate_comment = "0x2C / 11-DWORD spawn buffer built on the stack by WeaponRelease (0x51C3D0). Consumed by special-subtype handlers, ProjectileFire (reinterprets spawn_offset_{x,y} as launch velocity), and MissileEntity::Constructor (copies the buffer verbatim into MissileEntity+0x130)."
+rust_path = "openwa_game::game::weapon::WeaponReleaseContext"
 
   [[struct.field]]
   offset = 0x0

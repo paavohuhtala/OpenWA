@@ -386,6 +386,9 @@ fn write_struct(out: &mut String, s: &Struct) {
     if let Some(p) = &s.plate_comment {
         write_string_kv(out, "plate_comment", p);
     }
+    if let Some(rp) = &s.rust_path {
+        write_string_kv(out, "rust_path", rp);
+    }
     for fld in &s.field {
         write_struct_field(out, fld);
     }
@@ -398,6 +401,9 @@ fn write_union(out: &mut String, u: &Union) {
     writeln!(out, "size = 0x{:X}", u.size).unwrap();
     if let Some(p) = &u.plate_comment {
         write_string_kv(out, "plate_comment", p);
+    }
+    if let Some(rp) = &u.rust_path {
+        write_string_kv(out, "rust_path", rp);
     }
     for fld in &u.field {
         write_union_field(out, fld);
@@ -444,6 +450,9 @@ fn write_enum(out: &mut String, e: &Enum) {
     write_string_kv(out, "name", &e.name);
     write_namespace_kv(out, &e.namespace);
     writeln!(out, "size = {}", e.size).unwrap();
+    if let Some(rp) = &e.rust_path {
+        write_string_kv(out, "rust_path", rp);
+    }
     if !e.variant.is_empty() {
         writeln!(out, "\n  [enum.variant]").unwrap();
         for (name, value) in &e.variant {
@@ -456,6 +465,9 @@ fn write_typedef(out: &mut String, t: &Typedef) {
     writeln!(out, "[[typedef]]").unwrap();
     write_string_kv(out, "name", &t.name);
     write_namespace_kv(out, &t.namespace);
+    if let Some(rp) = &t.rust_path {
+        write_string_kv(out, "rust_path", rp);
+    }
     write_string_kv(out, "target", &t.target);
 }
 
@@ -686,6 +698,7 @@ mod tests {
             namespace: None,
             size: 0xA8,
             plate_comment: None,
+            rust_path: None,
             field: vec![
                 Field {
                     offset: 0x00,
@@ -712,6 +725,7 @@ mod tests {
             name: "EntityMessage".into(),
             namespace: None,
             size: 4,
+            rust_path: None,
             variant: variants,
         };
         let file = ReFile {

@@ -40,6 +40,7 @@ pub mod render;
 pub mod address;
 pub mod entity;
 pub mod field_format;
+pub mod generated;
 pub mod main_thread;
 pub mod mem;
 pub mod rebase;

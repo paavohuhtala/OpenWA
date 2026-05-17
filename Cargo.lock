@@ -2804,8 +2804,10 @@ dependencies = [
  "openwa-core",
  "openwa-debug-proto",
  "openwa-derive",
+ "openwa-re-codegen",
  "raw-window-handle",
  "softbuffer",
+ "walkdir",
  "windows",
  "windows-sys 0.61.2",
 ]
@@ -2816,6 +2818,14 @@ version = "0.1.0"
 dependencies = [
  "openwa-config",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "openwa-re-codegen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "openwa-re-data",
 ]
 
 [[package]]

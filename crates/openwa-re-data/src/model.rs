@@ -192,6 +192,13 @@ pub struct Struct {
     pub size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plate_comment: Option<String>,
+    /// Absolute Rust path of the mirroring Rust type, e.g.
+    /// `"openwa_game::game::GameInfo"`. Read by `openwa-re-codegen` to emit
+    /// typed call wrappers; unset means the type has no Rust mirror yet (so
+    /// any function that references it gets skipped in wrapper generation).
+    /// Ignored by Ghidra; not round-tripped through the XML.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rust_path: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub field: Vec<Field>,
 }
@@ -205,6 +212,9 @@ pub struct Union {
     pub size: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plate_comment: Option<String>,
+    /// See [`Struct::rust_path`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rust_path: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub field: Vec<Field>,
 }
@@ -241,6 +251,9 @@ pub struct Enum {
     pub namespace: Option<String>,
     /// Underlying width in bytes (1/2/4/8).
     pub size: u32,
+    /// See [`Struct::rust_path`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rust_path: Option<String>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub variant: IndexMap<String, i64>,
 }
@@ -251,6 +264,10 @@ pub struct Typedef {
     pub name: String,
     #[serde(default, skip_serializing_if = "is_root_namespace")]
     pub namespace: Option<String>,
+    /// See [`Struct::rust_path`]. When set, codegen renders this typedef as
+    /// the given Rust path instead of chasing the `target` chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rust_path: Option<String>,
     pub target: TypeRef,
 }
 

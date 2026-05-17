@@ -258,6 +258,7 @@ fn vtable_impl(
                     calling_conv: None,
                     class_name: #class_expr,
                     doc: "",
+                    source: openwa_game::registry::AddrSource::Manual,
                 }
             }
         }

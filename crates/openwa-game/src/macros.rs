@@ -139,6 +139,7 @@ macro_rules! define_addresses {
                 calling_conv: $conv,
                 class_name: $class,
                 doc: $doc,
+                source: $crate::registry::AddrSource::Manual,
             }
         }
     };

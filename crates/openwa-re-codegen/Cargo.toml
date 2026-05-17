@@ -1,0 +1,12 @@
+[package]
+name = "openwa-re-codegen"
+version = "0.1.0"
+edition = "2024"
+description = "Generates Rust call/hook glue from the `re/*.toml` reverse-engineering catalog (consumed by openwa-game and openwa-dll build scripts)."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+openwa-re-data = { path = "../openwa-re-data" }

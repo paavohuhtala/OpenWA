@@ -289,6 +289,7 @@ fn parse_structure<R: std::io::BufRead>(
         namespace: normalise_namespace(namespace),
         size,
         plate_comment: plate,
+        rust_path: None,
         field: fields,
     });
     prog.stats.types_kept += 1;
@@ -393,6 +394,7 @@ fn parse_union<R: std::io::BufRead>(
         namespace: normalise_namespace(namespace),
         size,
         plate_comment: plate,
+        rust_path: None,
         field: fields,
     });
     prog.stats.types_kept += 1;
@@ -443,6 +445,7 @@ fn parse_enum<R: std::io::BufRead>(
         name,
         namespace: normalise_namespace(namespace),
         size,
+        rust_path: None,
         variant: variants,
     });
     prog.stats.types_kept += 1;
@@ -466,6 +469,7 @@ fn handle_empty_enum(e: &BytesStart<'_>, prog: &mut XmlProgram) {
         name,
         namespace: normalise_namespace(namespace),
         size,
+        rust_path: None,
         variant: Default::default(),
     });
     prog.stats.types_kept += 1;
@@ -539,6 +543,7 @@ fn handle_typedef(e: &BytesStart<'_>, prog: &mut XmlProgram) {
     prog.typedefs.push(Typedef {
         name,
         namespace: normalise_namespace(namespace),
+        rust_path: None,
         target,
     });
     prog.stats.types_kept += 1;

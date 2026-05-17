@@ -55,14 +55,29 @@ pub enum CallingConv {
     Usercall,
 }
 
+/// Provenance of an [`AddrEntry`]: hand-written via `define_addresses!`, or
+/// generated at build time from `re/**/*.toml` by `openwa-re-codegen`.
+///
+/// Both kinds register through the same `inventory` collection, but
+/// [`lookup_va`] / [`format_va`] prefer `Manual` when both are present at the
+/// same VA so existing log output stays stable while codegen is rolled out
+/// incrementally.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddrSource {
+    Manual,
+    Generated,
+}
+
 /// A single entry in the address registry.
 ///
-/// Created by `define_addresses!` and collected globally via `inventory`.
+/// Created by `define_addresses!` (source = `Manual`) or by build-time codegen
+/// from `re/**/*.toml` (source = `Generated`). Collected globally via `inventory`.
 #[derive(Debug, Clone, Copy)]
 pub struct AddrEntry {
     /// Ghidra virtual address (image base 0x400000).
     pub va: u32,
-    /// Constant name (e.g., "BASE_ENTITY_CONSTRUCTOR").
+    /// Constant name (e.g., "BASE_ENTITY_CONSTRUCTOR" for manual entries,
+    /// "BaseEntity__Constructor" for TOML-generated entries).
     pub name: &'static str,
     /// What kind of address this is.
     pub kind: AddrKind,
@@ -72,6 +87,8 @@ pub struct AddrEntry {
     pub class_name: Option<&'static str>,
     /// Brief description from doc comment.
     pub doc: &'static str,
+    /// Hand-written vs codegen-produced. See [`AddrSource`].
+    pub source: AddrSource,
 }
 
 inventory::collect!(AddrEntry);
@@ -92,9 +109,26 @@ static SORTED: OnceLock<Vec<&'static AddrEntry>> = OnceLock::new();
 fn sorted_entries() -> &'static [&'static AddrEntry] {
     SORTED.get_or_init(|| {
         let mut v: Vec<&'static AddrEntry> = inventory::iter::<AddrEntry>.into_iter().collect();
-        v.sort_by_key(|e| e.va);
+        // Sort by (VA asc, source desc) so Manual entries come BEFORE Generated
+        // at the same VA. The binary search in `lookup_va` lands on the first
+        // tie via `Ok(i)` semantics, so Manual wins.
+        //
+        // `AddrSource::Manual < AddrSource::Generated` because of derive
+        // ordering — invert the second key with `Reverse` to surface Manual.
+        v.sort_by(|a, b| {
+            a.va.cmp(&b.va)
+                .then_with(|| source_rank(a.source).cmp(&source_rank(b.source)))
+        });
         v
     })
+}
+
+/// Lower rank wins the tie-break in [`sorted_entries`]: 0 = Manual, 1 = Generated.
+fn source_rank(s: AddrSource) -> u8 {
+    match s {
+        AddrSource::Manual => 0,
+        AddrSource::Generated => 1,
+    }
 }
 
 // --- Query API ---
@@ -103,12 +137,14 @@ fn sorted_entries() -> &'static [&'static AddrEntry] {
 ///
 /// For near-misses, `offset` indicates how far past the entry the VA is.
 /// Returns `None` if below all known entries or the offset exceeds 0x10000
-/// (likely a different symbol).
+/// (likely a different symbol). When both a [`AddrSource::Manual`] and a
+/// [`AddrSource::Generated`] entry exist at the same VA, the Manual one is
+/// returned.
 pub fn lookup_va(ghidra_va: u32) -> Option<ResolvedAddr> {
     let table = sorted_entries();
     match table.binary_search_by_key(&ghidra_va, |e| e.va) {
         Ok(i) => Some(ResolvedAddr {
-            entry: table[i],
+            entry: table[leftmost_with_va(table, i)],
             offset: 0,
         }),
         Err(i) if i > 0 => {
@@ -124,13 +160,26 @@ pub fn lookup_va(ghidra_va: u32) -> Option<ResolvedAddr> {
     }
 }
 
-/// Look up a Ghidra VA, exact match only.
+/// Look up a Ghidra VA, exact match only. Same Manual-over-Generated
+/// preference as [`lookup_va`].
 pub fn lookup_va_exact(ghidra_va: u32) -> Option<&'static AddrEntry> {
     let table = sorted_entries();
     table
         .binary_search_by_key(&ghidra_va, |e| e.va)
         .ok()
-        .map(|i| table[i])
+        .map(|i| table[leftmost_with_va(table, i)])
+}
+
+/// Walk left from `i` while the VA stays equal. `sorted_entries` orders
+/// (VA asc, Manual before Generated), so the leftmost tie is the Manual one
+/// when present.
+fn leftmost_with_va(table: &[&'static AddrEntry], i: usize) -> usize {
+    let va = table[i].va;
+    let mut j = i;
+    while j > 0 && table[j - 1].va == va {
+        j -= 1;
+    }
+    j
 }
 
 /// Given a Ghidra vtable address, return the class name.
