@@ -769,11 +769,12 @@ fn parse_stack_frame<R: std::io::BufRead>(
                     // Storage is always emitted; the post-sidecar prune pass
                     // drops it from params on functions where
                     // custom_storage = false (default-storage round-trip
-                    // doesn't need explicit per-param storage).
+                    // doesn't need explicit per-param storage). Hex uses
+                    // uppercase to match the rest of the catalog.
                     params.push(Param {
                         name: pname,
                         ty,
-                        storage: Some(format!("stack:0x{:x}", offset)),
+                        storage: Some(format!("stack:0x{:X}", offset)),
                     });
                 } else {
                     locals.push(Local {

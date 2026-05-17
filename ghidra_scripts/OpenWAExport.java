@@ -65,13 +65,23 @@ public class OpenWAExport extends GhidraScript {
             Function f = fns.next();
             if (f.getSymbol() == null) continue;
             SourceType src = f.getSymbol().getSource();
-            if (src != SourceType.USER_DEFINED && src != SourceType.IMPORTED) continue;
+            // Thunks (CRT/MFC import wrappers like `WA_Free`, `_atol`,
+            // `__fputchar`, `AfxInternalProcessWndProcException`) carry
+            // their names from PE-loader auto-analysis, so Ghidra reports
+            // their symbol source as DEFAULT — they would otherwise be
+            // filtered out here and lose their calling convention on
+            // round-trip. Let thunks through unconditionally; the
+            // attribute filter below still skips them if there's nothing
+            // to emit.
+            if (src != SourceType.USER_DEFINED
+                    && src != SourceType.IMPORTED
+                    && !f.isThunk()) {
+                continue;
+            }
 
             String cc = f.getCallingConventionName();
-            // 1-instruction JMP thunks (CRT/MFC imports etc.) report their
-            // OWN cc as null/unknown — the real convention lives on the
-            // thunk target. Follow it so `WA_Free`, `_atol`, etc. don't
-            // lose their `__cdecl` on round-trip.
+            // For thunks where the thunk itself has no cc, fall back to
+            // the thunk target's cc.
             if ((cc == null || cc.equals("unknown")) && f.isThunk()) {
                 Function tgt = f.getThunkedFunction(true);
                 if (tgt != null) {
