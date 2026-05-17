@@ -107,6 +107,12 @@ enum Cmd {
         #[arg(long, conflicts_with = "bootstrap")]
         no_bootstrap: bool,
     },
+
+    /// Reinstall the Ghidra-side scripts (`OpenWAExport.java` /
+    /// `OpenWAImport.java`) into `~/ghidra_scripts/` from the repo copy,
+    /// rewriting their default scratch-path literal to match
+    /// `.openwa/setup.toml`. Use after a repo update changes the scripts.
+    InstallScripts,
 }
 
 fn main() -> Result<()> {
@@ -149,7 +155,18 @@ fn main() -> Result<()> {
             };
             wizard::run(&root, &re, force, mode)
         }
+        Cmd::InstallScripts => cmd_install_scripts(&root),
     }
+}
+
+fn cmd_install_scripts(repo_root: &Path) -> Result<()> {
+    let cfg = SetupConfig::load(repo_root)?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "no {} found — run `openwa-re setup` first to configure the scratch dir.",
+            setup::setup_path(repo_root).display(),
+        )
+    })?;
+    wizard::install_ghidra_scripts(repo_root, &cfg)
 }
 
 /// Resolve a scratch dir from (a) an explicit CLI arg, or (b) `.openwa/setup.toml`.

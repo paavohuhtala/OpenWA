@@ -265,7 +265,7 @@ fn save_partial(repo_root: &Path, cfg: &SetupConfig) -> Result<()> {
 /// Copy `ghidra_scripts/OpenWA{Export,Import}.java` from the repo into the
 /// user's `~/ghidra_scripts/` directory, rewriting the hard-coded
 /// `C:/tmp/wa_*.{xml,json}` defaults to point at the configured scratch dir.
-fn install_ghidra_scripts(repo_root: &Path, cfg: &SetupConfig) -> Result<()> {
+pub fn install_ghidra_scripts(repo_root: &Path, cfg: &SetupConfig) -> Result<()> {
     let dest = ghidra_scripts_dir()?;
     std::fs::create_dir_all(&dest).with_context(|| format!("creating {}", dest.display()))?;
 

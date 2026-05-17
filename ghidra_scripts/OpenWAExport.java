@@ -52,11 +52,12 @@ public class OpenWAExport extends GhidraScript {
                 + " (" + xmlOut.length() + " bytes) in " + dt + " ms");
 
         // ─── Sidecar JSON: per-function metadata XML can't carry ─────────────
-        // We collect only functions whose convention differs from the program
-        // default OR whose no-return flag is set — minimises the file.
-        String defaultCC = currentProgram.getCompilerSpec()
-                .getDefaultCallingConvention()
-                .getName();
+        // We emit `calling_convention` for every user-defined function whose
+        // convention is concretely set (not `unknown`), even when it matches
+        // the program default. The Rust side's validator requires every
+        // function with params to declare a convention explicitly — a
+        // round-trip that strips it would re-introduce the bug the validator
+        // is there to catch.
         List<String> entries = new ArrayList<>();
         FunctionIterator fns = currentProgram.getFunctionManager().getFunctions(true);
         while (fns.hasNext()) {
@@ -69,13 +70,13 @@ public class OpenWAExport extends GhidraScript {
             String cc = f.getCallingConventionName();
             boolean noReturn = f.hasNoReturn();
             boolean customStorage = f.hasCustomVariableStorage();
-            boolean ccCustom = cc != null && !cc.equals(defaultCC) && !cc.equals("unknown");
-            if (!ccCustom && !noReturn && !customStorage) continue;
+            boolean ccKnown = cc != null && !cc.equals("unknown");
+            if (!ccKnown && !noReturn && !customStorage) continue;
 
             StringBuilder e = new StringBuilder();
             e.append("    {");
             e.append("\"va\": \"0x").append(String.format("%08X", f.getEntryPoint().getOffset())).append("\"");
-            if (ccCustom) {
+            if (ccKnown) {
                 e.append(", \"calling_convention\": ").append(jsonString(normaliseCc(cc)));
             }
             if (noReturn) {
