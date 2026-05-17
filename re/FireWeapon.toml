@@ -34,10 +34,12 @@ custom_storage = true
   [[function.param]]
   name = "fire_params"
   type = "void *"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "spawn_data"
   type = "void *"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"

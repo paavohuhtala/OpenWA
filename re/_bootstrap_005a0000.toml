@@ -14,10 +14,12 @@ custom_storage = true
   [[function.param]]
   name = "width"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "height"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"

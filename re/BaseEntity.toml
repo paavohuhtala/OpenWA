@@ -18,14 +18,17 @@ custom_storage = true
   [[function.param]]
   name = "param_1"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "param_2"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "param_3"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "this"

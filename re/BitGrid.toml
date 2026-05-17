@@ -68,14 +68,17 @@ custom_storage = true
   [[function.param]]
   name = "x"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "color"
   type = "uchar"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "this"

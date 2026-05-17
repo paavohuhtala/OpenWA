@@ -12,13 +12,7 @@ name = "SeaBubbleEntity__HandleMessage"
 calling_convention = "__thiscall"
 
   [[function.param]]
-  name = "this"
-  # Actually `SeaBubbleEntity *`
-  type = "void *"
-
-  [[function.param]]
   name = "sender"
-  # This should be `BaseEntity *`
   type = "void *"
 
   [[function.param]]
@@ -31,4 +25,8 @@ calling_convention = "__thiscall"
 
   [[function.param]]
   name = "msg_data"
+  type = "void *"
+
+  [[function.param]]
+  name = "this"
   type = "void *"

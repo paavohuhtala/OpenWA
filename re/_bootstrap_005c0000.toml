@@ -37,6 +37,7 @@ calling_convention = "__stdcall"
 [[function]]
 va = 0x005C89FB
 name = "AfxInternalPumpMessage"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "int"

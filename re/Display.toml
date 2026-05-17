@@ -26,10 +26,12 @@ custom_storage = true
   [[function.param]]
   name = "layer"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "color"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"
@@ -48,6 +50,7 @@ custom_storage = true
   [[function.param]]
   name = "layer"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "this"

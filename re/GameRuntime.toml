@@ -23,22 +23,27 @@ plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra r
   [[function.param]]
   name = "remaining"
   type = "void *"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "time_lo"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "time_hi"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "speed_target"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "speed"
   type = "int"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "this"
@@ -55,11 +60,6 @@ custom_storage = true
   returns = "uint"
 
   [[function.param]]
-  name = "wrapper"
-  type = "void *"
-  storage = "EAX"
-
-  [[function.param]]
   name = "elapsed_lo"
   type = "uint"
   storage = "stack:0x4"
@@ -68,6 +68,11 @@ custom_storage = true
   name = "elapsed_hi"
   type = "uint"
   storage = "stack:0x8"
+
+  [[function.param]]
+  name = "wrapper"
+  type = "void *"
+  storage = "EAX"
 
 [[function]]
 va = 0x0052A910

@@ -90,22 +90,27 @@ custom_storage = true
   [[function.param]]
   name = "layer"
   type = "uint"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "id"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "flag"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "gfx"
   type = "void *"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "name"
   type = "char *"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "this"

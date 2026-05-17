@@ -14,26 +14,32 @@ custom_storage = true
   [[function.param]]
   name = "mode"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "id"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "p4"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "count"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "p6"
   type = "uint"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "p7"
   type = "uint"
+  storage = "stack:0x18"
 
   [[function.param]]
   name = "this"
@@ -52,14 +58,17 @@ custom_storage = true
   [[function.param]]
   name = "layer"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "p4"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "this"
@@ -78,18 +87,22 @@ custom_storage = true
   [[function.param]]
   name = "mode"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "font_id"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "gfx"
   type = "void *"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "filename"
   type = "char *"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
@@ -108,22 +121,27 @@ custom_storage = true
   [[function.param]]
   name = "font_id"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "path"
   type = "char *"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "char_map"
   type = "byte *"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "palette_value"
   type = "uint"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "flag"
   type = "int"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "this"
@@ -143,10 +161,12 @@ plate_comment = "DisplayGfx::SetFontPalette (vtable slot 36). Misleadingly named
   [[function.param]]
   name = "font_count"
   type = "uint"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "palette_value"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"
@@ -166,30 +186,37 @@ plate_comment = "DisplayGfx::DrawTextOnBitmap (vtable slot 7). Validates font_id
   [[function.param]]
   name = "font_id"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "bitmap"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "h_align"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "v_align"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "msg"
   type = "char *"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "a7"
   type = "int"
+  storage = "stack:0x18"
 
   [[function.param]]
   name = "a8"
   type = "int"
+  storage = "stack:0x1C"
 
   [[function.param]]
   name = "this"
@@ -208,18 +235,22 @@ custom_storage = true
   [[function.param]]
   name = "font_id"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "p4"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "p5"
   type = "uint"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
@@ -238,14 +269,17 @@ custom_storage = true
   [[function.param]]
   name = "font_id"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "p4"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "this"
@@ -264,10 +298,12 @@ custom_storage = true
   [[function.param]]
   name = "font_id"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"
@@ -287,38 +323,47 @@ plate_comment = "DisplayGfx::GetSpriteFrameForBlit (vtable slot 33). Resolves a 
   [[function.param]]
   name = "layer"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "p4"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "p5"
   type = "uint"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "p6"
   type = "uint"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "p7"
   type = "uint"
+  storage = "stack:0x18"
 
   [[function.param]]
   name = "p8"
   type = "uint"
+  storage = "stack:0x1C"
 
   [[function.param]]
   name = "p9"
   type = "uint"
+  storage = "stack:0x20"
 
   [[function.param]]
   name = "p10"
   type = "uint"
+  storage = "stack:0x24"
 
   [[function.param]]
   name = "this"
@@ -353,6 +398,7 @@ custom_storage = true
   [[function.param]]
   name = "flags"
   type = "byte"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "this"
@@ -421,10 +467,12 @@ custom_storage = true
   [[function.param]]
   name = "out_w"
   type = "uint *"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "out_h"
   type = "uint *"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"
@@ -443,6 +491,7 @@ custom_storage = true
   [[function.param]]
   name = "id"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "this"
@@ -461,18 +510,22 @@ custom_storage = true
   [[function.param]]
   name = "layer"
   type = "uint"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "id"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "gfx"
   type = "void *"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "name"
   type = "char *"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
@@ -505,10 +558,12 @@ custom_storage = true
   [[function.param]]
   name = "layer"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "visible"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"
@@ -527,10 +582,12 @@ custom_storage = true
   [[function.param]]
   name = "palette_data"
   type = "short *"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"
@@ -573,18 +630,22 @@ custom_storage = true
   [[function.param]]
   name = "x"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "sprite_flags"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "palette"
   type = "uint"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
@@ -603,34 +664,42 @@ custom_storage = true
   [[function.param]]
   name = "x"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "sprite"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "src_x"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "src_y"
   type = "int"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "src_w"
   type = "int"
+  storage = "stack:0x18"
 
   [[function.param]]
   name = "src_h"
   type = "int"
+  storage = "stack:0x1C"
 
   [[function.param]]
   name = "flags"
   type = "uint"
+  storage = "stack:0x20"
 
   [[function.param]]
   name = "this"
@@ -649,22 +718,27 @@ custom_storage = true
   [[function.param]]
   name = "x"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "obj"
   type = "void *"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "p5"
   type = "uint"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "p6"
   type = "uint"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "this"
@@ -683,22 +757,27 @@ custom_storage = true
   [[function.param]]
   name = "x1"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y1"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "x2"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "y2"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "color"
   type = "uint"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "this"
@@ -717,14 +796,17 @@ custom_storage = true
   [[function.param]]
   name = "count"
   type = "uint"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "p4"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "this"
@@ -743,14 +825,17 @@ custom_storage = true
   [[function.param]]
   name = "points"
   type = "int *"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "count"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "color"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "this"
@@ -769,22 +854,27 @@ custom_storage = true
   [[function.param]]
   name = "x1"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y1"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "x2"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "y2"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "color"
   type = "uint"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "this"
@@ -803,26 +893,32 @@ custom_storage = true
   [[function.param]]
   name = "x1"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y1"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "x2"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "y2"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "color1"
   type = "uint"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "color2"
   type = "uint"
+  storage = "stack:0x18"
 
   [[function.param]]
   name = "this"
@@ -841,26 +937,32 @@ custom_storage = true
   [[function.param]]
   name = "x"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "dx"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "dy"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "count"
   type = "int"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "color"
   type = "uint"
+  storage = "stack:0x18"
 
   [[function.param]]
   name = "this"
@@ -879,18 +981,22 @@ custom_storage = true
   [[function.param]]
   name = "x"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "color_fg"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "color_bg"
   type = "uint"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
@@ -909,18 +1015,22 @@ custom_storage = true
   [[function.param]]
   name = "x"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "color_fg"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "color_bg"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
@@ -939,18 +1049,22 @@ custom_storage = true
   [[function.param]]
   name = "p2"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "p3"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "count"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "flags"
   type = "uint"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
@@ -969,10 +1083,12 @@ custom_storage = true
   [[function.param]]
   name = "x_fixed"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y_fixed"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "this"
@@ -991,18 +1107,22 @@ custom_storage = true
   [[function.param]]
   name = "x1"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "y1"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "x2"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "y2"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "this"
