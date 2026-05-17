@@ -69,6 +69,22 @@ fn validate_function(f: &Function, known: &HashSet<String>, report: &mut Validat
             .push(format!("{}: unknown calling_convention `{cc}`", label()));
     }
 
+    // Any function with explicit params MUST declare calling_convention.
+    // Without it `OpenWAImport.java` applies the program default (`__cdecl`
+    // on this program), which silently scrambles storage for everything
+    // that isn't actually cdecl — the failure surfaces as a wrong-looking
+    // diff after a round trip, not at validate time.
+    if f.calling_convention.is_none() && !f.param.is_empty() {
+        report.errors.push(format!(
+            "{}: has {} param(s) but no calling_convention. \
+             Set one explicitly (`__stdcall` / `__cdecl` / `__thiscall` / \
+             `__fastcall` / `__usercall`) — without it, OpenWAImport.java \
+             falls back to the program default and scrambles storage.",
+            label(),
+            f.param.len(),
+        ));
+    }
+
     // Custom-storage discipline: __usercall must declare every param's
     // storage. For other conventions, partial storage is allowed (e.g.
     // a __thiscall constructor declares `this=ECX` and leaves the rest
@@ -385,6 +401,69 @@ mod tests {
         assert!(!is_valid_storage("eax"));
         assert!(!is_valid_storage("stack:abc"));
         assert!(!is_valid_storage("stack:0x4:0x4"));
+    }
+
+    use crate::toml_io::{Catalog, OwnedEntry};
+    use std::path::PathBuf;
+
+    fn make_fn(va: Va, name: &str) -> Function {
+        Function {
+            va,
+            name: name.into(),
+            calling_convention: None,
+            plate_comment: None,
+            no_return: false,
+            custom_storage: false,
+            signature: None,
+            param: vec![],
+            local: vec![],
+            comment: vec![],
+        }
+    }
+
+    fn cat_with(f: Function) -> Catalog {
+        let mut c = Catalog::default();
+        c.functions.insert(
+            f.va,
+            OwnedEntry {
+                value: f,
+                source: PathBuf::from("re/test.toml"),
+            },
+        );
+        c
+    }
+
+    #[test]
+    fn missing_calling_convention_with_params_is_error() {
+        let mut f = make_fn(0x500, "f");
+        f.param.push(Param {
+            name: "x".into(),
+            ty: "int".into(),
+            storage: None,
+        });
+        let report = validate(&cat_with(f)).unwrap();
+        assert_eq!(report.errors.len(), 1);
+        assert!(report.errors[0].contains("no calling_convention"));
+    }
+
+    #[test]
+    fn missing_calling_convention_without_params_is_fine() {
+        let f = make_fn(0x500, "f");
+        let report = validate(&cat_with(f)).unwrap();
+        assert!(report.ok());
+    }
+
+    #[test]
+    fn explicit_calling_convention_with_params_validates() {
+        let mut f = make_fn(0x500, "f");
+        f.calling_convention = Some("__stdcall".into());
+        f.param.push(Param {
+            name: "x".into(),
+            ty: "int".into(),
+            storage: None,
+        });
+        let report = validate(&cat_with(f)).unwrap();
+        assert!(report.ok(), "errors: {:?}", report.errors);
     }
 
     #[test]
