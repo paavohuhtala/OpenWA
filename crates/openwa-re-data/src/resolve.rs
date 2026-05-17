@@ -179,6 +179,26 @@ pub fn resolve(prog: &mut XmlProgram) -> ResolveStats {
             .sort_unstable_by_key(|c| (c.va, comment_kind_rank(c.kind)));
     }
 
+    // 6. Storage normalisation.
+    //
+    // The XML parser always emits `storage = "stack:0xN"` (and the existing
+    // REGISTER_VAR path emits `storage = "ECX"` etc.) regardless of whether
+    // the function uses custom storage. For functions where
+    // `custom_storage = false`, the per-param storage strings are just noise
+    // — Ghidra computes positional storage from the calling convention.
+    // Strip them so the on-disk TOML stays clean, and any round-trip
+    // through a default-storage function doesn't bloat with implicit info.
+    //
+    // Run after the sidecar overlay (caller orders parse → sidecar → resolve)
+    // so `custom_storage` is at its final value here.
+    for f in prog.functions.iter_mut() {
+        if !f.custom_storage {
+            for p in f.param.iter_mut() {
+                p.storage = None;
+            }
+        }
+    }
+
     stats
 }
 

@@ -68,6 +68,19 @@ public class OpenWAExport extends GhidraScript {
             if (src != SourceType.USER_DEFINED && src != SourceType.IMPORTED) continue;
 
             String cc = f.getCallingConventionName();
+            // 1-instruction JMP thunks (CRT/MFC imports etc.) report their
+            // OWN cc as null/unknown — the real convention lives on the
+            // thunk target. Follow it so `WA_Free`, `_atol`, etc. don't
+            // lose their `__cdecl` on round-trip.
+            if ((cc == null || cc.equals("unknown")) && f.isThunk()) {
+                Function tgt = f.getThunkedFunction(true);
+                if (tgt != null) {
+                    String tcc = tgt.getCallingConventionName();
+                    if (tcc != null && !tcc.equals("unknown")) {
+                        cc = tcc;
+                    }
+                }
+            }
             boolean noReturn = f.hasNoReturn();
             boolean customStorage = f.hasCustomVariableStorage();
             boolean ccKnown = cc != null && !cc.equals("unknown");

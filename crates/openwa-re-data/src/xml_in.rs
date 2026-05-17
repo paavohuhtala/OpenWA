@@ -766,10 +766,14 @@ fn parse_stack_frame<R: std::io::BufRead>(
 
                 if offset > 0 {
                     // Positive == above return address == param.
+                    // Storage is always emitted; the post-sidecar prune pass
+                    // drops it from params on functions where
+                    // custom_storage = false (default-storage round-trip
+                    // doesn't need explicit per-param storage).
                     params.push(Param {
                         name: pname,
                         ty,
-                        storage: None,
+                        storage: Some(format!("stack:0x{:x}", offset)),
                     });
                 } else {
                     locals.push(Local {
