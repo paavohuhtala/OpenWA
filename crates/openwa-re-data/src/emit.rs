@@ -257,6 +257,39 @@ pub fn bootstrap_files(prog: &XmlProgram, re_dir: &Path) -> Vec<PendingFile> {
 /// 1 << 16 = 64 KB. With WA's .text being ~2 MB, this gives ~32 shards.
 const SHARD_BITS: u32 = 16;
 
+/// Destination shard for a new function added by an incremental import.
+///
+/// Mirrors [`bootstrap_files`]'s router so a name added in Ghidra lands in the
+/// same file it would on a fresh bootstrap: `Class__bar` → `re/Class.toml`,
+/// unclassified → the appropriate `_bootstrap_<va>.toml` shard.
+pub fn destination_for_function(re_dir: &Path, name: &str, va: Va) -> PathBuf {
+    match class_from_name(name) {
+        Some(class) => re_dir.join(format!("{class}.toml")),
+        None => {
+            let shard_va = (va >> SHARD_BITS) << SHARD_BITS;
+            re_dir.join(format!("_bootstrap_{shard_va:08x}.toml"))
+        }
+    }
+}
+
+/// Destination shard for a new global: `Class__inst` → `re/Class.toml`,
+/// unclassified → `re/globals.toml`.
+pub fn destination_for_global(re_dir: &Path, name: &str) -> PathBuf {
+    match class_from_name(name) {
+        Some(class) => re_dir.join(format!("{class}.toml")),
+        None => re_dir.join("globals.toml"),
+    }
+}
+
+/// Destination shard for a new label: `Class__lab` → `re/Class.toml`,
+/// unclassified → `re/labels.toml`.
+pub fn destination_for_label(re_dir: &Path, name: &str) -> PathBuf {
+    match class_from_name(name) {
+        Some(class) => re_dir.join(format!("{class}.toml")),
+        None => re_dir.join("labels.toml"),
+    }
+}
+
 /// Pull the leading `Class` prefix out of `Class__rest` if `Class` is a
 /// safe file-name stem. Returns `None` for names without `__` or with a
 /// non-alphanumeric prefix.
@@ -602,6 +635,7 @@ mod tests {
             calling_convention: Some("__thiscall".into()),
             plate_comment: Some("Generic move-and-collide.\nUsed by 50+ subclasses.".into()),
             no_return: false,
+            custom_storage: false,
             signature: Some(Signature {
                 returns: "int".into(),
                 return_storage: None,
@@ -655,7 +689,7 @@ mod tests {
             field: vec![
                 Field {
                     offset: 0x00,
-                    name: "vtable".into(),
+                    name: Some("vtable".into()),
                     ty: "void * *".into(),
                     type_namespace: None,
                     size: Some(4),
@@ -663,7 +697,7 @@ mod tests {
                 },
                 Field {
                     offset: 0x04,
-                    name: "world".into(),
+                    name: Some("world".into()),
                     ty: "GameWorld *".into(),
                     type_namespace: None,
                     size: Some(4),
@@ -705,6 +739,7 @@ mod tests {
             calling_convention: None,
             plate_comment: Some("she said \"hi\"\nthen left".into()),
             no_return: false,
+            custom_storage: false,
             signature: None,
             param: vec![],
             local: vec![],

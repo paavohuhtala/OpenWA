@@ -6,6 +6,8 @@
 //! Ghidra's Java API. See the plan at
 //! `C:\Users\Paavo\.claude\plans\this-project-has-a-cheerful-russell.md`.
 
+pub mod apply;
+pub mod diff;
 pub mod emit;
 pub mod filter;
 pub mod manifest;

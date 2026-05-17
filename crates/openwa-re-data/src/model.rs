@@ -97,7 +97,7 @@ pub struct Function {
     pub comment: Vec<InlineComment>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Signature {
     pub returns: TypeRef,
@@ -106,7 +106,7 @@ pub struct Signature {
     pub return_storage: Option<Storage>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Param {
     pub name: String,
@@ -121,7 +121,7 @@ pub struct Param {
 /// Listing-style local (stack variable). Mostly noise; we keep an opt-in slot
 /// because the Ghidra XML exporter writes one row per stack slot and round-trip
 /// needs them. Filtered to user-named locals on export.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct Local {
     pub name: String,
@@ -130,7 +130,7 @@ pub struct Local {
     pub stack_offset: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub struct InlineComment {
     pub va: Va,
@@ -138,7 +138,7 @@ pub struct InlineComment {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommentKind {
     /// Block comment shown above the listing line. Same as Ghidra `plate`.

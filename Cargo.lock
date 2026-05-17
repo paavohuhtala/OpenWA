@@ -2730,6 +2730,7 @@ dependencies = [
  "quick-xml 0.36.2",
  "serde",
  "serde_json",
+ "tempfile",
  "toml",
 ]
 

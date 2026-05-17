@@ -31,9 +31,10 @@ use openwa_re_data::manifest;
 use openwa_re_data::repo::{find_repo_root, re_dir};
 use openwa_re_data::setup::SetupConfig;
 use openwa_re_data::toml_io::Catalog;
-use openwa_re_data::{emit, resolve, setup, validate, xml_in};
+use openwa_re_data::{apply, diff, emit, resolve, setup, validate, xml_in};
 use std::path::{Path, PathBuf};
 
+mod render;
 mod wizard;
 
 #[derive(Parser)]
@@ -230,13 +231,10 @@ fn cmd_import(
     force: bool,
     dry_run: bool,
 ) -> Result<()> {
-    if !bootstrap {
-        anyhow::bail!(
-            "import: only `--bootstrap` mode is implemented for now. \
-             Pass --bootstrap to do the initial dump."
-        );
-    }
     require_scratch_dir(dir, true)?;
+    if !bootstrap {
+        return cmd_import_incremental(re, dir, force, dry_run);
+    }
 
     let xml = dir.join(XML_FILE);
     if !xml.is_file() {
@@ -360,6 +358,59 @@ fn cmd_import(
     Ok(())
 }
 
+/// Incremental import: diff fresh Ghidra XML against the committed catalog,
+/// then mutate touched TOML shards in place. Validate-gated: refuses to run
+/// if `re/` is already broken (you'd be applying changes on top of a
+/// known-bad state). Scope is function field updates + label and global
+/// create/rename/retype/delete; function create/delete are reported only.
+fn cmd_import_incremental(
+    re: &std::path::Path,
+    dir: &std::path::Path,
+    force: bool,
+    dry_run: bool,
+) -> Result<()> {
+    if !force {
+        check_export_staleness(re, dir)?;
+    }
+    let prog = load_ghidra_export(dir)?;
+    let cat = Catalog::load_from(re)?;
+
+    // Validate-gate: never apply on top of a broken catalog. Warnings are
+    // fine; errors are not.
+    let report = validate::validate(&cat)?;
+    if !report.ok() {
+        anyhow::bail!(
+            "refusing to import: {} validation error(s) in re/. \
+             Run `openwa-re validate` for details and fix them first.",
+            report.errors.len(),
+        );
+    }
+
+    let changes = diff::diff(&prog, &cat, re);
+    let rendered = render::render(&changes, re, &cat);
+    print!("{rendered}");
+
+    if dry_run {
+        eprintln!("(dry-run: no files written)");
+        return Ok(());
+    }
+    if changes.iter().all(|c| !c.actionable()) {
+        // Either nothing to do, or every change was report-only.
+        return Ok(());
+    }
+
+    let stats = apply::apply(&changes, re)?;
+    eprintln!(
+        "Applied {} change(s) across {} file(s) ({} created, {} removed, {} skipped).",
+        stats.changes_applied,
+        stats.files_written,
+        stats.files_created,
+        stats.files_removed,
+        stats.changes_skipped,
+    );
+    Ok(())
+}
+
 fn cmd_export(re: &std::path::Path, dir: &std::path::Path) -> Result<()> {
     require_scratch_dir(dir, false)?;
     let manifest_path = dir.join(MANIFEST_FILE);
@@ -423,8 +474,99 @@ fn cmd_export(re: &std::path::Path, dir: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-fn cmd_diff(_re: &std::path::Path, _dir: &std::path::Path) -> Result<()> {
-    anyhow::bail!("diff: not yet implemented")
+fn cmd_diff(re: &std::path::Path, dir: &std::path::Path) -> Result<()> {
+    require_scratch_dir(dir, true)?;
+    let prog = load_ghidra_export(dir)?;
+
+    let cat = Catalog::load_from(re)?;
+
+    let changes = diff::diff(&prog, &cat, re);
+    let rendered = render::render(&changes, re, &cat);
+    print!("{rendered}");
+    Ok(())
+}
+
+/// Refuse incremental import if any TOML file under `re/` has been edited
+/// more recently than the last `openwa-re export` (whose output sits in the
+/// scratch dir as `wa_import.json`). The danger: those TOML edits haven't
+/// been pushed to Ghidra yet, so the XML can't possibly reflect them, and
+/// applying the diff would silently revert them.
+///
+/// Skipped when no prior export exists (first import on this machine).
+/// Bypass with `--force` if you know the unpushed TOML edits are
+/// intentionally out of scope of this import.
+fn check_export_staleness(re: &std::path::Path, dir: &std::path::Path) -> Result<()> {
+    let manifest = dir.join(MANIFEST_FILE);
+    let Ok(export_at) = std::fs::metadata(&manifest).and_then(|m| m.modified()) else {
+        return Ok(());
+    };
+
+    let mut newest: Option<(std::time::SystemTime, PathBuf)> = None;
+    for p in openwa_re_data::repo::enumerate_toml(re)? {
+        let m = std::fs::metadata(&p)
+            .with_context(|| format!("stat {}", p.display()))?
+            .modified()
+            .with_context(|| format!("mtime of {}", p.display()))?;
+        if newest.as_ref().is_none_or(|(t, _)| m > *t) {
+            newest = Some((m, p));
+        }
+    }
+    let Some((newest_mtime, newest_path)) = newest else {
+        return Ok(());
+    };
+    if newest_mtime <= export_at {
+        return Ok(());
+    }
+
+    let delta = newest_mtime
+        .duration_since(export_at)
+        .map(format_duration)
+        .unwrap_or_else(|_| "?".to_string());
+    let path = newest_path
+        .strip_prefix(re)
+        .map(|p| Path::new("re").join(p))
+        .unwrap_or(newest_path);
+    anyhow::bail!(
+        "refusing to import: {} was edited {} after the last `openwa-re export`. \
+         Ghidra doesn't know about those edits yet, so import would silently \
+         revert them. Run `openwa-re export` and then OpenWAImport.java in \
+         Ghidra to push the TOML state first, or pass --force to override.",
+        path.display(),
+        delta,
+    );
+}
+
+fn format_duration(d: std::time::Duration) -> String {
+    let s = d.as_secs();
+    if s < 60 {
+        format!("{s}s")
+    } else if s < 3600 {
+        format!("{}m{}s", s / 60, s % 60)
+    } else if s < 86400 {
+        format!("{}h{}m", s / 3600, (s % 3600) / 60)
+    } else {
+        format!("{}d{}h", s / 86400, (s % 86400) / 3600)
+    }
+}
+
+/// Parse `<dir>/wa_export.xml`, overlay `<dir>/wa_export_extras.json` if
+/// present, run [`resolve::resolve`], and return the post-resolve program.
+/// Shared by `cmd_import` and `cmd_diff`.
+fn load_ghidra_export(dir: &std::path::Path) -> Result<openwa_re_data::xml_in::XmlProgram> {
+    let xml = dir.join(XML_FILE);
+    if !xml.is_file() {
+        anyhow::bail!(
+            "{} not found in scratch dir {}. Run OpenWAExport.java first.",
+            XML_FILE,
+            dir.display(),
+        );
+    }
+    let extras_path = dir.join(EXTRAS_FILE);
+
+    let mut prog = xml_in::parse_file(&xml)?;
+    let _ = apply_extras_sidecar(&mut prog, &extras_path)?;
+    let _ = resolve::resolve(&mut prog);
+    Ok(prog)
 }
 
 /// Overlay calling_convention + no_return from a sidecar onto the catalog
