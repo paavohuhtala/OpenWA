@@ -11,22 +11,25 @@ va = 0x00555090
 name = "SeaBubbleEntity__HandleMessage"
 calling_convention = "__thiscall"
 
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
   [[function.param]]
   name = "sender"
   type = "void *"
 
   [[function.param]]
   name = "msg_type"
-  type = "uint"
+  type = "EntityMessage"
 
   [[function.param]]
   name = "size"
   type = "uint"
 
   [[function.param]]
-  name = "msg_data"
-  type = "void *"
-
-  [[function.param]]
-  name = "this"
+  name = "data"
   type = "void *"

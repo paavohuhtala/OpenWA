@@ -12,6 +12,11 @@ custom_storage = true
   returns = "void *"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "parent_task"
   type = "void *"
   storage = "stack:0x4"
@@ -25,11 +30,6 @@ custom_storage = true
   name = "spawn_data"
   type = "void *"
   storage = "stack:0xC"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x00508330
@@ -94,6 +94,30 @@ name = "MissileEntity__update_animal_poison"
 [[function]]
 va = 0x0050B400
 name = "MissileEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
 
 [[function]]
 va = 0x0050BFA0

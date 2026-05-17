@@ -33,6 +33,30 @@ name = "WorldEntity__vt0_override"
 [[function]]
 va = 0x004FF280
 name = "WorldEntity__vt2_HandleMessage"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "EntityMessage"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "data"
+  type = "void *"
 
 [[function]]
 va = 0x004FF390
