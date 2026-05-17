@@ -33,7 +33,7 @@ pub enum Storage {
 /// An x86 GP register usable as a storage slot. Only the names that actually
 /// appear in WA's RE database are listed; if a TOML adds e.g. an EBP slot we
 /// surface a parse error rather than silently accept it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Reg {
     Eax,
     Ebx,

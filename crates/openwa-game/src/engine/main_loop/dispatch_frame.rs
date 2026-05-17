@@ -23,6 +23,7 @@ use crate::game::message::{
     TurnEndMaybeMessage, Unknown130Message, Unknown131Message, Unknown132Message,
     UpdateNonCriticalMessage,
 };
+use crate::generated::wa_calls;
 use crate::input::hooks::InputHookMode;
 use crate::input::keyboard::{Keyboard, KeyboardAction, keyboard_read_input_ring_buffer};
 use crate::rebase::rb;
@@ -35,7 +36,6 @@ use crate::render::display::gfx::DisplayGfx;
 // register, then `JMP`/`CALL` the target. `RET imm16` on each target cleans
 // the remaining stdcall params.
 
-static mut INIT_FRAME_DELAY_ADDR: u32 = 0;
 static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
 static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
@@ -44,7 +44,6 @@ static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
     unsafe {
-        INIT_FRAME_DELAY_ADDR = rb(va::GAME_RUNTIME_INIT_FRAME_DELAY);
         PEER_INPUT_QUEUE_SCAN_ADDR = rb(va::GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN);
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
         PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
@@ -95,8 +94,6 @@ macro_rules! bridge_eax_this_stdcall {
         }
     };
 }
-
-bridge_eax_this!(bridge_init_frame_delay, INIT_FRAME_DELAY_ADDR, ());
 
 // Bridge for `GameRuntime__PeerInputQueueScan` (0x0052E880).
 // Usercall EAX=this + 1 stdcall stack param (peer_idx), RET 0x4. Returns
@@ -702,7 +699,7 @@ pub unsafe fn reset_frame_state(runtime: *mut GameRuntime) {
         let world = (*runtime).world;
 
         if (*world).is_headful != 0 {
-            bridge_init_frame_delay(runtime);
+            wa_calls::GameRuntime::InitFrameDelay(runtime as *mut core::ffi::c_void);
         }
 
         if is_paused_phase((*world).hud_status_code)
@@ -898,7 +895,7 @@ unsafe fn broadcast_frame_timing(
             },
         );
 
-        bridge_init_frame_delay(runtime);
+        wa_calls::GameRuntime::InitFrameDelay(runtime as *mut core::ffi::c_void);
     }
 }
 
@@ -1184,7 +1181,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
                     remaining = (frame_delay as i64).wrapping_mul(frame_duration as i64) as u64;
                 }
                 if frame_delay == 0 {
-                    bridge_init_frame_delay(runtime);
+                    wa_calls::GameRuntime::InitFrameDelay(runtime as *mut core::ffi::c_void);
                 } else if !is_replay {
                     (*runtime).frame_delay_counter = 0;
                 }

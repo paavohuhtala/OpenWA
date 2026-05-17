@@ -157,14 +157,17 @@ fn generate_re_artifacts() {
         .expect("writing generated_wa_calls.rs");
 
     println!(
-        "cargo:warning=wa_calls: emitted {} fns; skipped {} (no conv), {} (unknown conv), {} (usercall), {} (no ret type), {} (unresolved type), {} (invalid ident), {} (dup member)",
-        calls_stats.functions_emitted,
+        "cargo:warning=wa_calls: emitted {} default + {} custom; skipped {} (no conv), {} (unknown conv), {} (no ret type), {} (unresolved type), {} (invalid ident), {} (dup member), {} (usercall:no storage), {} (usercall:register pair), {} (usercall:invalid storage)",
+        calls_stats.functions_emitted_default_storage,
+        calls_stats.functions_emitted_custom_storage,
         calls_stats.skipped_no_convention,
         calls_stats.skipped_unknown_convention,
-        calls_stats.skipped_usercall,
         calls_stats.skipped_no_return_type,
         calls_stats.skipped_unresolved_type,
         calls_stats.skipped_invalid_member_ident,
         calls_stats.skipped_duplicate_member,
+        calls_stats.skipped_usercall_missing_storage,
+        calls_stats.skipped_usercall_register_pair,
+        calls_stats.skipped_usercall_invalid_storage,
     );
 }

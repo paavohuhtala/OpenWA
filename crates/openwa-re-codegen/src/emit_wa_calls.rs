@@ -1,14 +1,23 @@
 //! Generate typed `unsafe fn` wrappers for calling WA.exe functions from Rust.
 //!
-//! **Path A only** (custom_storage = false + one of the four base conventions):
-//! the body is a pointer transmute of `rb(va::Name)` to a typed
-//! `unsafe extern "X" fn(...)`. No asm, no manual register shuffling — the
-//! Rust ABI side handles register/stack allocation correctly because the
-//! function's storage is the convention's default.
+//! Two code paths:
 //!
-//! Functions with `custom_storage = true` (i.e. usercall — register-passed
-//! params not at convention-default positions) need a Path B asm-based body,
-//! which is a separate emitter. They're tracked here as `skipped_usercall`.
+//! - **default-storage path** (custom_storage = false + one of the four base conventions):
+//!   body is a pointer transmute of `rb(va::Name)` to a typed
+//!   `unsafe extern "X" fn(...)`. No asm — the Rust ABI side handles
+//!   register/stack allocation correctly because storage matches the
+//!   convention's default.
+//!
+//! - **custom-storage path** (custom_storage = true, a.k.a. usercall): a thin public
+//!   wrapper computes `rb(va::Name)` and forwards into a paired
+//!   `#[unsafe(naked)]` shim whose body is a `core::arch::naked_asm!`
+//!   trampoline. The shim's cdecl signature has `target: u32` as the first
+//!   arg; the asm pulls register-stored params out of its incoming frame
+//!   into their declared registers, pushes stack-stored params in reverse
+//!   offset order, calls the WA function indirectly, and (for `__cdecl`
+//!   callees) cleans the pushed args before returning. EAX carries the
+//!   return value per cdecl. `naked_asm!` sidesteps the register-allocator
+//!   pressure of plain `asm!` and lets us bind ESI/EDI/EBX without issue.
 //!
 //! Functions get skipped without emission when:
 //!   - calling convention is missing or unrecognised
@@ -17,6 +26,10 @@
 //!     missing `rust_path` on a struct/enum/typedef)
 //!   - the TOML name doesn't parse as `Class__member` (free functions
 //!     without a class prefix land in the `free` submodule instead)
+//!   - **custom-storage path only:** any param has no `storage` field despite
+//!     `custom_storage = true` (TOML bug)
+//!   - **custom-storage path only:** any param uses a register pair (`EDX:EAX`) or an
+//!     unknown register — deferred until we hit a concrete need
 //!
 //! Output is grouped by class:
 //!
@@ -38,6 +51,7 @@ use openwa_re_data::toml_io::Catalog;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::Write as _;
 
+use crate::storage::{Reg, Storage};
 use crate::type_resolver::parse_type_ref;
 
 /// Per-run statistics. `skipped_*` counts are non-fatal — they exist so the
@@ -45,16 +59,33 @@ use crate::type_resolver::parse_type_ref;
 /// expected coverage.
 #[derive(Debug, Default)]
 pub struct EmitStats {
-    pub functions_emitted: usize,
+    pub functions_emitted_default_storage: usize,
+    pub functions_emitted_custom_storage: usize,
     pub skipped_no_convention: usize,
     pub skipped_unknown_convention: usize,
-    pub skipped_usercall: usize,
     pub skipped_no_return_type: usize,
     pub skipped_unresolved_type: usize,
     pub skipped_invalid_member_ident: usize,
     /// `Class__member` collision (rare; e.g. two TOML entries with the same
     /// Class+member at different VAs). Lowest-VA wins.
     pub skipped_duplicate_member: usize,
+    /// custom-storage path: `custom_storage = true` but some param has no `storage` field.
+    /// TOML bug; surface in the build log so it gets fixed.
+    pub skipped_usercall_missing_storage: usize,
+    /// custom-storage path: some storage spec is a register pair (`EDX:EAX`) or a register
+    /// not yet supported by the asm template. Deferred until a real need.
+    pub skipped_usercall_register_pair: usize,
+    /// custom-storage path: bad storage string the parser rejected.
+    pub skipped_usercall_invalid_storage: usize,
+    /// custom-storage path: param uses EBP — the frame pointer, which we don't bind.
+    /// (ESI/EDI/EBX work fine with `naked_asm!`.)
+    pub skipped_usercall_reserved_register: usize,
+}
+
+impl EmitStats {
+    pub fn functions_emitted(&self) -> usize {
+        self.functions_emitted_default_storage + self.functions_emitted_custom_storage
+    }
 }
 
 pub fn generate(cat: &Catalog) -> (String, EmitStats) {
@@ -111,11 +142,7 @@ fn write_class_module(
     for f in members {
         let member = member_part(&f.name).unwrap_or(f.name.as_str());
 
-        // Skip filters — order matters for stat attribution (most specific first).
-        if f.custom_storage {
-            stats.skipped_usercall += 1;
-            continue;
-        }
+        // Filters that apply to both paths — order matters for stat attribution.
         let Some(cc_kw) = base_calling_convention(f) else {
             if f.calling_convention.is_none() {
                 stats.skipped_no_convention += 1;
@@ -149,8 +176,43 @@ fn write_class_module(
             continue;
         };
 
-        write_wrapper(&mut body, f, member, cc_kw, &resolved_params, &resolved_ret);
-        stats.functions_emitted += 1;
+        if f.custom_storage {
+            // custom-storage path return type must round-trip `u32 as ReturnType`. Skip
+            // exotic returns (bool, newtypes, > 4 bytes) until we have a
+            // real case demanding more.
+            if let Some(r) = &resolved_ret
+                && !return_type_u32_castable(r)
+            {
+                stats.skipped_usercall_invalid_storage += 1;
+                continue;
+            }
+            let parsed = match parse_usercall_storage(&resolved_params, &f.param, signature) {
+                Ok(p) => p,
+                Err(skip) => {
+                    match skip {
+                        UsercallSkip::MissingStorage => stats.skipped_usercall_missing_storage += 1,
+                        UsercallSkip::RegisterPair => stats.skipped_usercall_register_pair += 1,
+                        UsercallSkip::InvalidStorage => stats.skipped_usercall_invalid_storage += 1,
+                        UsercallSkip::ReservedRegister => {
+                            stats.skipped_usercall_reserved_register += 1
+                        }
+                    }
+                    continue;
+                }
+            };
+            write_wrapper_custom_storage(&mut body, f, member, cc_kw, &parsed, &resolved_ret);
+            stats.functions_emitted_custom_storage += 1;
+        } else {
+            write_wrapper_default_storage(
+                &mut body,
+                f,
+                member,
+                cc_kw,
+                &resolved_params,
+                &resolved_ret,
+            );
+            stats.functions_emitted_default_storage += 1;
+        }
         emitted_any = true;
     }
 
@@ -163,7 +225,7 @@ fn write_class_module(
     writeln!(out, "    }} // mod {class}").unwrap();
 }
 
-/// Each wrapper:
+/// Each default-storage path wrapper:
 ///
 /// ```ignore
 /// #[inline]
@@ -178,7 +240,7 @@ fn write_class_module(
 ///
 /// `R` is omitted when the return type renders as `core::ffi::c_void` (TOML
 /// `returns = "void"`) — Rust's empty return is implicit.
-fn write_wrapper(
+fn write_wrapper_default_storage(
     out: &mut String,
     f: &Function,
     member: &str,
@@ -237,10 +299,12 @@ fn resolve_params(cat: &Catalog, params: &[Param]) -> Option<Vec<(String, String
     for (i, p) in params.iter().enumerate() {
         let ty = parse_type_ref(&p.ty, cat).render().ok()?;
         // Sanitise the param name — TOML allows raw C identifiers; we need
-        // valid Rust idents that don't shadow our local `f` and aren't Rust
-        // reserved keywords (`self`, `type`, `match`, …). Fall back to
-        // `arg<i>` when any of those rules fire.
-        let name = if !is_valid_rust_ident(&p.name) || p.name == "f" || is_rust_keyword(&p.name) {
+        // valid Rust idents that don't shadow our locals (`f`, `target`,
+        // `ret_bits`, `tgt`) or any param-bits suffix we'd synthesise, and
+        // aren't Rust reserved keywords (`self`, `type`, `match`, …). Fall
+        // back to `arg<i>` when any of those rules fire.
+        let conflicts = matches!(p.name.as_str(), "f" | "target" | "ret_bits" | "tgt");
+        let name = if !is_valid_rust_ident(&p.name) || conflicts || is_rust_keyword(&p.name) {
             format!("arg{i}")
         } else {
             p.name.clone()
@@ -248,6 +312,304 @@ fn resolve_params(cat: &Catalog, params: &[Param]) -> Option<Vec<(String, String
         out.push((name, ty));
     }
     Some(out)
+}
+
+// ─── custom-storage path: usercall via core::arch::asm! ─────────────────────────────────
+
+#[derive(Debug)]
+enum UsercallSkip {
+    /// `custom_storage = true` but some param has no `storage` field.
+    MissingStorage,
+    /// Param or return uses a register pair (`EDX:EAX`). custom-storage path doesn't
+    /// emit 64-bit register-pair plumbing yet — add when a real call site
+    /// needs it.
+    RegisterPair,
+    /// Storage string didn't parse, return_storage names a non-EAX
+    /// register, or the rendered return type isn't `u32`-castable.
+    InvalidStorage,
+    /// Param uses ESI/EDI/EBX/EBP — registers that `core::arch::asm!` can't
+    /// bind directly on x86 (see `EmitStats::skipped_usercall_reserved_register`).
+    ReservedRegister,
+}
+
+#[derive(Debug)]
+enum UsercallStorage {
+    Reg(Reg),
+    Stack(u32), // byte offset, ascending from [esp+0x4]
+}
+
+#[derive(Debug)]
+struct UsercallParam {
+    name: String,
+    ty: String,
+    storage: UsercallStorage,
+}
+
+#[derive(Debug)]
+struct ParsedUsercall {
+    params: Vec<UsercallParam>,
+}
+
+fn parse_usercall_storage(
+    resolved: &[(String, String)],
+    raw: &[Param],
+    sig: &Signature,
+) -> Result<ParsedUsercall, UsercallSkip> {
+    // Return storage: implicit EAX is fine. EDX:EAX (pair) skipped; any
+    // other override is bug-prone and skipped.
+    if let Some(rs) = &sig.return_storage {
+        let parsed_ret = crate::storage::parse(rs).map_err(|_| UsercallSkip::InvalidStorage)?;
+        match parsed_ret {
+            Storage::Register(Reg::Eax) => {}
+            Storage::Pair(_, _) => return Err(UsercallSkip::RegisterPair),
+            _ => return Err(UsercallSkip::InvalidStorage),
+        }
+    }
+
+    let mut params = Vec::with_capacity(resolved.len());
+    for ((name, ty), p) in resolved.iter().zip(raw) {
+        let s = p.storage.as_deref().ok_or(UsercallSkip::MissingStorage)?;
+        let parsed = crate::storage::parse(s).map_err(|_| UsercallSkip::InvalidStorage)?;
+        let storage = match parsed {
+            Storage::Register(r) => {
+                // EBP is the frame pointer; binding it inside our naked
+                // shim would require frame reconstruction. Defer.
+                if r == Reg::Ebp {
+                    return Err(UsercallSkip::ReservedRegister);
+                }
+                UsercallStorage::Reg(r)
+            }
+            Storage::Stack { offset, .. } => UsercallStorage::Stack(offset),
+            Storage::Pair(_, _) => return Err(UsercallSkip::RegisterPair),
+        };
+        params.push(UsercallParam {
+            name: name.clone(),
+            ty: ty.clone(),
+            storage,
+        });
+    }
+    Ok(ParsedUsercall { params })
+}
+
+/// True when `u32 as <ty>` compiles. Conservative whitelist — easier to grow
+/// than to debug a generated build failure.
+fn return_type_u32_castable(rendered: &str) -> bool {
+    rendered.starts_with("*mut ")
+        || rendered.starts_with("*const ")
+        || matches!(
+            rendered,
+            "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "usize" | "isize"
+        )
+}
+
+/// Each custom-storage path emission is two paired items:
+///
+/// ```ignore
+/// #[inline]
+/// pub unsafe fn ShouldContinueFrameLoop(
+///     wrapper: *mut core::ffi::c_void,
+///     elapsed_lo: u32,
+///     elapsed_hi: u32,
+/// ) -> u32 {
+///     unsafe {
+///         _shim_GameRuntime__ShouldContinueFrameLoop(
+///             crate::rebase::rb(crate::generated::addresses::GameRuntime__ShouldContinueFrameLoop),
+///             wrapper, elapsed_lo, elapsed_hi,
+///         )
+///     }
+/// }
+///
+/// #[unsafe(naked)]
+/// unsafe extern "cdecl" fn _shim_GameRuntime__ShouldContinueFrameLoop(
+///     _target: u32, _wrapper: *mut core::ffi::c_void,
+///     _elapsed_lo: u32, _elapsed_hi: u32,
+/// ) -> u32 {
+///     core::arch::naked_asm!(
+///         "mov ecx, [esp+4]",          // ECX = target
+///         "mov eax, [esp+8]",          // EAX = wrapper (usercall reg)
+///         "push DWORD PTR [esp+16]",   // push elapsed_hi (was at +16)
+///         "push DWORD PTR [esp+16]",   // push elapsed_lo (was at +12, +4 from prior push)
+///         "call ecx",
+///         // __stdcall callee popped 8 bytes — no caller cleanup
+///         "ret",
+///     )
+/// }
+/// ```
+///
+/// The shim's incoming cdecl frame is [retaddr, target, p0, p1, …]. We read
+/// each param from its position, accounting for prior callee-save pushes
+/// and stack-arg pushes that shift `esp`. ESI/EDI/EBX are preserved via
+/// explicit `push`/`pop` when they're used as register-input slots or as
+/// the target-scratch register.
+///
+/// Assumes the wrapper return type is u32-castable (checked upstream).
+fn write_wrapper_custom_storage(
+    out: &mut String,
+    f: &Function,
+    member: &str,
+    cc_kw: &str,
+    parsed: &ParsedUsercall,
+    ret: &Option<String>,
+) {
+    let sig_args = parsed
+        .params
+        .iter()
+        .map(|p| format!("{}: {}", p.name, p.ty))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let shim_args = parsed
+        .params
+        .iter()
+        .map(|p| format!("_{}: {}", p.name, p.ty))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let call_through = parsed
+        .params
+        .iter()
+        .map(|p| p.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let ret_suffix = match ret {
+        Some(r) => format!(" -> {r}"),
+        None => String::new(),
+    };
+    let shim_name = format!("_shim_{}", f.name);
+
+    // ── Public wrapper: compute target via rb(va), forward to the shim ──
+    writeln!(out, "        #[inline]").unwrap();
+    writeln!(
+        out,
+        "        pub unsafe fn {member}({sig_args}){ret_suffix} {{",
+    )
+    .unwrap();
+    writeln!(out, "            unsafe {{").unwrap();
+    writeln!(out, "                {shim_name}(").unwrap();
+    writeln!(
+        out,
+        "                    crate::rebase::rb(crate::generated::addresses::{}),",
+        f.name,
+    )
+    .unwrap();
+    if !parsed.params.is_empty() {
+        writeln!(out, "                    {call_through},").unwrap();
+    }
+    writeln!(out, "                )").unwrap();
+    writeln!(out, "            }}").unwrap();
+    writeln!(out, "        }}").unwrap();
+
+    // ── Naked shim ──────────────────────────────────────────────────────
+    writeln!(out).unwrap();
+    writeln!(out, "        #[unsafe(naked)]").unwrap();
+    let shim_sig_args = if parsed.params.is_empty() {
+        String::new()
+    } else {
+        format!(", {shim_args}")
+    };
+    writeln!(
+        out,
+        "        unsafe extern \"cdecl\" fn {shim_name}(_target: u32{shim_sig_args}){ret_suffix} {{",
+    )
+    .unwrap();
+    writeln!(out, "            core::arch::naked_asm!(").unwrap();
+
+    // Pick which register to load `target` into. Prefer caller-saved
+    // (EAX/ECX/EDX) that isn't a usercall register input; fall back to
+    // EBX (callee-saved → preserved below).
+    let used_input_regs: HashSet<Reg> = parsed
+        .params
+        .iter()
+        .filter_map(|p| match p.storage {
+            UsercallStorage::Reg(r) => Some(r),
+            _ => None,
+        })
+        .collect();
+    let target_reg = [Reg::Ecx, Reg::Edx, Reg::Eax]
+        .into_iter()
+        .find(|r| !used_input_regs.contains(r))
+        .unwrap_or(Reg::Ebx);
+
+    // Callee-saved regs we'll touch — these need explicit `push`/`pop`
+    // around the body to honour cdecl's preservation contract.
+    let preserved: Vec<Reg> = [Reg::Ebx, Reg::Esi, Reg::Edi]
+        .into_iter()
+        .filter(|r| used_input_regs.contains(r) || *r == target_reg)
+        .collect();
+    let saved_bytes = preserved.len() as u32 * 4;
+
+    // Step 1: save callee-saved regs.
+    for r in &preserved {
+        writeln!(out, "                \"push {}\",", r.asm_name()).unwrap();
+    }
+
+    // Step 2: load `target` into target_reg. After the saves, `target` sits
+    // at [esp + 4 + saved_bytes] in the shim's incoming frame.
+    let target_offset_now = 4 + saved_bytes;
+    writeln!(
+        out,
+        "                \"mov {}, [esp+{}]\",",
+        target_reg.asm_name(),
+        target_offset_now
+    )
+    .unwrap();
+
+    // Step 3: load each register-stored usercall param from its incoming
+    // stack slot into the declared register. The cdecl shim layout is:
+    //   [esp+0]=ret_addr, [esp+4]=target, [esp+8]=p0, [esp+12]=p1, …
+    // so param at index i lives at [esp + 8 + i*4]; shifted by saved_bytes.
+    for (i, p) in parsed.params.iter().enumerate() {
+        if let UsercallStorage::Reg(r) = p.storage {
+            let off = 8 + (i as u32) * 4 + saved_bytes;
+            writeln!(
+                out,
+                "                \"mov {}, [esp+{}]\",",
+                r.asm_name(),
+                off
+            )
+            .unwrap();
+        }
+    }
+
+    // Step 4: push stack-stored args in REVERSE offset order so the lowest
+    // declared offset ends up at the lowest stack address after pushes
+    // (matching what the WA callee reads at [esp+4] on entry).
+    let mut stack_params: Vec<(usize, &UsercallParam)> = parsed
+        .params
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| matches!(p.storage, UsercallStorage::Stack(_)))
+        .collect();
+    stack_params.sort_by_key(|(_, p)| match p.storage {
+        UsercallStorage::Stack(o) => o,
+        _ => unreachable!(),
+    });
+    let mut pushed = 0u32;
+    for (i, _) in stack_params.iter().rev() {
+        let off = 8 + (*i as u32) * 4 + saved_bytes + pushed * 4;
+        writeln!(out, "                \"push DWORD PTR [esp+{}]\",", off).unwrap();
+        pushed += 1;
+    }
+
+    // Step 5: indirect call through target_reg.
+    writeln!(out, "                \"call {}\",", target_reg.asm_name()).unwrap();
+
+    // Step 6: cdecl callee leaves stack args in place; we clean them up.
+    // Other conventions (stdcall/thiscall/fastcall) clean via `ret imm16`.
+    if cc_kw == "cdecl" && pushed > 0 {
+        writeln!(out, "                \"add esp, {}\",", pushed * 4).unwrap();
+    }
+
+    // Step 7: restore callee-saved regs in reverse save order.
+    for r in preserved.iter().rev() {
+        writeln!(out, "                \"pop {}\",", r.asm_name()).unwrap();
+    }
+
+    // Step 8: cdecl shim — caller cleans our incoming args. EAX already
+    // holds the return value per cdecl + usercall convention.
+    writeln!(out, "                \"ret\",").unwrap();
+    writeln!(out, "            )").unwrap();
+    writeln!(out, "        }}").unwrap();
+
+    let _ = ret;
 }
 
 /// Names that can't be used as a free-function parameter in Rust. Covers
@@ -449,7 +811,7 @@ mod tests {
         );
 
         let (out, stats) = generate(&cat);
-        assert_eq!(stats.functions_emitted, 1);
+        assert_eq!(stats.functions_emitted(), 1);
         assert!(out.contains("pub mod GameRuntime {"));
         assert!(out.contains("pub unsafe fn StepFrame("));
         assert!(out.contains("this: *mut openwa_game::engine::runtime::GameRuntime"));
@@ -483,7 +845,9 @@ mod tests {
     }
 
     #[test]
-    fn skips_usercall() {
+    fn usercall_without_storage_strings_is_skipped() {
+        // `custom_storage = true` but every param has `storage: None` —
+        // a TOML bug. custom-storage path refuses to guess.
         let cat = cat_with(vec![fn_with(
             0x00529F30,
             "GameRuntime__StepFrame",
@@ -493,9 +857,192 @@ mod tests {
             vec![("this", "int")],
         )]);
         let (out, stats) = generate(&cat);
-        assert_eq!(stats.skipped_usercall, 1);
-        assert_eq!(stats.functions_emitted, 0);
+        assert_eq!(stats.skipped_usercall_missing_storage, 1);
+        assert_eq!(stats.functions_emitted(), 0);
         assert!(!out.contains("StepFrame"));
+    }
+
+    fn fn_with_storage(
+        va: u32,
+        name: &str,
+        cc: Option<&str>,
+        ret: Option<&str>,
+        params: Vec<(&str, &str, &str)>, // (name, type, storage)
+    ) -> Function {
+        Function {
+            va,
+            name: name.into(),
+            calling_convention: cc.map(str::to_string),
+            plate_comment: None,
+            no_return: false,
+            custom_storage: true,
+            signature: ret.map(|r| Signature {
+                returns: r.into(),
+                return_storage: None,
+            }),
+            param: params
+                .into_iter()
+                .map(|(n, t, s)| Param {
+                    name: n.into(),
+                    ty: t.into(),
+                    storage: Some(s.into()),
+                })
+                .collect(),
+            local: vec![],
+            comment: vec![],
+        }
+    }
+
+    #[test]
+    fn emits_path_b_for_eax_register_param_and_stack_params() {
+        // `GameRuntime__ShouldContinueFrameLoop` — the canonical custom-storage path target.
+        // EAX = wrapper, stack:0x4 = elapsed_lo, stack:0x8 = elapsed_hi.
+        // __stdcall (callee cleans 8 bytes), returns uint via EAX.
+        let cat = cat_with(vec![fn_with_storage(
+            0x0052A840,
+            "GameRuntime__ShouldContinueFrameLoop",
+            Some("__stdcall"),
+            Some("uint"),
+            vec![
+                ("wrapper", "void *", "EAX"),
+                ("elapsed_lo", "uint", "stack:0x4"),
+                ("elapsed_hi", "uint", "stack:0x8"),
+            ],
+        )]);
+        let (out, stats) = generate(&cat);
+        assert_eq!(stats.functions_emitted_custom_storage, 1);
+        assert_eq!(stats.functions_emitted_default_storage, 0);
+
+        // Public wrapper forwards to the shim.
+        assert!(out.contains("pub unsafe fn ShouldContinueFrameLoop("));
+        assert!(out.contains("wrapper: *mut core::ffi::c_void"));
+        assert!(out.contains("-> u32"));
+        assert!(out.contains("_shim_GameRuntime__ShouldContinueFrameLoop("));
+        assert!(out.contains(
+            "crate::rebase::rb(crate::generated::addresses::GameRuntime__ShouldContinueFrameLoop)"
+        ));
+
+        // Naked shim contains the asm trampoline.
+        assert!(out.contains("#[unsafe(naked)]"));
+        assert!(
+            out.contains("unsafe extern \"cdecl\" fn _shim_GameRuntime__ShouldContinueFrameLoop(")
+        );
+        assert!(out.contains("core::arch::naked_asm!"));
+
+        // Asm body — target is loaded into a non-input reg; wrapper goes into EAX.
+        assert!(out.contains("\"mov ecx, [esp+4]\","));
+        assert!(out.contains("\"mov eax, [esp+8]\","));
+
+        // Push order: highest offset first. Two pushes mean the second
+        // reads from [esp+16] as well (the +4 shift cancels with the
+        // original +12 → +16 ↔ +16 after the first push).
+        assert!(out.contains("\"push DWORD PTR [esp+16]\","));
+
+        // Indirect call through the target register.
+        assert!(out.contains("\"call ecx\","));
+
+        // __stdcall callee — no caller cleanup.
+        assert!(!out.contains("\"add esp"));
+
+        // Final return.
+        assert!(out.contains("\"ret\","));
+    }
+
+    #[test]
+    fn path_b_cdecl_emits_caller_stack_cleanup() {
+        let cat = cat_with(vec![fn_with_storage(
+            0x00400000,
+            "Foo__bar",
+            Some("__cdecl"),
+            Some("void"),
+            vec![
+                ("this", "void *", "EAX"),
+                ("a", "uint", "stack:0x4"),
+                ("b", "uint", "stack:0x8"),
+            ],
+        )]);
+        let (out, stats) = generate(&cat);
+        assert_eq!(stats.functions_emitted_custom_storage, 1);
+        assert!(out.contains("\"add esp, 8\","));
+    }
+
+    #[test]
+    fn path_b_skips_register_pair_storage() {
+        let cat = cat_with(vec![fn_with_storage(
+            0x00400000,
+            "Foo__bar",
+            Some("__stdcall"),
+            Some("void"),
+            vec![("big_val", "ulonglong", "EDX:EAX")],
+        )]);
+        let (_, stats) = generate(&cat);
+        assert_eq!(stats.skipped_usercall_register_pair, 1);
+        assert_eq!(stats.functions_emitted(), 0);
+    }
+
+    #[test]
+    fn path_b_skips_non_eax_return_storage() {
+        // Synthetic: a usercall claiming it returns in EDX. We don't
+        // support that yet — skip cleanly.
+        let cat = cat_with(vec![Function {
+            va: 0x00400000,
+            name: "Foo__bar".into(),
+            calling_convention: Some("__stdcall".into()),
+            plate_comment: None,
+            no_return: false,
+            custom_storage: true,
+            signature: Some(Signature {
+                returns: "uint".into(),
+                return_storage: Some("EDX".into()),
+            }),
+            param: vec![Param {
+                name: "x".into(),
+                ty: "uint".into(),
+                storage: Some("EAX".into()),
+            }],
+            local: vec![],
+            comment: vec![],
+        }]);
+        let (_, stats) = generate(&cat);
+        assert_eq!(stats.skipped_usercall_invalid_storage, 1);
+    }
+
+    #[test]
+    fn path_b_void_return_with_ecx_param() {
+        // ECX is used as input, so target picks EDX instead.
+        let cat = cat_with(vec![fn_with_storage(
+            0x00400000,
+            "Foo__bar",
+            Some("__stdcall"),
+            Some("void"),
+            vec![("this", "void *", "ECX")],
+        )]);
+        let (out, stats) = generate(&cat);
+        assert_eq!(stats.functions_emitted_custom_storage, 1);
+        // Target reg = EDX (since ECX is the input).
+        assert!(out.contains("\"mov edx, [esp+4]\","));
+        assert!(out.contains("\"mov ecx, [esp+8]\","));
+        assert!(out.contains("\"call edx\","));
+    }
+
+    #[test]
+    fn path_b_supports_esi_param_via_naked_asm() {
+        // ESI is callee-saved per cdecl; the shim must push/pop it.
+        let cat = cat_with(vec![fn_with_storage(
+            0x00400000,
+            "Foo__bar",
+            Some("__stdcall"),
+            Some("void"),
+            vec![("this", "void *", "ESI")],
+        )]);
+        let (out, stats) = generate(&cat);
+        assert_eq!(stats.functions_emitted_custom_storage, 1);
+        // Preserve + restore ESI.
+        let push_esi = out.find("\"push esi\",").expect("push esi");
+        let pop_esi = out.find("\"pop esi\",").expect("pop esi");
+        assert!(push_esi < pop_esi, "push must come before pop");
+        // After `push esi`, target sits at [esp+8] and the ESI input at [esp+12].
+        assert!(out.contains("\"mov esi, [esp+12]\","));
     }
 
     #[test]
@@ -510,7 +1057,7 @@ mod tests {
         )]);
         let (out, stats) = generate(&cat);
         assert_eq!(stats.skipped_unresolved_type, 1);
-        assert_eq!(stats.functions_emitted, 0);
+        assert_eq!(stats.functions_emitted(), 0);
         assert!(!out.contains("Foo__bar"));
     }
 
@@ -542,7 +1089,7 @@ mod tests {
             ],
         )]);
         let (out, stats) = generate(&cat);
-        assert_eq!(stats.functions_emitted, 1);
+        assert_eq!(stats.functions_emitted(), 1);
         assert!(out.contains("arg0: i32"));
         assert!(out.contains("arg1: i32"));
         assert!(out.contains("f(arg0, arg1)"));
@@ -559,7 +1106,7 @@ mod tests {
             vec![("state", "uint")],
         )]);
         let (out, stats) = generate(&cat);
-        assert_eq!(stats.functions_emitted, 1);
+        assert_eq!(stats.functions_emitted(), 1);
         assert!(out.contains("pub mod free {"));
         assert!(out.contains("pub unsafe fn AdvanceGameRng("));
     }
