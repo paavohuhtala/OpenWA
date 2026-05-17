@@ -869,17 +869,11 @@ fn finalize_run(
     wall_time: Duration,
     run_dir: &Path,
     meta: &HashMap<String, TestMeta>,
-    report_startup_checks: bool,
 ) {
     write_summary(results, wall_time, &run_dir.join("summary.txt"));
     write_failures_txt(results, run_dir, wall_time, meta);
     match output_mode() {
-        OutputMode::Verbose => {
-            print_summary(results, wall_time);
-            if report_startup_checks {
-                report_startup_check_failures(results, run_dir);
-            }
-        }
+        OutputMode::Verbose => print_summary(results, wall_time),
         OutputMode::Compact => print_compact_summary(results, wall_time, run_dir),
     }
 }
@@ -1283,7 +1277,7 @@ fn run_headful(args: HeadfulArgs) {
 
     let wall_time = wall_start.elapsed();
 
-    finalize_run(&results, wall_time, &run_dir, &meta, true);
+    finalize_run(&results, wall_time, &run_dir, &meta);
 
     cleanup_temp_files(&wa_exe);
 
@@ -1575,46 +1569,6 @@ fn run_trace_desync(args: TraceDesyncArgs) {
     // Clean up
     cleanup_temp_files(&wa_exe);
     println!("\nRun directory: {}", run_dir.display());
-}
-
-// ─── Startup check reporting ─────────────────────────────────────────────────
-
-/// Scan the first test's OpenWA.log for `[CHECK FAIL]` lines and report them
-/// once. All test instances load the same DLL against the same WA.exe, so the
-/// startup check results are deterministic — checking one log is sufficient.
-fn report_startup_check_failures(results: &[TestResult], run_dir: &Path) {
-    let first = match results.first() {
-        Some(r) => r,
-        None => return,
-    };
-    let log_path = run_dir.join(format!("{}.openwa.log", first.name));
-    let content = match fs::read_to_string(&log_path) {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-
-    let failures: Vec<&str> = content
-        .lines()
-        .filter(|l| l.contains("[CHECK FAIL]"))
-        .collect();
-
-    if failures.is_empty() {
-        return;
-    }
-
-    println!();
-    let msg = format!(
-        "Startup check failures detected (from {}.openwa.log):",
-        first.name
-    );
-    if use_color() {
-        println!("\x1b[33m{msg}\x1b[0m");
-    } else {
-        println!("{msg}");
-    }
-    for line in &failures {
-        println!("  {line}");
-    }
 }
 
 // ─── Generate-baseline subcommand ───────────────────────────────────────────
@@ -1971,7 +1925,7 @@ fn run_generate_baseline(args: GenerateBaselineArgs) {
     let generated = results.iter().filter(|r| r.passed).count();
     let failed = results.len() - generated;
 
-    finalize_run(&results, wall_time, &run_dir, &meta, false);
+    finalize_run(&results, wall_time, &run_dir, &meta);
 
     if !is_compact() {
         println!("\nBaseline generation: {generated} generated, {failed} failed");
@@ -2072,7 +2026,7 @@ fn main() {
     let results = run_tests_parallel(tests, jobs, &launcher, &wa_exe, &run_dir);
     let wall_time = wall_start.elapsed();
 
-    finalize_run(&results, wall_time, &run_dir, &meta, true);
+    finalize_run(&results, wall_time, &run_dir, &meta);
 
     // Clean up per-PID temp files from the game directory
     cleanup_temp_files(&wa_exe);

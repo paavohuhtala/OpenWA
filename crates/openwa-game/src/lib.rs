@@ -46,7 +46,6 @@ pub mod mem;
 pub mod rebase;
 pub mod registry;
 pub mod snapshot;
-pub mod trig;
 pub mod vtable;
 pub mod wa;
 pub mod wa_alloc;

@@ -23,7 +23,7 @@ If a piece of code needs any of the above, it belongs in `openwa-game`.
 - **`rng`** — WA's LCG PRNG (`wa_lcg(state) = state * 0x19660D + 0x3C6EF35F`).
 - **`scheme`** — `.wsc` scheme file parser. Reads Worms Armageddon game settings files; has an integration test suite against real WA fixtures.
 - **`sprite_lzss`** — `sprite_lzss_decode`, a port of WA.exe's LZSS decompressor (0x5B29E0). Pure byte-level code operating on raw pointers.
-- **`trig`** — fixed-point sin/cos tables and interpolated lookup. The 1025-entry tables are byte-for-byte copies of WA.exe's `.rdata` at `G_SIN_TABLE` / `G_COS_TABLE`, embedded via `include_bytes!` + a const-fn decoder. `sin(angle)` / `cos(angle)` are the common-case helpers; `trig_lookup_table(&table, angle)` is the primitive for callers with a non-embedded table. `openwa-game::trig::validate_against_wa_exe` runs on DLL load and asserts the embedded tables still match the live binary byte-for-byte.
+- **`trig`** — fixed-point sin/cos tables and interpolated lookup. The 1025-entry tables are byte-for-byte copies of WA.exe's `.rdata` at `G_SIN_TABLE` / `G_COS_TABLE`, embedded via `include_bytes!` + a const-fn decoder. `sin(angle)` / `cos(angle)` are the common-case helpers; `trig_lookup_table(&table, angle)` is the primitive for callers with a non-embedded table.
 - **`weapon`** — Weapon ID space (0..70) plus `FireType` / `FireMethod` / `SpecialFireSubtype` dispatch enums, all with `TryFrom<u32/i32>` impls. The layout structs these enums describe (`WeaponEntry`, `WeaponFireParams`, `WeaponTable`, `WeaponSpawnData`) stay in openwa-game because their `repr(C)` layouts are 32-bit-pointer-dependent.
 
 ## What stays in openwa-game

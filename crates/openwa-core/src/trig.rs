@@ -10,9 +10,6 @@
 //! maps to one full period. The upper 10 bits select the table entry and
 //! the lower 6 bits are used for linear interpolation between adjacent
 //! entries.
-//!
-//! `openwa-game::trig::validate_against_wa_exe` asserts at DLL startup that
-//! the embedded tables still match the live WA.exe tables byte-for-byte.
 
 use crate::fixed::Fixed;
 

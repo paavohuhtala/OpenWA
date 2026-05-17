@@ -14,7 +14,6 @@ pub mod hook;
 mod match_launcher;
 mod replacements;
 mod snapshot;
-mod startup_checks;
 
 // ---------------------------------------------------------------------------
 // DllMain
@@ -155,9 +154,6 @@ fn run() -> Result<(), String> {
     // event fires. If we weren't launched by our launcher (e.g. WormKit
     // module loading), the event won't exist and this is a harmless no-op.
     signal_hooks_ready();
-
-    // Run startup address checks (fast, always-on)
-    startup_checks::run();
 
     // Debug UI window (requires "debug-ui" feature + OPENWA_DEBUG_UI=1)
     debug_ui::maybe_spawn();
