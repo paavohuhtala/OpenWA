@@ -205,7 +205,7 @@ va = 0x0052CAF0
 name = "GameRuntime__InitFrameDelay"
 calling_convention = "__cdecl"
 custom_storage = true
-plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET. Full frame input processing dispatcher: keyboard polling, game speed changes, fast-forward, pause/unpause, replay controls. Formerly misnamed InitFrameDelay."
+plate_comment = "Full frame input processing dispatcher: keyboard polling, game speed changes, fast-forward, pause/unpause, replay controls. Formerly misnamed InitFrameDelay."
 
   [function.signature]
   returns = "void"

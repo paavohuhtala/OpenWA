@@ -33,10 +33,29 @@ name = "Keyboard__IsActionHeld"
 [[function]]
 va = 0x00572290
 name = "Keyboard__PollState"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "Keyboard *"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x005722F0
 name = "Keyboard__ClearKeyStates"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "Keyboard *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00572320

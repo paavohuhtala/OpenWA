@@ -3,3 +3,15 @@
 [[hook]]
 wa_function = "WormEntity__stop_fire_sound"
 rust_impl = "crate::replacements::sound::stop_worm_sound_cdecl"
+
+[[hook]]
+wa_function = "WormEntity__PlaySound"
+rust_impl = "crate::replacements::sound::play_worm_sound_2_cdecl"
+
+[[hook]]
+wa_function = "WormEntity__fire_sound"
+rust_impl = "crate::replacements::sound::play_worm_sound_cdecl"
+
+[[hook]]
+wa_function = "GameWorld__IsSoundSuppressed"
+rust_impl = "crate::replacements::sound::hook_is_sound_suppressed"

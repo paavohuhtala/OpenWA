@@ -19,6 +19,20 @@ va = 0x00526120
 name = "GameWorld__InitFields"
 
 [[function]]
+va = 0x005261E0
+name = "GameWorld__IsSoundSuppressed"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "GameWorld *"
+  storage = "ECX"
+
+[[function]]
 va = 0x00526500
 name = "GameWorld__InitGameState"
 

@@ -1,15 +1,6 @@
-//! Sound playback hooks.
-//!
-//! Thin hook shim — game logic lives in `openwa_game::audio::sound_ops`.
-//! This file contains hook entry points, trampolines, and installation.
-//!
-//! Hooks:
-//! - PlaySoundGlobal (0x546E20): __thiscall, ECX=BaseEntity*, 4 stack params, RET 0x10
-//! - PlaySoundLocal (0x4FDFE0): __usercall, EAX+ECX+EDI + 2 stack params, RET 0x8
-//! - IsSoundSuppressed (0x5261E0): __thiscall, ECX=GameWorld*
-//! - DispatchGlobalSound (0x526270): __fastcall + 4 stack, RET 0x10
-//! - PlaySoundPooled_Direct (0x546B50): __fastcall + 3 stack, RET 0xC
-//! - WormPlaySound2 (0x515020): __usercall(EDI=worm) + 3 stack, RET 0xC
+//! Sound playback hooks. Thin shim — game logic lives in
+//! `openwa_game::audio::sound_ops`. Per-hook calling conventions live in
+//! `re/**/*.toml`; generated install helpers in `crate::generated::hooks`.
 
 use std::sync::atomic::Ordering;
 
@@ -78,16 +69,9 @@ unsafe extern "cdecl" fn play_sound_local_impl(
     }
 }
 
-// ── WormPlaySound2 (0x515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags) ──
+// ── WormEntity__PlaySound (0x515020): usercall(EDI=worm) + stdcall(sound_id, volume, flags) ──
 
-hook::usercall_trampoline!(
-    fn trampoline_worm_play_sound_2;
-    impl_fn = play_worm_sound_2_cdecl;
-    reg = edi;
-    stack_params = 3; ret_bytes = "0xC"
-);
-
-unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
+pub(crate) unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
     worm: *mut WormEntity,
     sound_id: SoundId,
     volume: Fixed,
@@ -100,7 +84,7 @@ unsafe extern "cdecl" fn play_worm_sound_2_cdecl(
 
 // ── IsSoundSuppressed (0x5261E0): thiscall(ECX=GameWorld*) ──
 
-unsafe extern "thiscall" fn hook_is_sound_suppressed(world: *mut GameWorld) -> u32 {
+pub(crate) unsafe extern "cdecl" fn hook_is_sound_suppressed(world: *mut GameWorld) -> u32 {
     unsafe { sound_ops::is_sound_suppressed(world) as u32 }
 }
 
@@ -129,15 +113,9 @@ unsafe extern "fastcall" fn hook_play_sound_pooled_direct(
     unsafe { sound_ops::play_sound_pooled_direct(entity, slot, priority, volume) }
 }
 
-// ── PlayWormSound (0x5150D0): usercall(EDI=worm) + stack(sound_id, volume), RET 0x8 ──
+// ── WormEntity__fire_sound (0x5150D0): usercall(EDI=worm) + stack(sound_id, volume), RET 0x8 ──
 
-hook::usercall_trampoline!(
-    fn trampoline_play_worm_sound;
-    impl_fn = play_worm_sound_cdecl;
-    reg = edi; stack_params = 2; ret_bytes = "0x8"
-);
-
-unsafe extern "cdecl" fn play_worm_sound_cdecl(
+pub(crate) unsafe extern "cdecl" fn play_worm_sound_cdecl(
     worm: *mut WormEntity,
     sound_id: SoundId,
     volume: Fixed,
@@ -211,11 +189,7 @@ pub fn install() -> Result<(), String> {
             va::PLAY_SOUND_LOCAL,
             trampoline_play_sound_local as *const (),
         )?;
-        let _ = hook::install(
-            "IsSoundSuppressed",
-            va::IS_SOUND_SUPPRESSED,
-            hook_is_sound_suppressed as *const (),
-        )?;
+        crate::generated::hooks::install_GameWorld__IsSoundSuppressed()?;
         let _ = hook::install(
             "DispatchGlobalSound",
             va::DISPATCH_GLOBAL_SOUND,
@@ -231,11 +205,7 @@ pub fn install() -> Result<(), String> {
         patch_dssound_vtable()?;
 
         // Hook WormEntity::PlaySound2 (WormEntity__PlaySound) — 23 callers in WA
-        let _ = hook::install(
-            "WormPlaySound2",
-            va::WORM_PLAY_SOUND_2,
-            trampoline_worm_play_sound_2 as *const (),
-        )?;
+        crate::generated::hooks::install_WormEntity__PlaySound()?;
 
         // Trap: only caller (PlayWormSound2) is fully ported Rust
         hook::install_trap!(
@@ -244,11 +214,7 @@ pub fn install() -> Result<(), String> {
         );
 
         // Hook PlayWormSound + StopWormSound — these have WA callers beyond weapon_release.rs
-        let _ = hook::install(
-            "PlayWormSound",
-            va::PLAY_WORM_SOUND,
-            trampoline_play_worm_sound as *const (),
-        )?;
+        crate::generated::hooks::install_WormEntity__fire_sound()?;
         crate::generated::hooks::install_WormEntity__stop_fire_sound()?;
 
         // NOTE: Sound sub-functions (Distance3D_Attenuation, ActiveSoundTable::stop_sound,

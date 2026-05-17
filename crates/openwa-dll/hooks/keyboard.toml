@@ -1,0 +1,9 @@
+# MinHook entries for the Keyboard subsystem.
+
+[[hook]]
+wa_function = "Keyboard__PollState"
+rust_impl = "openwa_game::input::keyboard::keyboard_poll_state"
+
+[[hook]]
+wa_function = "Keyboard__ClearKeyStates"
+rust_impl = "openwa_game::input::keyboard::keyboard_clear_key_states_impl"

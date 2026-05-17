@@ -227,6 +227,31 @@ name = "WormEntity__DrainInputBuffer"
 [[function]]
 va = 0x00515020
 name = "WormEntity__PlaySound"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "sound_id"
+  type = "SoundId"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "volume"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x00515650
@@ -415,6 +440,26 @@ name = "WormEntity__Baseball_Jingle"
 [[function]]
 va = 0x005150D0
 name = "WormEntity__fire_sound"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "sound_id"
+  type = "SoundId"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "volume"
+  type = "Fixed"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x00515130
@@ -425,7 +470,6 @@ va = 0x00515180
 name = "WormEntity__stop_fire_sound"
 calling_convention = "__cdecl"
 custom_storage = true
-plate_comment = "usercall: ESI = WormEntity* worm. No stack params, plain RET."
 
   [function.signature]
   returns = "void"

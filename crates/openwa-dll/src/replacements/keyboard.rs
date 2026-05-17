@@ -4,15 +4,7 @@
 
 use crate::hook;
 use openwa_game::address::va;
-use openwa_game::input::{keyboard, mouse};
-
-// usercall(EAX=this) trampoline for Keyboard::ClearKeyStates. Captures `this`
-// from EAX and forwards it to the cdecl impl in openwa_game.
-hook::usercall_trampoline!(
-    fn keyboard_clear_key_states;
-    impl_fn = keyboard::keyboard_clear_key_states_impl;
-    reg = eax
-);
+use openwa_game::input::keyboard;
 
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;
@@ -31,11 +23,7 @@ pub fn install() -> Result<(), String> {
     // PollState is non-virtual — called directly by GameEngine::InitHardware,
     // GameSession::ProcessFrame, AcquireInput, OnSYSCOMMAND, etc.
     unsafe {
-        hook::install(
-            "Keyboard__PollState",
-            va::KEYBOARD_POLL_STATE,
-            keyboard::keyboard_poll_state as *const (),
-        )?;
+        crate::generated::hooks::install_Keyboard__PollState()?;
 
         // AcquireInput is non-virtual + usercall (ESI=flag); the naked
         // trampoline `keyboard_acquire_input` captures ESI before chaining
@@ -52,24 +40,12 @@ pub fn install() -> Result<(), String> {
 
         // ClearKeyStates: one WA-side caller (GameSession::ProcessFrame at
         // 0x00572D81) plus two Rust call sites already use the impl directly.
-        hook::install(
-            "Keyboard__ClearKeyStates",
-            va::KEYBOARD_CLEAR_KEY_STATES,
-            keyboard_clear_key_states as *const (),
-        )?;
+        crate::generated::hooks::install_Keyboard__ClearKeyStates()?;
 
         // Mouse helpers — all `__cdecl void()`, full-replacement hooks.
         crate::generated::hooks::install_Mouse__PollAndAcquire()?;
-        hook::install(
-            "Mouse__ReleaseAndCenter",
-            va::MOUSE_RELEASE_AND_CENTER,
-            mouse::mouse_release_and_center as *const (),
-        )?;
-        hook::install(
-            "Cursor__ClipAndRecenter",
-            va::CURSOR_CLIP_AND_RECENTER,
-            mouse::cursor_clip_and_recenter as *const (),
-        )?;
+        crate::generated::hooks::install_Mouse__ReleaseAndCenter()?;
+        crate::generated::hooks::install_Cursor__ClipAndRecenter()?;
     }
 
     Ok(())

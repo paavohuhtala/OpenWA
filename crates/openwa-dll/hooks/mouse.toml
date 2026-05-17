@@ -4,3 +4,11 @@
 [[hook]]
 wa_function = "Mouse__PollAndAcquire"
 rust_impl = "openwa_game::input::mouse::mouse_poll_and_acquire"
+
+[[hook]]
+wa_function = "Mouse__ReleaseAndCenter"
+rust_impl = "openwa_game::input::mouse::mouse_release_and_center"
+
+[[hook]]
+wa_function = "Cursor__ClipAndRecenter"
+rust_impl = "openwa_game::input::mouse::cursor_clip_and_recenter"

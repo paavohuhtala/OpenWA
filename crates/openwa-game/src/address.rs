@@ -346,31 +346,14 @@ pub mod va {
         class "Keyboard" {
             /// Keyboard vtable (0x33C-byte keyboard object)
             vtable KEYBOARD_VTABLE = 0x0066AEC8;
-            /// Keyboard::PollState
-            fn/Stdcall KEYBOARD_POLL_STATE = 0x00572290;
             /// Keyboard::AcquireInput — usercall(ESI=flag, [ESP+4]=p1)
             fn/Usercall KEYBOARD_ACQUIRE_INPUT = 0x00572500;
             /// Keyboard::CheckAction — usercall(EAX=action, ESI=this, EDI=mode) -> u32
             fn/Usercall KEYBOARD_CHECK_ACTION = 0x00571BA0;
             /// Keyboard::CheckKeyState — usercall(EAX=key, EDX=mode, [ESP+4]=this) -> bool
             fn/Usercall KEYBOARD_CHECK_KEY_STATE = 0x00571B50;
-            /// Keyboard::ClearKeyStates — usercall(EAX=this) -> void, plain RET
-            fn/Usercall KEYBOARD_CLEAR_KEY_STATES = 0x005722F0;
         }
 
-        // AcquireInput's bridged callees (kept WA-side for this round; no
-        // dedicated class blocks yet — these are scattered single-callees).
-        // (FRONTEND_DIALOG_UPDATE_CURSOR is already declared in the
-        // GameSession bridge block below.)
-        /// Cursor::ClipAndRecenter — clip cursor to monitor + SetCursorPos
-        /// to GameSession.screen_center. Plain RET, no args.
-        /// Now Rust — kept for the trap install in `replacements/mouse.rs`.
-        fn/Cdecl CURSOR_CLIP_AND_RECENTER = 0x00573180;
-        /// Mouse::PollAndAcquire — full re-grab of mouse + keyboard input
-        /// after focus regain. Plain RET, no args.
-        fn/Cdecl MOUSE_POLL_AND_ACQUIRE = 0x00572620;
-        /// Mouse::ReleaseAndCenter — Alt+G ungrab handler. Plain RET, no args.
-        fn/Cdecl MOUSE_RELEASE_AND_CENTER = 0x005725B0;
         /// Display__RestoreSurfaces_Maybe — stdcall(display_ptr) -> u32,
         /// RET 0x4. Recreates lost DDraw surfaces after focus regain.
         fn/Stdcall DISPLAY_RESTORE_SURFACES = 0x0056CA80;
@@ -613,12 +596,6 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        /// PlayWormSound: usercall(EDI=worm) + stack(sound_handle_id, volume), RET 0x8.
-        /// Stops current streaming sound at worm+0x3B0, then starts a new one.
-        fn PLAY_WORM_SOUND = 0x005150D0;
-        /// StopWormSound: usercall(ESI=worm), plain RET.
-        /// Stops streaming sound at worm+0x3B0 and clears the handle.
-        fn STOP_WORM_SOUND = 0x00515180;
         /// SpawnEffect: complex usercall, RET 0x1C.
         /// Builds a 0x408-byte struct from params, SharedData lookup, HandleMessage(0x56).
         fn SPAWN_EFFECT = 0x00547C30;
@@ -931,15 +908,10 @@ pub mod va {
         fn/Stdcall DIRECTSOUND_CREATE = 0x005B493E;
         fn PLAY_SOUND_LOCAL = 0x004FDFE0;
         fn PLAY_SOUND_GLOBAL = 0x00546E20;
-        /// IsSoundSuppressed
-        fn/Fastcall IS_SOUND_SUPPRESSED = 0x005261E0;
         /// DispatchGlobalSound
         fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x00526270;
         /// RecordActiveSound
         fn/Usercall RECORD_ACTIVE_SOUND = 0x00546260;
-        /// WormEntity::PlaySound2 (WormEntity__PlaySound): usercall(EDI=worm) + stdcall(sound_id, volume, flags).
-        /// Stop+play on secondary sound handle (+0x3B4). 23 callers in WA.
-        fn/Usercall WORM_PLAY_SOUND_2 = 0x00515020;
         /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=entity) + stack(volume, sound_id, flags, x, y).
         /// Like LoadAndPlayStreaming but with explicit position. Only caller is PlayWormSound2.
         fn/Usercall LOAD_AND_PLAY_STREAMING_POSITIONAL = 0x00546BB0;

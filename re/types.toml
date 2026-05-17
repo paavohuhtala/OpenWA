@@ -1426,6 +1426,12 @@ namespace = "/OpenWA"
 size = 0x73F8
 rust_path = "openwa_game::engine::world::GameWorld"
 
+[[struct]]
+name = "Keyboard"
+namespace = "/OpenWA"
+size = 0x33C
+rust_path = "openwa_game::input::keyboard::Keyboard"
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4
@@ -1481,3 +1487,18 @@ target = "longlong"
 [[typedef]]
 name = "__uint64"
 target = "ulonglong"
+
+[[typedef]]
+name = "Fixed"
+target = "int"
+rust_path = "openwa_core::fixed::Fixed"
+
+[[typedef]]
+name = "Fixed64"
+target = "longlong"
+rust_path = "openwa_core::fixed::Fixed64"
+
+[[typedef]]
+name = "SoundId"
+target = "uint"
+rust_path = "openwa_game::audio::SoundId"

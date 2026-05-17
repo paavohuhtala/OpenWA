@@ -1,3 +1,7 @@
 [[function]]
 va = 0x00573180
 name = "Cursor__ClipAndRecenter"
+calling_convention = "__cdecl"
+
+  [function.signature]
+  returns = "void"

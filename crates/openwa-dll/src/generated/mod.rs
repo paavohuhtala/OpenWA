@@ -52,7 +52,7 @@ mod equivalence_tests {
                         return out;
                     }
                     // PUSH r32 (0x50..0x57) — 1 byte
-                    0x50..=0x57 | 0x58..=0x5F => p = p.add(1),
+                    0x50..=0x5F => p = p.add(1),
                     // ADD esp, imm8 / SUB esp, imm8 (0x83 /0 /5 + imm8) — 3 bytes
                     0x83 => {
                         out.push(*p.add(1));

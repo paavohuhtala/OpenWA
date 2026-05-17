@@ -118,10 +118,6 @@ custom_storage = true
   storage = "stack:0x14"
 
 [[function]]
-va = 0x005261E0
-name = "IsSoundSuppressed"
-
-[[function]]
 va = 0x00526270
 name = "DispatchGlobalSound"
 

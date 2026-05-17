@@ -46,6 +46,10 @@ when a caller needs read-then-clear semantics.
 [[function]]
 va = 0x005725B0
 name = "Mouse__ReleaseAndCenter"
+calling_convention = "__cdecl"
+
+  [function.signature]
+  returns = "void"
 
 [[function]]
 va = 0x00572620
