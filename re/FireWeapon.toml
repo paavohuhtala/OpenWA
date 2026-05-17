@@ -1,6 +1,27 @@
 [[function]]
 va = 0x0051DCF0
 name = "FireWeapon__ProjectileFire_Single"
+calling_convention = "__stdcall"
+custom_storage = true
+plate_comment = "Per-shot projectile spawn. usercall(EDI=spawn_data, stack=[worm, fire_params]), RET 0x8. Called by FireWeapon__ProjectileFire in a loop, with spawn_data's velocity slot already rotated per-pellet."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "spawn_data"
+  type = "const WeaponReleaseContext *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "worm"
+  type = "void *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "fire_params"
+  type = "const WeaponFireParams *"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x0051DFB0
@@ -16,11 +37,11 @@ calling_convention = "__stdcall"
 
   [[function.param]]
   name = "fire_params"
-  type = "void *"
+  type = "const WeaponFireParams *"
 
   [[function.param]]
   name = "release_ctx"
-  type = "WeaponReleaseContext *"
+  type = "const WeaponReleaseContext *"
 
 [[function]]
 va = 0x0051E0F0
@@ -38,12 +59,12 @@ custom_storage = true
 
   [[function.param]]
   name = "fire_params"
-  type = "void *"
+  type = "const WeaponFireParams *"
   storage = "stack:0x4"
 
   [[function.param]]
   name = "spawn_data"
-  type = "void *"
+  type = "const WeaponReleaseContext *"
   storage = "stack:0x8"
 
 [[function]]

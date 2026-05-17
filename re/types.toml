@@ -1095,6 +1095,321 @@ rust_path = "openwa_game::game::weapon::WeaponReleaseContext"
   size = 0x4
   comment = "Fuse timer in ms, from WormEntity::selected_fuse_value: (value+1)*1000 when within scheme bounds. Used by MissileEntity::Constructor as fallback for render_data[0x11]."
 
+[[struct]]
+name = "WeaponFireParams"
+namespace = "/OpenWA"
+size = 0x194
+plate_comment = "Embedded at WeaponEntry+0x3C. 0x194 / 101-DWORD parameter block passed verbatim to every fire sub-dispatcher (PlacedExplosive, Projectile, CreateWeaponProjectile, ...). The first 94 DWORDs are copied wholesale into MissileEntity.weapon_data. For single-shot projectiles render_data[N] = weapon_data[N+3]; for cluster sub-pellets render_data[N] = weapon_data[N+52]. Slots are polymorphic by FireType/FireMethod — see openwa_game::game::weapon::WeaponFireParams for the per-slot meaning."
+rust_path = "openwa_game::game::weapon::WeaponFireParams"
+
+  [[struct.field]]
+  offset = 0x0
+  name = "shot_count"
+  type = "int"
+  size = 0x4
+  comment = "Pellet / shots-per-trigger count (Bazooka=2, Shotgun=1, Handgun=6, AirStrike=5)."
+
+  [[struct.field]]
+  offset = 0x4
+  name = "spread"
+  type = "int"
+  size = 0x4
+  comment = "Multi-pellet spread (Mortar=100) / hitscan spread cone / airstrike spacing."
+
+  [[struct.field]]
+  offset = 0x8
+  name = "_slot_02"
+  type = "int"
+  size = 0x4
+  comment = "Cluster flag for missiles (Grenade=1) / fire delay between hitscan shots."
+
+  [[struct.field]]
+  offset = 0xC
+  name = "collision_radius"
+  type = "int"
+  size = 0x4
+  comment = "Missile collision radius (Bazooka=2.10 Fixed16.16, HomingPigeon=66.1)."
+
+  [[struct.field]]
+  offset = 0x10
+  name = "_slot_04"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x14
+  name = "_slot_05_damage_or_range"
+  type = "int"
+  size = 0x4
+  comment = "Missile explosion damage (Bazooka=100) / hitscan max range."
+
+  [[struct.field]]
+  offset = 0x18
+  name = "_slot_06_blast_or_impact_radius"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x1C
+  name = "_slot_07"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x20
+  name = "_slot_08_hitscan_damage"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x24
+  name = "sprite_id"
+  type = "int"
+  size = 0x4
+  comment = "Missile sprite/animation ID (Bazooka=48, Grenade=50, HomingPigeon=175)."
+
+  [[struct.field]]
+  offset = 0x28
+  name = "impact_type"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x2C
+  name = "_slot_11"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x30
+  name = "trail_effect"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x34
+  name = "gravity_pct"
+  type = "int"
+  size = 0x4
+  comment = "Gravity percentage (100=normal, 0=none). -> render_data[0x0C] -> WorldEntity.gravity_factor."
+
+  [[struct.field]]
+  offset = 0x38
+  name = "wind_influence"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x3C
+  name = "bounce_pct"
+  type = "int"
+  size = 0x4
+  comment = "Bounce percentage (100=normal elastic, 0=none). -> render_data[0x0D] -> WorldEntity.bounce_factor."
+
+  [[struct.field]]
+  offset = 0x40
+  name = "_slot_16"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x44
+  name = "_slot_17"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x48
+  name = "friction_pct"
+  type = "int"
+  size = 0x4
+  comment = "Friction percentage. -> render_data[0x0F] -> WorldEntity.friction_factor."
+
+  [[struct.field]]
+  offset = 0x4C
+  name = "explosion_delay"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x50
+  name = "fuse_timer"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x54
+  name = "_slot_21_25"
+  type = "int[5]"
+  size = 0x14
+
+  [[struct.field]]
+  offset = 0x68
+  name = "missile_type"
+  type = "int"
+  size = 0x4
+  comment = "Missile dispatch discriminator. 0=None, 1=Homing, 2=Standard, 3=Sheep, 5=SheepLauncher/Cluster. -> render_data[0x17]."
+
+  [[struct.field]]
+  offset = 0x6C
+  name = "render_size"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x70
+  name = "render_timer"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x74
+  name = "homing_params"
+  type = "int[5]"
+  size = 0x14
+  comment = "[strength, sprite, turn_rate, accel, speed]. Only nonzero for homing weapons."
+
+  [[struct.field]]
+  offset = 0x88
+  name = "_slot_34_36"
+  type = "int[3]"
+  size = 0xC
+
+  [[struct.field]]
+  offset = 0x94
+  name = "_slot_37_51_reserved"
+  type = "int[15]"
+  size = 0x3C
+
+  [[struct.field]]
+  offset = 0xD0
+  name = "cluster_params"
+  type = "int[42]"
+  size = 0xA8
+  comment = "Sub-pellet parameter slab (mirrors [0..41]). When pellet_index > 0, render_data copies from here instead of the primary block."
+
+  [[struct.field]]
+  offset = 0x178
+  name = "entry_metadata"
+  type = "int[7]"
+  size = 0x1C
+  comment = "WeaponEntry-only tail: power %, ammo-pack defaults, ... — NOT copied to MissileEntity."
+
+[[struct]]
+name = "WeaponEntry"
+namespace = "/OpenWA"
+size = 0x1D0
+plate_comment = "Per-weapon table entry. The active weapon table is a flat array of 71 entries at GameWorld+0x510 (sized 71 * 0x1D0 = 0x80B0). Indices 0..70 match the Weapon enum. Fields 0x00..0x3B are weapon-table metadata; offsets 0x3C.. are the embedded WeaponFireParams block consumed by the fire pipeline."
+rust_path = "openwa_game::game::weapon::WeaponEntry"
+
+  [[struct.field]]
+  offset = 0x0
+  name = "name1"
+  type = "char *"
+  size = 0x4
+  comment = "Primary weapon name string."
+
+  [[struct.field]]
+  offset = 0x4
+  name = "name2"
+  type = "char *"
+  size = 0x4
+  comment = "Secondary weapon name string."
+
+  [[struct.field]]
+  offset = 0x8
+  name = "panel_state"
+  type = "int"
+  size = 0x4
+  comment = "Init: 0xFFFFFFFF. wkJellyWorm calls this panelRow."
+
+  [[struct.field]]
+  offset = 0xC
+  name = "requires_aiming"
+  type = "int"
+  size = 0x4
+  comment = "1 for aimed weapons (Bazooka/Grenade/Shotgun), 0 for AirStrike/HomingMissile/Teleport."
+
+  [[struct.field]]
+  offset = 0x10
+  name = "defined"
+  type = "int"
+  size = 0x4
+  comment = "Nonzero = weapon exists in the table. Checked by GameWorld::CheckWeaponAvail."
+
+  [[struct.field]]
+  offset = 0x14
+  name = "shot_count"
+  type = "int"
+  size = 0x4
+  comment = "Shots per use (1 for most, 2 for Shotgun/Longbow, 5 for GirderPack)."
+
+  [[struct.field]]
+  offset = 0x18
+  name = "_unknown_18"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x1C
+  name = "retreat_time"
+  type = "int"
+  size = 0x4
+  comment = "Retreat timer ms. 3000 for most, 5000 for Dynamite/Mine/MingVase, -1 for non-retreating, -1000 for PneumaticDrill/Teleport, 0 for utility/powerups."
+
+  [[struct.field]]
+  offset = 0x20
+  name = "creates_projectile"
+  type = "int"
+  size = 0x4
+  comment = "1 for weapons that fire a physical object, 0 for utility."
+
+  [[struct.field]]
+  offset = 0x24
+  name = "availability"
+  type = "int"
+  size = 0x4
+  comment = "Init 0xFFFFFFFF, then 0/1 per weapon. Weapon::None, SkipGo, Surrender default to 0."
+
+  [[struct.field]]
+  offset = 0x28
+  name = "enabled"
+  type = "int"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x2C
+  type = "byte[4]"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x30
+  name = "fire_type"
+  type = "int"
+  size = 0x4
+  comment = "FireType: 1=Projectile, 2=Placed, 3=Strike, 4=Special."
+
+  [[struct.field]]
+  offset = 0x34
+  name = "special_subtype"
+  type = "int"
+  size = 0x4
+  comment = "SpecialFireSubtype for FireType::Special, parameter data for FireType::Strike."
+
+  [[struct.field]]
+  offset = 0x38
+  name = "fire_method"
+  type = "int"
+  size = 0x4
+  comment = "FireMethod sub-dispatch for FireType::Projectile and FireType::Placed."
+
+  [[struct.field]]
+  offset = 0x3C
+  name = "fire_params"
+  type = "WeaponFireParams"
+  size = 0x194
+  comment = "Embedded fire parameters; pointer to this field is passed to every fire dispatch sub-function."
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4

@@ -17,6 +17,7 @@
 //! external_types. Edit those directly in TOML.
 
 use crate::emit;
+use crate::manifest::ghidra_type;
 use crate::model::*;
 use crate::toml_io::Catalog;
 use crate::xml_in::XmlProgram;
@@ -197,7 +198,7 @@ fn diff_one_function(x: &Function, t: &Function, file: &Path, out: &mut Vec<Chan
     }
     let x_returns = x.signature.as_ref().map(|s| s.returns.clone());
     let t_returns = t.signature.as_ref().map(|s| s.returns.clone());
-    if x_returns != t_returns {
+    if !type_opt_eq(&x_returns, &t_returns) {
         push(
             out,
             ChangeKind::FunctionReturns {
@@ -206,7 +207,7 @@ fn diff_one_function(x: &Function, t: &Function, file: &Path, out: &mut Vec<Chan
             },
         );
     }
-    if x.param != t.param {
+    if !params_equal_modulo_cv(&x.param, &t.param) {
         push(
             out,
             ChangeKind::FunctionParams {
@@ -215,7 +216,7 @@ fn diff_one_function(x: &Function, t: &Function, file: &Path, out: &mut Vec<Chan
             },
         );
     }
-    if x.local != t.local {
+    if !locals_equal_modulo_cv(&x.local, &t.local) {
         push(
             out,
             ChangeKind::FunctionLocals {
@@ -331,7 +332,7 @@ fn diff_globals(prog: &XmlProgram, cat: &Catalog, re_dir: &Path, out: &mut Vec<C
                         },
                     });
                 }
-                if x.ty != entry.value.ty {
+                if !type_opt_eq(&x.ty, &entry.value.ty) {
                     out.push(Change {
                         va,
                         file: entry.source.clone(),
@@ -373,6 +374,41 @@ fn inline_comments_equal(a: &[InlineComment], b: &[InlineComment]) -> bool {
     a.iter()
         .zip(b.iter())
         .all(|(x, y)| x.va == y.va && x.kind == y.kind && x.text.trim_end() == y.text.trim_end())
+}
+
+/// Type-string equality modulo C-style `const` / `volatile` qualifiers.
+/// Ghidra strips these on export, so a TOML param spelled `const Foo *`
+/// must compare equal to an XML param spelled `Foo *`. Without this the
+/// importer would propose to overwrite every const-annotated TOML entry
+/// after every Ghidra round trip.
+fn types_equal_modulo_cv(a: &str, b: &str) -> bool {
+    a == b || ghidra_type(a) == ghidra_type(b)
+}
+
+fn type_opt_eq(a: &Option<TypeRef>, b: &Option<TypeRef>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(x), Some(y)) => types_equal_modulo_cv(x, y),
+        _ => false,
+    }
+}
+
+fn params_equal_modulo_cv(a: &[Param], b: &[Param]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b.iter()).all(|(x, y)| {
+        x.name == y.name && x.storage == y.storage && types_equal_modulo_cv(&x.ty, &y.ty)
+    })
+}
+
+fn locals_equal_modulo_cv(a: &[Local], b: &[Local]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b.iter()).all(|(x, y)| {
+        x.name == y.name && x.stack_offset == y.stack_offset && types_equal_modulo_cv(&x.ty, &y.ty)
+    })
 }
 
 /// Stable secondary sort key so changes for the same VA appear in a
@@ -484,6 +520,49 @@ mod tests {
         let changes = diff(&xml, &cat, re());
         assert_eq!(changes.len(), 1);
         assert!(matches!(changes[0].kind, ChangeKind::FunctionLocals { .. }));
+    }
+
+    #[test]
+    fn cv_qualifier_only_param_difference_is_not_a_change() {
+        // Ghidra exports cv-stripped types; TOML keeps `const Foo *` as
+        // hand-annotated intent. The diff must treat them as equal so the
+        // round trip doesn't constantly propose to delete the const.
+        let mut x = make_fn(0x500, "f");
+        x.calling_convention = Some("__stdcall".into());
+        x.signature = Some(Signature {
+            returns: "void".into(),
+            return_storage: None,
+        });
+        x.param.push(Param {
+            name: "p".into(),
+            ty: "WeaponFireParams *".into(),
+            storage: None,
+        });
+        let mut t = make_fn(0x500, "f");
+        t.calling_convention = Some("__stdcall".into());
+        t.signature = Some(Signature {
+            returns: "void".into(),
+            return_storage: None,
+        });
+        t.param.push(Param {
+            name: "p".into(),
+            ty: "const WeaponFireParams *".into(),
+            storage: None,
+        });
+
+        let xml = XmlProgram {
+            functions: vec![x],
+            ..Default::default()
+        };
+        let mut cat = empty_cat();
+        cat.functions.insert(
+            0x500,
+            OwnedEntry {
+                value: t,
+                source: PathBuf::from("re/x.toml"),
+            },
+        );
+        assert!(diff(&xml, &cat, re()).is_empty());
     }
 
     #[test]

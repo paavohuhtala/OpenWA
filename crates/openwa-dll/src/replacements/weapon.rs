@@ -75,7 +75,7 @@ usercall_trampoline!(fn trampoline_count_alive_worms; impl_fn = count_alive_worm
 unsafe extern "thiscall" fn hook_create_weapon_projectile(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
-    local_struct: *const u8,
+    local_struct: *const openwa_game::game::weapon::WeaponReleaseContext,
 ) {
     unsafe {
         weapon_fire::create_weapon_projectile(worm, fire_params, local_struct);
@@ -99,7 +99,7 @@ unsafe extern "stdcall" fn hook_projectile_fire(
 unsafe extern "thiscall" fn hook_create_arrow(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
-    local_struct: *const u8,
+    local_struct: *const openwa_game::game::weapon::WeaponReleaseContext,
 ) {
     unsafe {
         weapon_fire::create_arrow(worm, fire_params, local_struct);

@@ -256,13 +256,37 @@ fn build_known_type_set(cat: &Catalog) -> HashSet<String> {
     s
 }
 
-/// Strip trailing pointer/array/bit-field suffixes to expose the base type
-/// name. `"char *[7]"` → `"char"`, `"BaseEntity *"` → `"BaseEntity"`,
-/// `"dword:31"` → `"dword"` (Ghidra bit-field syntax).
+/// Strip trailing pointer/array/bit-field suffixes and leading `const` /
+/// `volatile` cv-qualifiers to expose the base type name.
+/// `"char *[7]"` → `"char"`, `"BaseEntity *"` → `"BaseEntity"`,
+/// `"const Foo *"` → `"Foo"`, `"dword:31"` → `"dword"` (Ghidra bit-field syntax).
 fn base_type_name(tref: &str) -> String {
     // Drop everything from the first `*`, `[`, or `:` onwards; trim.
     let cutoff = tref.find(['*', '[', ':']).unwrap_or(tref.len());
-    tref[..cutoff].trim().to_string()
+    let mut s = tref[..cutoff].trim();
+    // Strip leading `const` / `volatile` (repeatable); they don't affect
+    // the base name and the codegen ignores them too.
+    loop {
+        let next = if let Some(rest) = s.strip_prefix("const") {
+            rest.strip_prefix(|c: char| c.is_whitespace())
+        } else if let Some(rest) = s.strip_prefix("volatile") {
+            rest.strip_prefix(|c: char| c.is_whitespace())
+        } else {
+            None
+        };
+        match next {
+            Some(rest) => s = rest.trim_start(),
+            None => break,
+        }
+    }
+    // Strip trailing `const` (the `T * const` form — but the trailing `*`
+    // is already gone, so this catches the bare `T const` pointee spelling).
+    if let Some(rest) = s.strip_suffix("const")
+        && rest.ends_with(|c: char| c.is_whitespace())
+    {
+        s = rest.trim_end();
+    }
+    s.to_string()
 }
 
 fn is_builtin_type(name: &str) -> bool {
@@ -481,5 +505,11 @@ mod tests {
         assert_eq!(base_type_name("BaseEntity *"), "BaseEntity");
         assert_eq!(base_type_name("BaseEntity * *"), "BaseEntity");
         assert_eq!(base_type_name("ULONG_PTR[15]"), "ULONG_PTR");
+        // cv-qualifiers on the pointee are stripped — `const T *` and
+        // `T const *` both reduce to `T`.
+        assert_eq!(base_type_name("const WeaponEntry *"), "WeaponEntry");
+        assert_eq!(base_type_name("WeaponEntry const *"), "WeaponEntry");
+        assert_eq!(base_type_name("volatile int *"), "int");
+        assert_eq!(base_type_name("const char *[3]"), "char");
     }
 }

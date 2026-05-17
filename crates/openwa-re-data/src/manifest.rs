@@ -319,7 +319,7 @@ fn convert_field(f: &model::Field) -> Field {
     Field {
         offset: f.offset,
         name: f.name.clone(),
-        ty: f.ty.clone(),
+        ty: ghidra_type(&f.ty),
         type_namespace: f
             .type_namespace
             .as_deref()
@@ -350,7 +350,7 @@ fn convert_typedef(t: &model::Typedef) -> Typedef {
     Typedef {
         name: t.name.clone(),
         namespace: ns(&t.namespace),
-        target: t.target.clone(),
+        target: ghidra_type(&t.target),
     }
 }
 
@@ -358,13 +358,13 @@ fn convert_function_def(fd: &model::FunctionDef) -> FunctionDef {
     FunctionDef {
         name: fd.name.clone(),
         namespace: ns(&fd.namespace),
-        returns: fd.returns.clone(),
+        returns: ghidra_type(&fd.returns),
         params: fd
             .param
             .iter()
             .map(|p| FunctionDefParam {
                 name: p.name.clone(),
-                ty: p.ty.clone(),
+                ty: ghidra_type(&p.ty),
             })
             .collect(),
     }
@@ -384,7 +384,7 @@ fn collect_typed_globals(cat: &Catalog) -> Vec<TypedGlobal> {
         .filter_map(|e| {
             e.value.ty.as_ref().map(|ty| TypedGlobal {
                 va: format!("0x{:08X}", e.value.va),
-                ty: ty.clone(),
+                ty: ghidra_type(ty),
             })
         })
         .collect();
@@ -474,13 +474,13 @@ fn build_function(f: &model::Function) -> Option<Function> {
         no_return: f.no_return,
         custom_storage: f.custom_storage,
         plate_comment: f.plate_comment.clone(),
-        return_type: f.signature.as_ref().map(|s| s.returns.clone()),
+        return_type: f.signature.as_ref().map(|s| ghidra_type(&s.returns)),
         params: f
             .param
             .iter()
             .map(|p| Param {
                 name: p.name.clone(),
-                ty: p.ty.clone(),
+                ty: ghidra_type(&p.ty),
                 storage: p.storage.clone(),
             })
             .collect(),
@@ -489,6 +489,32 @@ fn build_function(f: &model::Function) -> Option<Function> {
 
 fn is_false(b: &bool) -> bool {
     !*b
+}
+
+/// Strip C-style `const` / `volatile` qualifiers from a type string before
+/// handing it to Ghidra. Ghidra's `DataTypeManager` has no notion of
+/// const-qualified types and rejects `const Foo *` as an unrecognised
+/// data type — drop the qualifier and let it resolve the bare pointee.
+///
+/// Whole-word matches only: `const WeaponFireParams *` → `WeaponFireParams *`,
+/// `Foo const *` → `Foo *`, `int * const` → `int *`. Non-qualifier tokens
+/// pass through verbatim, so `char *[7]` and `byte[160]` are unaffected.
+///
+/// The diff path uses the same normaliser when comparing Ghidra-exported
+/// types against TOML so the cv-qualifier round-trip is non-lossy: TOML
+/// keeps its `const Foo *` annotation even though Ghidra echoes back `Foo *`.
+pub(crate) fn ghidra_type(ty: &str) -> String {
+    let mut out = String::with_capacity(ty.len());
+    for tok in ty.split_whitespace() {
+        if tok == "const" || tok == "volatile" {
+            continue;
+        }
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(tok);
+    }
+    out
 }
 
 /// Serialise to pretty JSON.
@@ -503,6 +529,21 @@ mod tests {
     use crate::toml_io::OwnedEntry;
     use std::collections::HashMap;
     use std::path::PathBuf;
+
+    #[test]
+    fn ghidra_type_strips_cv_qualifiers() {
+        // C-style const/volatile qualifiers don't exist in Ghidra; strip them.
+        assert_eq!(ghidra_type("int"), "int");
+        assert_eq!(ghidra_type("char *"), "char *");
+        assert_eq!(ghidra_type("const WeaponEntry *"), "WeaponEntry *");
+        assert_eq!(ghidra_type("WeaponEntry const *"), "WeaponEntry *");
+        assert_eq!(ghidra_type("int * const"), "int *");
+        assert_eq!(ghidra_type("const char **"), "char **");
+        assert_eq!(ghidra_type("volatile int *"), "int *");
+        // No-whitespace tokens pass through unchanged.
+        assert_eq!(ghidra_type("byte[160]"), "byte[160]");
+        assert_eq!(ghidra_type("char *[7]"), "char *[7]");
+    }
 
     #[test]
     fn function_override_filter() {

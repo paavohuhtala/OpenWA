@@ -154,9 +154,9 @@ pub unsafe fn fire_weapon(
                 Ok(FireMethod::PlacedExplosive) => fire_placed_explosive(worm, fire_params, ctx),
                 Ok(FireMethod::ProjectileFire) => projectile_fire(worm, fire_params, ctx),
                 Ok(FireMethod::CreateWeaponProjectile) => {
-                    create_weapon_projectile(worm, fire_params, ctx as *const u8)
+                    create_weapon_projectile(worm, fire_params, ctx)
                 }
-                Ok(FireMethod::CreateArrow) => create_arrow(worm, fire_params, ctx as *const u8),
+                Ok(FireMethod::CreateArrow) => create_arrow(worm, fire_params, ctx),
                 _ => {}
             },
             Ok(FireType::Placed) => match FireMethod::try_from(fire_method) {
@@ -164,9 +164,7 @@ pub unsafe fn fire_weapon(
                 Ok(FireMethod::PlacedExplosive) => fire_mine(worm, fire_params, ctx),
                 // method=2: Dynamite, Sheep family, MoleBomb, MadCow, OldWoman, MingVase,
                 // Skunk, SalvationArmy — all spawn a generic MissileEntity.
-                Ok(FireMethod::ProjectileFire) => {
-                    create_weapon_projectile(worm, fire_params, ctx as *const u8)
-                }
+                Ok(FireMethod::ProjectileFire) => create_weapon_projectile(worm, fire_params, ctx),
                 // method=3: dead code under stock data (no vanilla weapon hits this);
                 // kept reachable for custom schemes / mods.
                 Ok(FireMethod::CreateWeaponProjectile) => fire_canister(worm, fire_params, ctx),
@@ -1083,62 +1081,6 @@ unsafe fn fire_prod(worm: *mut WormEntity, ctx: *const WeaponReleaseContext) {
     }
 }
 
-// ── Naked asm bridges ───────────────────────────────────────
-
-/// Bridge: ProjectileFire_Single — usercall(EDI=spawn_data, stack=[worm, fire_params]), RET 0x8.
-/// Args: (spawn_data, worm, fire_params, addr).
-#[unsafe(naked)]
-unsafe extern "C" fn call_projectile_fire_single(
-    _spawn_data: *const WeaponReleaseContext,
-    _worm: *mut WormEntity,
-    _fire_params: *const WeaponFireParams,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov edi, [esp+16]", // EDI = spawn_data
-        "mov ebx, [esp+28]", // addr
-        "push [esp+24]",     // fire_params
-        "push [esp+24]",     // worm (shifted +4)
-        "call ebx",          // RET 0x8 cleans 2 params
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// Bridge: MissileEntity::Constructor — thiscall(ECX=this, parent, fire_params, spawn_data), RET 0xC.
-/// Args: (this, parent, fire_params, spawn_data, ctor_addr).
-#[unsafe(naked)]
-unsafe extern "C" fn call_missile_ctor(
-    _this: *mut u8,
-    _parent: *mut u8,
-    _fire_params: *const WeaponFireParams,
-    _spawn_data: *const u8,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "push edi",
-        // Stack: 3 saves(12) + ret(4) = 16 to first arg
-        "mov ecx, [esp+16]", // ECX = this (buffer)
-        "mov ebx, [esp+32]", // addr (16 + 4*4 args = 32)
-        "push [esp+28]",     // spawn_data
-        "push [esp+28]",     // fire_params (shifted +4)
-        "push [esp+28]",     // parent (shifted +8)
-        "call ebx",          // thiscall: RET 0xC cleans 3 params
-        "pop edi",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
-}
-
 // ── Object creation functions ───────────────────────────────
 
 /// `FireType::Placed` + `FireMethod::PlacedExplosive` — spawn a `MineEntity`.
@@ -1234,11 +1176,10 @@ unsafe fn fire_canister(
 pub unsafe fn create_weapon_projectile(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
-    local_struct: *const u8,
+    local_struct: *const WeaponReleaseContext,
 ) {
     unsafe {
         use crate::entity::SharedDataTable;
-        use crate::rebase::rb;
         use crate::wa_alloc::wa_malloc;
 
         let world = &mut *{
@@ -1265,14 +1206,11 @@ pub unsafe fn create_weapon_projectile(
         // Zero bytes 0x00..0x3EC (the original only zeros 0x3EC of 0x40C)
         core::ptr::write_bytes(buffer, 0, 0x3EC);
 
-        // Call original MissileEntity::Constructor
-        // thiscall(ECX=buffer, parent, fire_params, local_struct), RET 0xC
-        call_missile_ctor(
-            buffer,
-            parent,
+        crate::generated::wa_calls::MissileEntity::Constructor(
+            buffer.cast(),
+            parent.cast(),
             fire_params,
             local_struct,
-            rb(va::MISSILE_ENTITY_CTOR),
         );
     }
 }
@@ -1294,8 +1232,6 @@ pub unsafe fn projectile_fire(
     ctx: *const WeaponReleaseContext,
 ) {
     unsafe {
-        use crate::rebase::rb;
-
         let params = &*fire_params;
         // collision_radius field is polymorphic — for ProjectileFire it holds the shot count
         let shot_count = params.collision_radius.0;
@@ -1340,12 +1276,10 @@ pub unsafe fn projectile_fire(
             spawn_data.spawn_offset_x = Fixed(speed_x);
             spawn_data.spawn_offset_y = Fixed(speed_y);
 
-            // Call ProjectileFire_Single(worm, fire_params) with EDI=&spawn_data
-            call_projectile_fire_single(
+            crate::generated::wa_calls::FireWeapon::ProjectileFire_Single(
                 &raw const spawn_data,
-                worm,
+                worm.cast(),
                 fire_params,
-                rb(va::PROJECTILE_FIRE_SINGLE),
             );
         }
     }
@@ -1366,7 +1300,7 @@ fn fixed_mul(a: i32, b: i32) -> i32 {
 pub unsafe fn create_arrow(
     worm: *mut WormEntity,
     fire_params: *const WeaponFireParams,
-    local_struct: *const u8,
+    local_struct: *const WeaponReleaseContext,
 ) {
     unsafe {
         use crate::entity::SharedDataTable;
@@ -1391,8 +1325,12 @@ pub unsafe fn create_arrow(
         }
 
         // ArrowEntity::Constructor — stdcall(this, parent, fire_params, local_struct), RET 0x10
-        let ctor: unsafe extern "stdcall" fn(*mut u8, *mut u8, *const WeaponFireParams, *const u8) =
-            core::mem::transmute(rb(va::ARROW_ENTITY_CTOR));
+        let ctor: unsafe extern "stdcall" fn(
+            *mut u8,
+            *mut u8,
+            *const WeaponFireParams,
+            *const WeaponReleaseContext,
+        ) = core::mem::transmute(rb(va::ARROW_ENTITY_CTOR));
         ctor(buffer, parent, fire_params, local_struct);
     }
 }

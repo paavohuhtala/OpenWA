@@ -23,12 +23,12 @@ custom_storage = true
 
   [[function.param]]
   name = "fire_params"
-  type = "void *"
+  type = "const WeaponFireParams *"
   storage = "stack:0x8"
 
   [[function.param]]
   name = "spawn_data"
-  type = "void *"
+  type = "const WeaponReleaseContext *"
   storage = "stack:0xC"
 
 [[function]]
