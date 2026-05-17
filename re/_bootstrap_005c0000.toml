@@ -9,6 +9,7 @@ name = "wa_malloc"
 [[function]]
 va = 0x005C0AE8
 name = "WA_Free"
+calling_convention = "__cdecl"
 
   [function.signature]
   returns = "void"
@@ -20,6 +21,7 @@ name = "WA_Free"
 [[function]]
 va = 0x005C8658
 name = "AfxInternalProcessWndProcException"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "long"

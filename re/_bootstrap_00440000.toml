@@ -1,7 +1,10 @@
 [[function]]
 va = 0x00447A20
 name = "FrontendChangeScreen"
+calling_convention = "__usercall"
+custom_storage = true
 
   [[function.param]]
   name = "screen_id"
   type = "undefined4"
+  storage = "stack:0x4"

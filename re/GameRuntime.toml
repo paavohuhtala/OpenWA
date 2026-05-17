@@ -48,6 +48,8 @@ plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra r
 [[function]]
 va = 0x0052A840
 name = "GameRuntime__ShouldContinueFrameLoop"
+calling_convention = "__usercall"
+custom_storage = true
 
   [function.signature]
   returns = "uint"
@@ -55,14 +57,17 @@ name = "GameRuntime__ShouldContinueFrameLoop"
   [[function.param]]
   name = "wrapper"
   type = "void *"
+  storage = "EAX"
 
   [[function.param]]
   name = "elapsed_lo"
   type = "uint"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "elapsed_hi"
   type = "uint"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x0052A910
@@ -76,6 +81,8 @@ plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET
 [[function]]
 va = 0x0052A9C0
 name = "GameRuntime__BroadcastFrameTiming"
+calling_convention = "__usercall"
+custom_storage = true
 plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
 
   [function.signature]
@@ -84,22 +91,27 @@ plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RE
   [[function.param]]
   name = "elapsed_lo"
   type = "uint"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "elapsed_hi"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "freq_lo"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "freq_hi"
   type = "uint"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x0052AAA0
 name = "GameRuntime__UpdateNetworkHudAnimations"
+calling_convention = "__usercall"
 custom_storage = true
 plate_comment = """
 GameRuntime::UpdateNetworkHudAnimations
@@ -141,22 +153,27 @@ Ported to Rust as engine::main_loop::dispatch_frame::update_network_hud_animatio
   [[function.param]]
   name = "chat_box_min_step"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "chat_box_rate"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "ui_anim_min_step"
   type = "int"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "ui_anim_rate"
   type = "int"
+  storage = "stack:0x10"
 
   [[function.param]]
   name = "advance_ratio"
   type = "uint"
+  storage = "stack:0x14"
 
   [[function.param]]
   name = "this"
@@ -166,6 +183,8 @@ Ported to Rust as engine::main_loop::dispatch_frame::update_network_hud_animatio
 [[function]]
 va = 0x0052ABF0
 name = "GameRuntime__CalcTimingRatio"
+calling_convention = "__usercall"
+custom_storage = true
 plate_comment = "usercall: ESI = DDGameWrapper* this. 1 stdcall stack param (ratio), RET 0x4. Ported to Rust in dispatch_frame.rs."
 
   [function.signature]
@@ -174,6 +193,7 @@ plate_comment = "usercall: ESI = DDGameWrapper* this. 1 stdcall stack param (rat
   [[function.param]]
   name = "ratio"
   type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x0052CAF0
@@ -287,6 +307,8 @@ plate_comment = "Returns 1 only when the HUD slew state should remain active. Ca
 [[function]]
 va = 0x00534CA0
 name = "GameRuntime__SetupFrameParams"
+calling_convention = "__usercall"
+custom_storage = true
 plate_comment = "usercall: EAX = DDGameWrapper* this. 3 stdcall stack params."
 
   [function.signature]
@@ -295,14 +317,17 @@ plate_comment = "usercall: EAX = DDGameWrapper* this. 3 stdcall stack params."
   [[function.param]]
   name = "fps_scaled"
   type = "int"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "fps_product"
   type = "int"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "fixed_render_scale"
   type = "int"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x00534E00
@@ -474,6 +499,8 @@ plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET
 [[function]]
 va = 0x0053DF00
 name = "GameRuntime__ProcessNetworkFrame"
+calling_convention = "__usercall"
+custom_storage = true
 plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
 
   [function.signature]
@@ -482,22 +509,27 @@ plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RE
   [[function.param]]
   name = "time_lo"
   type = "uint"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "time_hi"
   type = "uint"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "freq_lo"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "freq_hi"
   type = "uint"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x0053F0A0
 name = "GameRuntime__FormatTimestampFrames"
+calling_convention = "__stdcall"
 plate_comment = "usercall: EAX = frame_counter (int). 2 stdcall stack params (sprintf_func, buffer), RET 0x8. Formats frame counter as \"HH:MM:SS.CC\" timestamp at 50fps into buffer using the provided sprintf function. Formerly misnamed WriteHeadlessLog."
 
   [function.signature]
@@ -542,6 +574,7 @@ name = "GameRuntime__AdvanceWormFrame"
 [[function]]
 va = 0x0056DEF0
 name = "GameRuntime__Constructor"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void *"

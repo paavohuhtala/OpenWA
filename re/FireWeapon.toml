@@ -5,6 +5,7 @@ name = "FireWeapon__ProjectileFire_Single"
 [[function]]
 va = 0x0051DFB0
 name = "FireWeapon__ProjectileFire"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void"
@@ -54,6 +55,7 @@ name = "FireWeapon__RopeType3"
 [[function]]
 va = 0x0051E2C0
 name = "FireWeapon__StrikeFire"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void"

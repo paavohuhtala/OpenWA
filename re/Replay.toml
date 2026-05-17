@@ -25,6 +25,7 @@ name = "Replay__ValidateTeamType"
 [[function]]
 va = 0x00465E10
 name = "Replay__ValidateTeamSetup"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void"
@@ -36,24 +37,30 @@ name = "Replay__ValidateTeamSetup"
 [[function]]
 va = 0x004670F0
 name = "Replay__ProcessSchemeDefaults"
+calling_convention = "__usercall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
 
   [[function.param]]
-  name = "prefix_ptr@&lt;ESI&gt;"
+  name = "prefix_ptr"
   type = "int"
+  storage = "ESI"
 
 [[function]]
 va = 0x00467280
 name = "Replay__ProcessReplayFlags"
+calling_convention = "__usercall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
 
   [[function.param]]
-  name = "prefix_ptr@&lt;EAX&gt;"
+  name = "prefix_ptr"
   type = "int"
+  storage = "EAX"
 
 [[function]]
 va = 0x00467BC0

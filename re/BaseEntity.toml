@@ -39,6 +39,7 @@ name = "BaseEntity__LinkToParent"
 [[function]]
 va = 0x005625A0
 name = "BaseEntity__Constructor"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void *"

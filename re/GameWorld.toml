@@ -58,6 +58,7 @@ name = "GameWorld__InitDisplayFinal"
 [[function]]
 va = 0x0056E220
 name = "GameWorld__Constructor"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void *"

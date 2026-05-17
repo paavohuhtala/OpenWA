@@ -129,6 +129,7 @@ name = "__filelengthi64"
 [[function]]
 va = 0x005D5193
 name = "_atol"
+calling_convention = "__cdecl"
 
   [function.signature]
   returns = "long"
@@ -172,6 +173,7 @@ name = "_rename"
 [[function]]
 va = 0x005D7170
 name = "__fputchar"
+calling_convention = "__cdecl"
 
   [function.signature]
   returns = "int"

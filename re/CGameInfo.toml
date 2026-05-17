@@ -13,6 +13,7 @@ name = "CGameInfo__sub_45D540"
 [[function]]
 va = 0x0045D640
 name = "CGameInfo__ConvertScheme"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void"

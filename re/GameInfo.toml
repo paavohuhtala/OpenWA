@@ -1,6 +1,7 @@
 [[function]]
 va = 0x004608E0
 name = "GameInfo__InitSession"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void"
@@ -20,6 +21,7 @@ name = "GameInfo__LoadOptions"
 [[function]]
 va = 0x00466460
 name = "GameInfo__InitTeamsFromLobby"
+calling_convention = "__stdcall"
 
   [function.signature]
   returns = "void"

@@ -1,6 +1,7 @@
 [[function]]
 va = 0x00462DF0
 name = "ReplayLoader"
+calling_convention = "__stdcall"
 
   [[function.param]]
   name = "game_info"
