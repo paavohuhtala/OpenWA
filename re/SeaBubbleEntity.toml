@@ -1,3 +1,34 @@
 [[function]]
 va = 0x00554FE0
 name = "SeaBubbleEntity__Constructor"
+
+[[function]]
+va = 0x00555050
+name = "SeaBubbleEntity__dtor0"
+
+[[function]]
+va = 0x00555090
+name = "SeaBubbleEntity__HandleMessage"
+calling_convention = "__thiscall"
+
+  [[function.param]]
+  name = "this"
+  # Actually `SeaBubbleEntity *`
+  type = "void *"
+
+  [[function.param]]
+  name = "sender"
+  # This should be `BaseEntity *`
+  type = "void *"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "uint"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+
+  [[function.param]]
+  name = "msg_data"
+  type = "void *"
