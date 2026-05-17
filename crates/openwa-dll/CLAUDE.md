@@ -2,11 +2,31 @@
 
 Injected DLL (`openwa.dll`). Contains thin hook installation shims that wire `openwa-game` game logic into WA.exe via MinHook. Game logic itself lives in `openwa-game` — this crate is purely the wiring layer.
 
-See the root `CLAUDE.md` for project-wide rules: architecture, calling conventions, ASLR rebasing, FFI style, design conventions.
+See the root `CLAUDE.md` for project-wide rules: architecture, calling conventions, ASLR rebasing, FFI style, design conventions, and the **[RE / porting workflow](../../CLAUDE.md#re--porting-workflow)** (start there when adding a new hook).
 
-## Hooking Patterns
+## Generated hooks (preferred)
 
-Hooks use the `minhook` crate. Four patterns:
+Most hooks come from `hooks/<subsystem>.toml` joined against `re/**/*.toml` at build time by `openwa-re-codegen`. Each `[[hook]]` entry declares `wa_function` (matches an `re/` entry by name) and `rust_impl` (fully-qualified Rust path). The build emits, into `crate::generated::hooks`:
+
+- `const _CHECK_<wa>: extern "<cc>" fn(args) -> ret = <rust_impl>;` — typed signature guard. Wrong arity / wrong type fails the build at the impl site.
+- For `custom_storage = true` functions: `#[unsafe(naked)] extern "cdecl" fn tramp_<wa>()` that captures the WA register/stack args and forwards to the cdecl impl.
+- `pub unsafe fn install_<wa>() -> Result<(), String>` — call from your subsystem's `install()`.
+
+Optional `[[hook]]` fields:
+
+- `save_original = true` → also emits `static ORIG_<wa>: AtomicU32` + `call_original_<wa>(...)` for passthrough-style hooks that need to call through to WA.
+- `preserve_registers = ["ecx"]` or `"all"` → extra push/pop pairs around the cdecl call. Use when the WA caller relies on a register staying intact (e.g. thiscall callers looping without re-setting ECX between iterations).
+
+**Impl signature rule:**
+
+- `custom_storage = true` hooks → impl is `extern "cdecl"`, args ordered (register-storage in declaration order, then stack-storage by ascending offset). The naked trampoline does the convention bridging.
+- Default-storage hooks → impl matches the WA convention directly (`extern "thiscall"`, `extern "stdcall"`, `extern "fastcall"`, `extern "cdecl"`).
+
+After migrating a hook to codegen, **delete the matching `va::FOO` const** in `crates/openwa-game/src/address.rs` if nothing else references it — `openwa_game::generated::addresses::*` is now canonical.
+
+## Hand-written hook patterns (fallback)
+
+Reach for these only when the codegen shape doesn't fit (e.g. vtable slot replacements, traps, ad-hoc passthroughs that aren't worth codegen-modelling). Hooks use the `minhook` crate. Four patterns:
 
 1. **Passthrough hook** (logging only): Call original via trampoline, log result.
 2. **Full replacement**: Reimplement the function in Rust.

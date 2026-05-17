@@ -91,23 +91,37 @@ These are critical — wrong conventions cause stack corruption and crashes.
 - **Always check `RET imm16`** in disassembly to verify stack parameter count. The immediate value = bytes of params cleaned by callee (stdcall/thiscall). `RET 0x10` = 16 bytes = 4 params.
 - **MSVC `__usercall`**: Some functions pass implicit params in registers (e.g., FrontendChangeScreen uses ESI for dialog pointer). These need `#[unsafe(naked)]` trampolines.
 
-## Hooking & Desync Debugging
-
-See `crates/openwa-dll/CLAUDE.md` for hooking patterns (passthrough, full replacement, vtable, trap), bridge function patterns, `usercall_trampoline!` macro, and hook installation details.
+## Desync Debugging
 
 Use the `/desync-debug` skill for desync diagnosis (trace-desync, per-frame analysis). Only after a headless test has already detected a failure.
 
-## RE database (`re/*.toml`) and Ghidra MCP
+## RE / porting workflow
 
-The reverse-engineering metadata — function names, prototypes, calling conventions, plate comments, globals, labels, struct/union/enum/typedef layouts — is canonical in `re/**/*.toml` and pushed to Ghidra via the `openwa-re` CLI. **Edit the TOML files; do not write changes through Ghidra MCP.** See `re/CLAUDE.md` for the schema, file layout, and the `openwa-re validate / export / import` workflow.
+`re/**/*.toml` is the canonical RE database (function names, prototypes, calling conventions, custom storage, plate comments, globals, labels, struct/union/enum/typedef layouts). `crates/openwa-dll/hooks/<subsystem>.toml` is the declarative hook map. `openwa-re-codegen` (build script in `openwa-game` + `openwa-dll`) joins them and emits typed wrappers, naked trampolines, and `install_*` helpers — write a TOML entry, get a typed Rust call site for free.
 
-Ghidra MCP is configured in `.mcp.json` and is **read-only** as far as agent work goes:
+When hooking or bridging into a WA function:
 
-- **OK** — decompile, disassemble, xrefs, call-graph, search, struct/vtable layout inspection, finding undefined functions, validating prototypes. WA.exe is loaded at image base 0x400000.
-- **Not OK** — `rename_*`, `set_function_prototype`, `set_variable_storage`, `create_struct`/`modify_struct_field`, `batch_create_labels`, comment-setting tools, `save_program`, anything else that mutates the Ghidra DB. Make the change in `re/*.toml` and `openwa-re export` instead.
-- **Exception** — `run_ghidra_script` invoking `OpenWAImport.java` / `OpenWAExport.java` is fine; those scripts are how the canonical TOML state gets pushed into Ghidra (or pulled back for absorbing UI-side edits). Use them to close the loop without involving the user.
+1. **Check `re/`** — search by name or VA. If `calling_convention` + signature + per-param `storage` are populated, the codegen handles the rest.
+2. **If missing or wrong, investigate via Ghidra MCP** (read-only — decompile, disassemble, xrefs, struct/vtable layout, search). Verify the convention via the `RET imm16` rule (see [Calling Convention Rules](#calling-convention-rules)) and the caller's register setup. The Ghidra decompiler is untrustworthy for `__usercall` / convention detection.
+3. **Update the TOML** — set `calling_convention`, add `[function.signature]` + `[[function.param]]` blocks. For register-passed args (usercall) OR for `__thiscall` where you want `this` typed as a real struct (not `void *`), set `custom_storage = true` and add per-param `storage = "EAX"|"ECX"|"EDX"|"ESI"|"EDI"|"stack:0xN"`. Without `custom_storage`, Ghidra's DYNAMIC_STORAGE mode reasserts `void *this` and discards your type. See `re/CLAUDE.md` for the full schema.
+4. **Validate + push to Ghidra** without user help:
+   - `cargo run -p openwa-re-data --bin openwa-re -- validate`
+   - `cargo run -p openwa-re-data --bin openwa-re -- export`
+   - `mcp__ghidra-mcp__run_ghidra_script` with `script_name = "OpenWAImport.java"`
+5. **Wire the hook** by adding to `crates/openwa-dll/hooks/<subsystem>.toml`:
+   ```toml
+   [[hook]]
+   wa_function = "GameWorld__IsSoundSuppressed"
+   rust_impl = "crate::replacements::sound::hook_is_sound_suppressed"
+   ```
+   The build emits `crate::generated::hooks::install_GameWorld__IsSoundSuppressed()` with a typed signature guard and (for `custom_storage`) a naked-asm trampoline. Call it from the subsystem's `install()`. **`custom_storage` impls are `extern "cdecl"`** — the trampoline bridges the WA convention. Default-storage impls match the WA convention directly.
+6. **Remove dead `va::FOO` consts** from `crates/openwa-game/src/address.rs` once the install site no longer references them — `openwa_game::generated::addresses::*` is the canonical source. The `codegen_drift` test catches stale convention mismatches.
 
-When you encounter an unnamed function/global/struct or learn a new fact about one, name it (with a `_Maybe` suffix if uncertain; drop the suffix once confirmed) by editing the relevant `re/*.toml` file. `openwa-re validate` to check, then `openwa-re export` + `OpenWAImport.java` to push to Ghidra so subsequent MCP reads see the new name.
+When the Rust side of a type with `rust_path` set (in `re/types.toml`) changes — size grows/shrinks, a field is renamed/retyped/split out of an `_unknown_XX` padding span, a struct gains a `#[derive(FieldRegistry)]`-visible field — **mirror the change to the TOML stub** (`size`, `[[struct.field]]` blocks) and run the validate → export → import loop. Otherwise Ghidra's decompiler keeps showing the stale layout (wrong field names, wrong offsets) and subsequent MCP reads mislead future RE work.
+
+Ghidra MCP is read-only for the agent. The one mutating exception is `run_ghidra_script` invoking `OpenWAImport.java` / `OpenWAExport.java`, which is how the canonical TOML state round-trips with Ghidra.
+
+For hand-written trampolines / vtable replacements / trap hooks (the fallback when the codegen shape doesn't fit), see `crates/openwa-dll/CLAUDE.md`.
 
 ## Address Registry, FieldRegistry & Vtable Macros
 
