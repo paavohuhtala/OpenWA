@@ -1,0 +1,5 @@
+# MinHook entries for the Sound subsystem.
+
+[[hook]]
+wa_function = "WormEntity__stop_fire_sound"
+rust_impl = "crate::replacements::sound::stop_worm_sound_cdecl"

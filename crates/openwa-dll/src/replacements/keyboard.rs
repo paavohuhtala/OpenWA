@@ -59,11 +59,7 @@ pub fn install() -> Result<(), String> {
         )?;
 
         // Mouse helpers — all `__cdecl void()`, full-replacement hooks.
-        hook::install(
-            "Mouse__PollAndAcquire",
-            va::MOUSE_POLL_AND_ACQUIRE,
-            mouse::mouse_poll_and_acquire as *const (),
-        )?;
+        crate::generated::hooks::install_Mouse__PollAndAcquire()?;
         hook::install(
             "Mouse__ReleaseAndCenter",
             va::MOUSE_RELEASE_AND_CENTER,

@@ -12,6 +12,10 @@ crate-type = ["cdylib"]
 debug-ui = ["dep:openwa-debugui"]
 match-launcher = ["dep:openwa-frontend"]
 
+[build-dependencies]
+openwa-re-codegen = { path = "../openwa-re-codegen" }
+walkdir = "2"
+
 [dependencies]
 openwa-core = { path = "../openwa-core" }
 openwa-game = { path = "../openwa-game" }

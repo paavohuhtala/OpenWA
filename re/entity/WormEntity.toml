@@ -423,6 +423,17 @@ name = "WormEntity__stop_worm_sound"
 [[function]]
 va = 0x00515180
 name = "WormEntity__stop_fire_sound"
+calling_convention = "__cdecl"
+custom_storage = true
+plate_comment = "usercall: ESI = WormEntity* worm. No stack params, plain RET."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x005151D0

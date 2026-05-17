@@ -1410,6 +1410,22 @@ rust_path = "openwa_game::game::weapon::WeaponEntry"
   size = 0x194
   comment = "Embedded fire parameters; pointer to this field is passed to every fire dispatch sub-function."
 
+# Stub structs — present only for rust_path resolution; layout lives in the
+# matching Rust definition. Add field entries here only when Ghidra needs the
+# layout too (otherwise edit the Rust struct and leave this empty-ish).
+
+[[struct]]
+name = "WormEntity"
+namespace = "/OpenWA"
+size = 0xFB0
+rust_path = "openwa_game::entity::worm::WormEntity"
+
+[[struct]]
+name = "GameWorld"
+namespace = "/OpenWA"
+size = 0x73F8
+rust_path = "openwa_game::engine::world::GameWorld"
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4

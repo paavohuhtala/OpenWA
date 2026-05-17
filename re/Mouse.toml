@@ -50,3 +50,7 @@ name = "Mouse__ReleaseAndCenter"
 [[function]]
 va = 0x00572620
 name = "Mouse__PollAndAcquire"
+calling_convention = "__cdecl"
+
+  [function.signature]
+  returns = "void"

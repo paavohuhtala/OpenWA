@@ -2771,6 +2771,8 @@ dependencies = [
  "openwa-debugui",
  "openwa-frontend",
  "openwa-game",
+ "openwa-re-codegen",
+ "walkdir",
  "windows",
  "windows-sys 0.61.2",
 ]
@@ -2826,6 +2828,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "openwa-re-data",
+ "serde",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]

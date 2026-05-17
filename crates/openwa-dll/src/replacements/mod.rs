@@ -20,7 +20,7 @@ mod render;
 mod replay;
 mod replay_test;
 mod scheme;
-mod sound;
+pub(crate) mod sound;
 mod speech;
 mod sprite;
 mod steam;

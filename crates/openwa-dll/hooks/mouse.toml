@@ -1,0 +1,6 @@
+# MinHook entries for the Mouse subsystem. One file per subsystem mirrors
+# `re/**/*.toml` and `crates/openwa-dll/src/replacements/*.rs`.
+
+[[hook]]
+wa_function = "Mouse__PollAndAcquire"
+rust_impl = "openwa_game::input::mouse::mouse_poll_and_acquire"

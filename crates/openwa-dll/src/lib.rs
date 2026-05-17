@@ -10,6 +10,7 @@ pub(crate) mod debug_sync;
 mod debug_ui;
 #[allow(dead_code)]
 mod debug_watchpoint;
+pub(crate) mod generated;
 pub mod hook;
 mod match_launcher;
 mod replacements;

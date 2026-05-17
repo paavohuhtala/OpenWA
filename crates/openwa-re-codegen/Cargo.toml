@@ -10,3 +10,8 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = "1"
 openwa-re-data = { path = "../openwa-re-data" }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
