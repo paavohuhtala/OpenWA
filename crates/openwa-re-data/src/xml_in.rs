@@ -722,6 +722,15 @@ fn parse_function<R: std::io::BufRead>(
     // sidecar overlay; keep the XML value as a fallback only.
     let _ = custom_storage;
 
+    // Ghidra's XmlExporter emits STACK_FRAME (stack params, asc offset)
+    // before REGISTER_VAR, so register-stored params land at the end of
+    // `params`. Re-sort to canonical source order — registers first
+    // (`this` in ECX is conventionally param 0), then stack by ascending
+    // offset. This matters under DYNAMIC_STORAGE, where Ghidra assigns
+    // storage by ordinal (1st __thiscall param → ECX); without the sort
+    // the first stack param would steal ECX from `this`.
+    params.sort_by_key(|p| param_sort_key(p.storage.as_deref()));
+
     prog.functions.push(Function {
         va,
         name,
@@ -878,6 +887,40 @@ fn parse_data<R: std::io::BufRead>(reader: &mut Reader<R>, prog: &mut XmlProgram
 fn base_name(ty: &str) -> &str {
     let cut = ty.find(['*', '[']).unwrap_or(ty.len());
     ty[..cut].trim()
+}
+
+/// Canonical sort key for [`Param::storage`]. Register-stored params come
+/// first (sorted by a stable register-priority order matching MSVC x86
+/// convention), then stack-stored params by ascending offset. Params with
+/// no storage string (default-storage TOML) sort to the very end and keep
+/// their insertion order via the secondary tuple element.
+fn param_sort_key(storage: Option<&str>) -> (u8, i64) {
+    let Some(s) = storage else { return (2, 0) };
+    if let Some(rest) = s.strip_prefix("stack:") {
+        let body = rest.split(':').next().unwrap_or(rest);
+        let n = body
+            .strip_prefix("0x")
+            .or_else(|| body.strip_prefix("0X"))
+            .map(|h| i64::from_str_radix(h, 16))
+            .unwrap_or_else(|| body.parse::<i64>());
+        (1, n.unwrap_or(0))
+    } else {
+        // Register storage. Use the first register in a split like
+        // "EDX:EAX" for the rank; tie-break by full string lexicographically
+        // so unfamiliar names stay stable.
+        let primary = s.split(':').next().unwrap_or(s);
+        let rank = match primary {
+            "ECX" => 0,
+            "EDX" => 1,
+            "EAX" => 2,
+            "EBX" => 3,
+            "ESI" => 4,
+            "EDI" => 5,
+            "EBP" => 6,
+            _ => 100,
+        };
+        (0, rank)
+    }
 }
 
 fn default_stack_name(offset: i64) -> String {

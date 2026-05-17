@@ -21,6 +21,11 @@ plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra r
   returns = "uint"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "remaining"
   type = "void *"
   storage = "stack:0x4"
@@ -45,11 +50,6 @@ plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra r
   type = "int"
   storage = "stack:0x14"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0052A840
 name = "GameRuntime__ShouldContinueFrameLoop"
@@ -60,6 +60,11 @@ custom_storage = true
   returns = "uint"
 
   [[function.param]]
+  name = "wrapper"
+  type = "void *"
+  storage = "EAX"
+
+  [[function.param]]
   name = "elapsed_lo"
   type = "uint"
   storage = "stack:0x4"
@@ -68,11 +73,6 @@ custom_storage = true
   name = "elapsed_hi"
   type = "uint"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "wrapper"
-  type = "void *"
-  storage = "EAX"
 
 [[function]]
 va = 0x0052A910
@@ -156,6 +156,11 @@ Ported to Rust as engine::main_loop::dispatch_frame::update_network_hud_animatio
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ESI"
+
+  [[function.param]]
   name = "chat_box_min_step"
   type = "int"
   storage = "stack:0x4"
@@ -179,11 +184,6 @@ Ported to Rust as engine::main_loop::dispatch_frame::update_network_hud_animatio
   name = "advance_ratio"
   type = "uint"
   storage = "stack:0x14"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ESI"
 
 [[function]]
 va = 0x0052ABF0

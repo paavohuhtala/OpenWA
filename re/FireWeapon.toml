@@ -32,6 +32,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "fire_params"
   type = "void *"
   storage = "stack:0x4"
@@ -40,11 +45,6 @@ custom_storage = true
   name = "spawn_data"
   type = "void *"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0051E1C0

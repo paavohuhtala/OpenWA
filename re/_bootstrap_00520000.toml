@@ -88,6 +88,11 @@ custom_storage = true
   returns = "int"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "layer"
   type = "uint"
   storage = "stack:0x4"
@@ -111,11 +116,6 @@ custom_storage = true
   name = "name"
   type = "char *"
   storage = "stack:0x14"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x005261E0

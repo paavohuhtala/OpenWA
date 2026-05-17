@@ -24,6 +24,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "layer"
   type = "int"
   storage = "stack:0x4"
@@ -32,11 +37,6 @@ custom_storage = true
   name = "color"
   type = "int"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x00523270
@@ -48,14 +48,14 @@ custom_storage = true
   returns = "void *"
 
   [[function.param]]
-  name = "layer"
-  type = "int"
-  storage = "stack:0x4"
-
-  [[function.param]]
   name = "this"
   type = "void *"
   storage = "ECX"
+
+  [[function.param]]
+  name = "layer"
+  type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x00523290

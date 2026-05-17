@@ -66,6 +66,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "x"
   type = "int"
   storage = "stack:0x4"
@@ -79,11 +84,6 @@ custom_storage = true
   name = "color"
   type = "uchar"
   storage = "stack:0xC"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0053F8A0

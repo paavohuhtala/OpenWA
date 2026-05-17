@@ -12,14 +12,14 @@ custom_storage = true
   returns = "void *"
 
   [[function.param]]
-  name = "flags"
-  type = "byte"
-  storage = "stack:0x4"
-
-  [[function.param]]
   name = "this"
   type = "void *"
   storage = "ECX"
+
+  [[function.param]]
+  name = "flags"
+  type = "byte"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x004E43C0
@@ -33,6 +33,11 @@ custom_storage = true
 
   [function.signature]
   returns = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "text"
@@ -49,11 +54,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0xC"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x004EC810
 name = "CWormsApp__PreTranslateMessage"
@@ -64,14 +64,14 @@ custom_storage = true
   returns = "int"
 
   [[function.param]]
-  name = "pMsg"
-  type = "tagMSG *"
-  storage = "stack:0x4"
-
-  [[function.param]]
   name = "this"
   type = "void *"
   storage = "ECX"
+
+  [[function.param]]
+  name = "pMsg"
+  type = "tagMSG *"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x005A23F0
@@ -91,11 +91,6 @@ custom_storage = true
   returns = "void *"
 
   [[function.param]]
-  name = "param"
-  type = "int"
-  storage = "stack:0x4"
-
-  [[function.param]]
   name = "this"
   type = "void *"
   storage = "ECX"
@@ -104,6 +99,11 @@ custom_storage = true
   name = "result"
   type = "void *"
   storage = "EDX"
+
+  [[function.param]]
+  name = "param"
+  type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x005A2530
@@ -119,6 +119,16 @@ custom_storage = true
   returns = "void *"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "result"
+  type = "void *"
+  storage = "EDX"
+
+  [[function.param]]
   name = "width"
   type = "int"
   storage = "stack:0x4"
@@ -132,16 +142,6 @@ custom_storage = true
   name = "fill_value"
   type = "int"
   storage = "stack:0xC"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
-  [[function.param]]
-  name = "result"
-  type = "void *"
-  storage = "EDX"
 
 [[function]]
 va = 0x005A2660
@@ -188,16 +188,6 @@ custom_storage = true
   returns = "void *"
 
   [[function.param]]
-  name = "surface"
-  type = "void *"
-  storage = "stack:0x4"
-
-  [[function.param]]
-  name = "y_offset"
-  type = "int"
-  storage = "stack:0x8"
-
-  [[function.param]]
   name = "this"
   type = "void *"
   storage = "ECX"
@@ -206,6 +196,16 @@ custom_storage = true
   name = "result"
   type = "void *"
   storage = "EDX"
+
+  [[function.param]]
+  name = "surface"
+  type = "void *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "y_offset"
+  type = "int"
+  storage = "stack:0x8"
 
 [[global]]
 va = 0x00662C90

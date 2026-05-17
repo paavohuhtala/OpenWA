@@ -12,6 +12,11 @@ custom_storage = true
   returns = "int"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "mode"
   type = "int"
   storage = "stack:0x4"
@@ -41,11 +46,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x18"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523500
 name = "DisplayGfx__GetSpriteInfo"
@@ -54,6 +54,11 @@ custom_storage = true
 
   [function.signature]
   returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "layer"
@@ -70,11 +75,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0xC"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523560
 name = "DisplayGfx__LoadFont"
@@ -83,6 +83,11 @@ custom_storage = true
 
   [function.signature]
   returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "mode"
@@ -104,11 +109,6 @@ custom_storage = true
   type = "char *"
   storage = "stack:0x10"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523620
 name = "DisplayGfx__LoadFontExtension"
@@ -117,6 +117,11 @@ custom_storage = true
 
   [function.signature]
   returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "font_id"
@@ -143,11 +148,6 @@ custom_storage = true
   type = "int"
   storage = "stack:0x14"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523690
 name = "DisplayGfx__SetFontPalette"
@@ -159,6 +159,11 @@ plate_comment = "DisplayGfx::SetFontPalette (vtable slot 36). Misleadingly named
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "font_count"
   type = "uint"
   storage = "stack:0x4"
@@ -167,11 +172,6 @@ plate_comment = "DisplayGfx::SetFontPalette (vtable slot 36). Misleadingly named
   name = "palette_value"
   type = "uint"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x005236B0
@@ -182,6 +182,11 @@ plate_comment = "DisplayGfx::DrawTextOnBitmap (vtable slot 7). Validates font_id
 
   [function.signature]
   returns = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "font_id"
@@ -218,11 +223,6 @@ plate_comment = "DisplayGfx::DrawTextOnBitmap (vtable slot 7). Validates font_id
   type = "int"
   storage = "stack:0x1C"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523710
 name = "DisplayGfx__MeasureText"
@@ -231,6 +231,11 @@ custom_storage = true
 
   [function.signature]
   returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "font_id"
@@ -252,11 +257,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x10"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523750
 name = "DisplayGfx__GetFontMetric"
@@ -265,6 +265,11 @@ custom_storage = true
 
   [function.signature]
   returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "font_id"
@@ -281,11 +286,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0xC"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523790
 name = "DisplayGfx__GetFontInfo"
@@ -294,6 +294,11 @@ custom_storage = true
 
   [function.signature]
   returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "font_id"
@@ -305,11 +310,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x8"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x005237C0
 name = "DisplayGfx__GetSpriteFrameForBlit"
@@ -319,6 +319,11 @@ plate_comment = "DisplayGfx::GetSpriteFrameForBlit (vtable slot 33). Resolves a 
 
   [function.signature]
   returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "layer"
@@ -365,11 +370,6 @@ plate_comment = "DisplayGfx::GetSpriteFrameForBlit (vtable slot 33). Resolves a 
   type = "uint"
   storage = "stack:0x24"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x00523E90
 name = "DisplayGfx__Constructor_Maybe"
@@ -396,14 +396,14 @@ custom_storage = true
   returns = "undefined4"
 
   [[function.param]]
-  name = "flags"
-  type = "byte"
-  storage = "stack:0x4"
-
-  [[function.param]]
   name = "this"
   type = "void *"
   storage = "ECX"
+
+  [[function.param]]
+  name = "flags"
+  type = "byte"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x00569D00
@@ -465,6 +465,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "out_w"
   type = "uint *"
   storage = "stack:0x4"
@@ -473,11 +478,6 @@ custom_storage = true
   name = "out_h"
   type = "uint *"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0056A480
@@ -489,14 +489,14 @@ custom_storage = true
   returns = "uint"
 
   [[function.param]]
-  name = "id"
-  type = "int"
-  storage = "stack:0x4"
-
-  [[function.param]]
   name = "this"
   type = "void *"
   storage = "ECX"
+
+  [[function.param]]
+  name = "id"
+  type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x0056A4C0
@@ -506,6 +506,11 @@ custom_storage = true
 
   [function.signature]
   returns = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "layer"
@@ -526,11 +531,6 @@ custom_storage = true
   name = "name"
   type = "char *"
   storage = "stack:0x10"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0056A580
@@ -556,6 +556,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "layer"
   type = "int"
   storage = "stack:0x4"
@@ -564,11 +569,6 @@ custom_storage = true
   name = "visible"
   type = "int"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0056A610
@@ -580,6 +580,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "palette_data"
   type = "short *"
   storage = "stack:0x4"
@@ -588,11 +593,6 @@ custom_storage = true
   name = "p3"
   type = "int"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0056A700
@@ -628,6 +628,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "x"
   type = "int"
   storage = "stack:0x4"
@@ -647,11 +652,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x10"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056B660
 name = "DisplayGfx__DrawScaledSprite"
@@ -660,6 +660,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x"
@@ -701,11 +706,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x20"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056B7C0
 name = "DisplayGfx__DrawViaCallback"
@@ -714,6 +714,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x"
@@ -740,11 +745,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x14"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056B810
 name = "DisplayGfx__FillRect"
@@ -753,6 +753,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x1"
@@ -779,11 +784,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x14"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056B8C0
 name = "DisplayGfx__DrawTiledBitmap"
@@ -792,6 +792,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "count"
@@ -808,11 +813,6 @@ custom_storage = true
   type = "int"
   storage = "stack:0xC"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056BCC0
 name = "DisplayGfx__DrawPolyline"
@@ -821,6 +821,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "points"
@@ -837,11 +842,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0xC"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056BD50
 name = "DisplayGfx__DrawLineClipped"
@@ -850,6 +850,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x1"
@@ -876,11 +881,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x14"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056BDB0
 name = "DisplayGfx__DrawLine"
@@ -889,6 +889,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x1"
@@ -920,11 +925,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x18"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056BE10
 name = "DisplayGfx__DrawPixelStrip"
@@ -933,6 +933,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x"
@@ -964,11 +969,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x18"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056BE80
 name = "DisplayGfx__DrawCrosshair"
@@ -977,6 +977,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x"
@@ -997,11 +1002,6 @@ custom_storage = true
   name = "color_bg"
   type = "uint"
   storage = "stack:0x10"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0056BFD0
@@ -1013,6 +1013,11 @@ custom_storage = true
   returns = "void"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "x"
   type = "int"
   storage = "stack:0x4"
@@ -1032,11 +1037,6 @@ custom_storage = true
   type = "int"
   storage = "stack:0x10"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056C5A0
 name = "DisplayGfx__DrawTiledTerrain"
@@ -1045,6 +1045,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "p2"
@@ -1066,11 +1071,6 @@ custom_storage = true
   type = "uint"
   storage = "stack:0x10"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056CC40
 name = "DisplayGfx__SetCameraOffset"
@@ -1079,6 +1079,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x_fixed"
@@ -1090,11 +1095,6 @@ custom_storage = true
   type = "int"
   storage = "stack:0x8"
 
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
-
 [[function]]
 va = 0x0056CC60
 name = "DisplayGfx__SetClipRect"
@@ -1103,6 +1103,11 @@ custom_storage = true
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
 
   [[function.param]]
   name = "x1"
@@ -1123,11 +1128,6 @@ custom_storage = true
   name = "y2"
   type = "int"
   storage = "stack:0x10"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x0056CD20

@@ -12,6 +12,11 @@ custom_storage = true
   returns = "int"
 
   [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ECX"
+
+  [[function.param]]
   name = "width"
   type = "int"
   storage = "stack:0x4"
@@ -20,11 +25,6 @@ custom_storage = true
   name = "height"
   type = "int"
   storage = "stack:0x8"
-
-  [[function.param]]
-  name = "this"
-  type = "void *"
-  storage = "ECX"
 
 [[function]]
 va = 0x005A2790
