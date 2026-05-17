@@ -394,18 +394,22 @@ public class OpenWAImport extends GhidraScript {
         CategoryPath path = new CategoryPath(nsOf(e.namespace));
         DataType existing = dtm.getDataType(path, e.name);
         boolean isNew = false;
-        EnumDataType en;
+        // Once committed to the DTM, the runtime type is EnumDB (impls
+        // ghidra.program.model.data.Enum); a freshly-constructed EnumDataType
+        // is the in-memory variant. Manipulate via the interface so both
+        // paths work — add/remove/getNames live there.
+        ghidra.program.model.data.Enum en;
         if (existing instanceof ghidra.program.model.data.Enum) {
-            en = (EnumDataType) existing;
+            en = (ghidra.program.model.data.Enum) existing;
             // wipe existing values to mirror manifest
-            for (String existingName : ((ghidra.program.model.data.Enum) en).getNames()) {
+            for (String existingName : en.getNames()) {
                 en.remove(existingName);
             }
         } else {
             ensureCategory(path);
-            en = new EnumDataType(path, e.name, e.size, dtm);
-            dtm.addDataType(en, DataTypeConflictHandler.KEEP_HANDLER);
-            en = (EnumDataType) dtm.getDataType(path, e.name);
+            EnumDataType edt = new EnumDataType(path, e.name, e.size, dtm);
+            en = (ghidra.program.model.data.Enum) dtm.addDataType(edt,
+                DataTypeConflictHandler.KEEP_HANDLER);
             isNew = true;
         }
         if (e.values != null) {
