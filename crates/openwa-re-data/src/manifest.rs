@@ -530,8 +530,8 @@ mod tests {
             OwnedEntry {
                 value: ModelFunction {
                     va: 0x600,
-                    name: "usercall_fn".into(),
-                    calling_convention: Some("__usercall".into()),
+                    name: "fastcall_fn".into(),
+                    calling_convention: Some("__fastcall".into()),
                     plate_comment: None,
                     no_return: false,
                     custom_storage: false,
@@ -552,7 +552,7 @@ mod tests {
         assert_eq!(m.functions[0].va, "0x00000600");
         assert_eq!(
             m.functions[0].calling_convention.as_deref(),
-            Some("__usercall")
+            Some("__fastcall")
         );
         assert_eq!(m.symbols.len(), 2);
     }

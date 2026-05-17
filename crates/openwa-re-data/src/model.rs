@@ -62,10 +62,15 @@ pub struct Function {
     pub va: Va,
     pub name: String,
 
-    /// `__stdcall` | `__cdecl` | `__thiscall` | `__fastcall` | `__usercall`
+    /// `__stdcall` | `__cdecl` | `__thiscall` | `__fastcall`
     ///
     /// Tracked here because Ghidra's XML DTD has no calling-convention attribute
     /// — the importer infers from storage. We emit it via the extras sidecar.
+    ///
+    /// NB: `__usercall` is IDA terminology, not a Ghidra convention. For
+    /// functions that pass args in non-standard registers, set the closest
+    /// base convention (typically `__stdcall`) and pair it with
+    /// `custom_storage = true` plus per-param `storage` strings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calling_convention: Option<String>,
 
@@ -112,8 +117,9 @@ pub struct Param {
     pub name: String,
     #[serde(rename = "type")]
     pub ty: TypeRef,
-    /// Storage spec. Required iff [`Function::calling_convention`] is `__usercall`.
-    /// For default conventions, omit on every param (Ghidra computes).
+    /// Storage spec. Required when [`Function::custom_storage`] is `true`
+    /// (every declared param must have one). For default-storage functions,
+    /// omit on every param and let Ghidra compute from the convention.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storage: Option<Storage>,
 }

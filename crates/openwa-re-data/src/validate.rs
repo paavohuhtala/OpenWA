@@ -78,23 +78,27 @@ fn validate_function(f: &Function, known: &HashSet<String>, report: &mut Validat
         report.errors.push(format!(
             "{}: has {} param(s) but no calling_convention. \
              Set one explicitly (`__stdcall` / `__cdecl` / `__thiscall` / \
-             `__fastcall` / `__usercall`) — without it, OpenWAImport.java \
-             falls back to the program default and scrambles storage.",
+             `__fastcall`) — without it, OpenWAImport.java falls back to \
+             the program default and scrambles storage. For IDA-style \
+             `__usercall` functions, pick the closest base convention \
+             (usually `__stdcall`) and set `custom_storage = true` plus \
+             per-param `storage`.",
             label(),
             f.param.len(),
         ));
     }
 
-    // Custom-storage discipline: __usercall must declare every param's
-    // storage. For other conventions, partial storage is allowed (e.g.
-    // a __thiscall constructor declares `this=ECX` and leaves the rest
-    // to default ABI rules).
+    // Custom-storage discipline: when `custom_storage = true`, every
+    // declared param should have explicit `storage` — otherwise
+    // `Function.updateFunction(..., CUSTOM_STORAGE)` falls back to
+    // defaults for the missing ones. Warning-level: a sizeable backlog of
+    // bootstrap entries skipped storage for Ghidra-default stack slots
+    // and we don't want to block validate until they're cleaned up.
     let total = f.param.len();
     let with_storage = f.param.iter().filter(|p| p.storage.is_some()).count();
-    let is_custom = f.calling_convention.as_deref() == Some("__usercall");
-    if is_custom && total > 0 && with_storage != total {
-        report.errors.push(format!(
-            "{}: __usercall requires explicit storage on every param ({}/{} declared)",
+    if f.custom_storage && total > 0 && with_storage != total {
+        report.warnings.push(format!(
+            "{}: custom_storage is true but only {}/{} param(s) have explicit storage",
             label(),
             with_storage,
             total
@@ -319,11 +323,14 @@ fn is_builtin_type(name: &str) -> bool {
     )
 }
 
+/// Recognised Ghidra calling conventions on x86 Windows.
+///
+/// NB: `__usercall` is an IDA-ism, not a Ghidra convention. WA functions
+/// that IDA would call `__usercall` must declare a base convention
+/// (typically `__stdcall`) plus `custom_storage = true` and per-param
+/// `storage` strings to express the register assignments.
 fn is_known_convention(cc: &str) -> bool {
-    matches!(
-        cc,
-        "__stdcall" | "__cdecl" | "__thiscall" | "__fastcall" | "__usercall"
-    )
+    matches!(cc, "__stdcall" | "__cdecl" | "__thiscall" | "__fastcall")
 }
 
 /// Storage grammar:
