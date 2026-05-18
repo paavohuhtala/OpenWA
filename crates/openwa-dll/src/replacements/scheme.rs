@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use openwa_game::address::va;
 use openwa_game::engine::scheme_ops::{self, OriginalReadFile, OriginalSaveFile};
 
-use crate::hook::{self, usercall_trampoline};
+use crate::hook;
 use crate::log_line;
 
 // ─── Trampoline storage ─────────────────────────────────────────────────────
@@ -51,17 +51,9 @@ unsafe extern "stdcall" fn hook_read_file(
     unsafe { scheme_ops::read_file(dest_struct, file_path, flag, out_ptr, original_read_file) }
 }
 
-usercall_trampoline!(fn trampoline_validate_ext_opts;
-    impl_fn = scheme_ops::validate_extended_options;
-    reg = eax);
-
 unsafe extern "stdcall" fn hook_file_exists(name: u32) -> u32 {
     unsafe { scheme_ops::file_exists(name) }
 }
-
-usercall_trampoline!(fn trampoline_detect_version;
-    impl_fn = scheme_ops::detect_version;
-    reg = esi; stack_params = 1; ret_bytes = "0x4");
 
 unsafe extern "fastcall" fn hook_save_file(this: u32, _edx: u32, name: u32, flag: u32) -> u32 {
     unsafe { scheme_ops::save_file(this, name, flag, original_save_file) }
@@ -112,11 +104,7 @@ pub fn install() -> Result<(), String> {
         )?;
         ORIG_SCHEME_READ_FILE.store(trampoline as u32, Ordering::Relaxed);
 
-        hook::install(
-            "Scheme__ValidateExtendedOptions",
-            va::SCHEME_VALIDATE_EXTENDED_OPTIONS,
-            trampoline_validate_ext_opts as *const (),
-        )?;
+        crate::generated::hooks::install_Scheme__ValidateExtendedOptions()?;
 
         hook::install(
             "Scheme__FileExists",
@@ -130,11 +118,7 @@ pub fn install() -> Result<(), String> {
             hook_check_weapon_limits as *const (),
         )?;
 
-        hook::install(
-            "Scheme__DetectVersion",
-            va::SCHEME_DETECT_VERSION,
-            trampoline_detect_version as *const (),
-        )?;
+        crate::generated::hooks::install_Scheme__DetectVersion()?;
 
         let trampoline_save = hook::install(
             "Scheme__SaveFile",

@@ -17,6 +17,21 @@ name = "PaletteContext__ReadColor"
 [[function]]
 va = 0x005412B0
 name = "PaletteContext__MapColor"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "PaletteContext *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "rgb"
+  type = "uint"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x00541340

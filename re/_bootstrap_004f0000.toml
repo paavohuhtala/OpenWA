@@ -5,6 +5,21 @@ name = "IMG_Decode"
 [[function]]
 va = 0x004FAA30
 name = "ConstructSprite"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "sprite"
+  type = "Sprite *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "context"
+  type = "SpriteCache *"
+  storage = "ECX"
 
 [[function]]
 va = 0x004FAAF0
@@ -13,6 +28,26 @@ name = "LoadSpriteFromVfs"
 [[function]]
 va = 0x004FAB80
 name = "ProcessSprite"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "sprite"
+  type = "Sprite *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "palette_ctx"
+  type = "PaletteContext *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "raw_data"
+  type = "const byte *"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x004FB070

@@ -5,7 +5,7 @@
 //! WA-side callers are trapped; Rust callers go through the Rust impls
 //! directly.
 
-use crate::hook::{self, usercall_trampoline};
+use crate::hook;
 use openwa_game::address::va;
 use openwa_game::engine::GameInfo;
 use openwa_game::engine::game_session_run::{on_headless_pre_loop, run_game_session};
@@ -16,15 +16,12 @@ use openwa_game::engine::window_proc::{engine_wnd_proc, init_window_proc_addrs};
 // ─── GameSession::Run hook ──────────────────────────────────────────────────
 //
 // __usercall(ESI=GameInfo, stack: arg1..arg4), RET 0x10. Returns 0/1 in EAX.
-usercall_trampoline!(fn trampoline_game_session_run;
-    impl_fn = run_game_session_impl;
-    reg = esi; stack_params = 4; ret_bytes = "0x10");
 
-unsafe extern "cdecl" fn run_game_session_impl(
+pub(crate) unsafe extern "cdecl" fn run_game_session_impl(
     game_info: *mut GameInfo,
     arg1_module_state: u32,
     state_buf: *mut u8,
-    peer_connections: *const *mut openwa_game::input::PeerState,
+    peer_connections: *mut *mut openwa_game::input::PeerState,
     peer_connection_count: u32,
 ) -> u32 {
     unsafe {
@@ -32,7 +29,7 @@ unsafe extern "cdecl" fn run_game_session_impl(
             game_info,
             arg1_module_state,
             state_buf,
-            peer_connections,
+            peer_connections as *const _,
             peer_connection_count,
         )
     }
@@ -46,11 +43,7 @@ pub fn install() -> Result<(), String> {
         // GameSession::Constructor — only WA-side caller is GameSession::Run
         // (fully replaced); inlined as `construct_session` in Rust.
         hook::install_trap!("GameSession::Constructor", va::GAME_SESSION_CONSTRUCTOR);
-        hook::install(
-            "GameSession::Run",
-            va::GAME_SESSION_RUN,
-            trampoline_game_session_run as *const (),
-        )?;
+        crate::generated::hooks::install_GameSession__Run()?;
         // GameSession__OnHeadlessPreLoop — full replacement; two
         // remaining WA-side callers in the SYSCOMMAND minimize path still
         // dispatch through this address.

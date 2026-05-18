@@ -14,21 +14,15 @@ use openwa_game::asset::img::{img_decode, img_decode_cached};
 use openwa_game::bitgrid::BitGrid;
 use openwa_game::render::palette::PaletteContext;
 
-use crate::hook;
-
 // ─── GfxDir__LoadImage (0x5666D0) ───────────────────────────────────────────
 // Convention: usercall(ESI=gfx_dir) + 1 stack(name), RET 0x4.
 
-extern "cdecl" fn impl_load_image(gfx_dir: *mut GfxDir, name: *const c_char) -> *mut GfxDirStream {
+pub(crate) unsafe extern "cdecl" fn impl_load_image(
+    gfx_dir: *mut GfxDir,
+    name: *const c_char,
+) -> *mut GfxDirStream {
     unsafe { gfx_dir_load_image(gfx_dir, name) }
 }
-
-hook::usercall_trampoline!(
-    fn load_image_trampoline;
-    impl_fn = impl_load_image;
-    reg = esi;
-    stack_params = 1; ret_bytes = "0x4"
-);
 
 // ─── IMG_Decode (0x4F5F80) ──────────────────────────────────────────────────
 // Convention: stdcall(palette_ctx, stream, align_flag), RET 0xC.
@@ -46,31 +40,15 @@ unsafe extern "stdcall" fn img_decode_hook(
     }
 }
 
-// ─── DisplayGfx__Constructor (0x4F5E80) ─────────────────────────────────────
+// ─── DisplayGfx__Constructor / IMG__DecodeCached (0x4F5E80) ─────────────────
 // Convention: stdcall(raw_image), RET 0x4.
 // PaletteContext passed implicitly via EBX (callee-saved from caller).
 
-extern "cdecl" fn impl_displaygfx_ctor(
+pub(crate) unsafe extern "cdecl" fn impl_displaygfx_ctor(
     palette_ctx: *mut PaletteContext,
     raw_image: *mut u8,
 ) -> *mut u8 {
     unsafe { img_decode_cached(palette_ctx, raw_image) as *mut u8 }
-}
-
-#[unsafe(naked)]
-unsafe extern "C" fn displaygfx_ctor_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push ecx",
-        "push [esp+12]",    // raw_image (stack param, shifted by 2 pushes)
-        "push ebx",          // palette_ctx (EBX, callee-saved from caller)
-        "call {impl_fn}",
-        "add esp, 8",
-        "pop ecx",
-        "pop edx",
-        "ret 0x4",           // callee cleans 1 stack param
-        impl_fn = sym impl_displaygfx_ctor,
-    );
 }
 
 pub fn install() -> Result<(), String> {
@@ -93,19 +71,11 @@ pub fn install() -> Result<(), String> {
     })?;
 
     unsafe {
-        crate::hook::install(
-            "GfxDir__LoadImage",
-            va::GFX_DIR_LOAD_IMAGE,
-            load_image_trampoline as *const (),
-        )?;
+        crate::generated::hooks::install_GfxDir__LoadImage()?;
 
         crate::hook::install("IMG_Decode", va::IMG_DECODE, img_decode_hook as *const ())?;
 
-        crate::hook::install(
-            "DisplayGfx__Constructor",
-            va::IMG_DECODE_CACHED,
-            displaygfx_ctor_trampoline as *const (),
-        )?;
+        crate::generated::hooks::install_IMG__DecodeCached()?;
     }
 
     Ok(())

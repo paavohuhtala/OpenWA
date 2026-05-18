@@ -1,3 +1,49 @@
 [[function]]
 va = 0x005408F0
-name = "ItemSelection__insert_item"
+name = "MenuPanel__AppendItem"
+calling_convention = "__stdcall"
+custom_storage = true
+plate_comment = "MenuPanel::AppendItem (0x005408F0) — usercall(EAX=x, ESI=panel) + 6 stack params + RET 0x18. Appends a new item (button or slider) to the panel's items array and renders its label."
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "x"
+  type = "int"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "panel"
+  type = "MenuPanel *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "kind"
+  type = "int"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "label"
+  type = "const char *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "y"
+  type = "int"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "centered"
+  type = "uint"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "render_ctx"
+  type = "byte *"
+  storage = "stack:0x14"
+
+  [[function.param]]
+  name = "render_aux"
+  type = "byte *"
+  storage = "stack:0x18"

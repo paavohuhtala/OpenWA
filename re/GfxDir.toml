@@ -34,3 +34,18 @@ custom_storage = true
 [[function]]
 va = 0x005666D0
 name = "GfxDir__LoadImage"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "GfxDirStream *"
+
+  [[function.param]]
+  name = "gfx_dir"
+  type = "GfxDir *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "name"
+  type = "const char *"
+  storage = "stack:0x4"

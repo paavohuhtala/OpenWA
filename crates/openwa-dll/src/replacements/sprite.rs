@@ -10,16 +10,14 @@ use openwa_game::render::SpriteCache;
 use openwa_game::render::palette::PaletteContext;
 use openwa_game::render::sprite::{Sprite, SpriteFrame, SpriteSubframeCache};
 
-use crate::hook::{self, usercall_trampoline};
-
 // ---------------------------------------------------------------------------
 // ConstructSprite (0x4FAA30) — usercall(EAX=sprite, ECX=context), plain RET
 // ---------------------------------------------------------------------------
 
-usercall_trampoline!(fn trampoline_construct_sprite; impl_fn = construct_sprite_impl;
-    regs = [eax, ecx]);
-
-unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mut SpriteCache) {
+pub(crate) unsafe extern "cdecl" fn construct_sprite_impl(
+    sprite: *mut Sprite,
+    context: *mut SpriteCache,
+) {
     unsafe {
         use openwa_game::bitgrid::{BIT_GRID_DISPLAY_VTABLE, BitGridDisplayVtable};
         use openwa_game::render::sprite::SpriteVtable;
@@ -37,29 +35,23 @@ unsafe extern "cdecl" fn construct_sprite_impl(sprite: *mut Sprite, context: *mu
 }
 
 // ---------------------------------------------------------------------------
-// ProcessSprite (0x4FAB80)
-// usercall(EAX=sprite, ECX=palette_ctx) + 1 stack(raw_data), RET 0x4
-// ---------------------------------------------------------------------------
-
-usercall_trampoline!(fn trampoline_process_sprite; impl_fn = process_sprite_impl;
-    regs = [eax, ecx]; stack_params = 1; ret_bytes = "0x4");
-
-// ---------------------------------------------------------------------------
 // PaletteContext__MapColor (0x5412B0)
 // thiscall(ECX=palette_ctx, stack=rgb_u32), RET 0x4
 // ---------------------------------------------------------------------------
 
-usercall_trampoline!(fn trampoline_palette_map_color; impl_fn = palette_map_color_impl;
-    reg = ecx; stack_params = 1; ret_bytes = "0x4"; preserve_ecx);
-
-unsafe extern "cdecl" fn palette_map_color_impl(palette_ctx: u32, rgb: u32) -> u32 {
-    unsafe {
-        let ctx = palette_ctx as *mut openwa_game::render::palette::PaletteContext;
-        openwa_game::render::palette::palette_map_color(ctx, rgb)
-    }
+pub(crate) unsafe extern "cdecl" fn palette_map_color_impl(
+    palette_ctx: *mut PaletteContext,
+    rgb: u32,
+) -> u32 {
+    unsafe { openwa_game::render::palette::palette_map_color(palette_ctx, rgb) }
 }
 
-unsafe extern "cdecl" fn process_sprite_impl(
+// ---------------------------------------------------------------------------
+// ProcessSprite (0x4FAB80)
+// usercall(EAX=sprite, ECX=palette_ctx) + 1 stack(raw_data), RET 0x4
+// ---------------------------------------------------------------------------
+
+pub(crate) unsafe extern "cdecl" fn process_sprite_impl(
     sprite: *mut Sprite,
     palette_ctx: *mut PaletteContext,
     raw_data: *const u8,
@@ -200,23 +192,9 @@ unsafe extern "cdecl" fn process_sprite_impl(
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        let _ = hook::install(
-            "ConstructSprite",
-            va::CONSTRUCT_SPRITE,
-            trampoline_construct_sprite as *const (),
-        )?;
-
-        let _ = hook::install(
-            "ProcessSprite",
-            va::PROCESS_SPRITE,
-            trampoline_process_sprite as *const (),
-        )?;
-
-        let _ = hook::install(
-            "PaletteContext__MapColor",
-            va::PALETTE_CONTEXT_MAP_COLOR,
-            trampoline_palette_map_color as *const (),
-        )?;
+        crate::generated::hooks::install_ConstructSprite()?;
+        crate::generated::hooks::install_ProcessSprite()?;
+        crate::generated::hooks::install_PaletteContext__MapColor()?;
     }
     Ok(())
 }

@@ -3,8 +3,6 @@
 //! Original: 0x447A20, stdcall(screen_id), ESI = dialog this (__usercall).
 //! Navigates between frontend menu screens via MFC CDialog::EndDialog.
 
-use std::sync::atomic::{AtomicU32, Ordering};
-
 use crate::hook;
 use crate::log_line;
 use openwa_game::address::va;
@@ -12,18 +10,10 @@ use openwa_game::game::ScreenId;
 use openwa_game::wa::frontend::frontend_change_screen;
 use openwa_game::wa::mfc::CWnd;
 
-/// Trampoline to the original FrontendChangeScreen (for fallback if needed).
-static ORIG_FRONTEND_CHANGE_SCREEN: AtomicU32 = AtomicU32::new(0);
-
-// Naked trampoline: captures ESI (dialog this, __usercall) + 1 stack arg (screen_id).
-crate::hook::usercall_trampoline!(fn trampoline;
-    impl_fn = frontend_change_screen_impl; reg = esi;
-    stack_params = 1; ret_bytes = "0x4");
-
 /// Hook shim for WA-side callers of `FrontendChangeScreen`. Logs the
 /// transition then delegates to the Rust port in openwa-game (which is the
 /// single source of truth for the navigation logic).
-unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32) {
+pub(crate) unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: *mut CWnd, screen_id: u32) {
     unsafe {
         let name = ScreenId::try_from(screen_id as i32)
             .map(|s| format!("{s:?}"))
@@ -32,18 +22,13 @@ unsafe extern "cdecl" fn frontend_change_screen_impl(dialog: u32, screen_id: u32
             "[FrontendChangeScreen] screen_id={screen_id} ({name})"
         ));
 
-        frontend_change_screen(dialog as *mut CWnd, screen_id);
+        frontend_change_screen(dialog, screen_id);
     }
 }
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        let trampoline_ptr = crate::hook::install(
-            "FrontendChangeScreen",
-            va::FRONTEND_CHANGE_SCREEN,
-            trampoline as *const (),
-        )?;
-        ORIG_FRONTEND_CHANGE_SCREEN.store(trampoline_ptr as u32, Ordering::Relaxed);
+        crate::generated::hooks::install_FrontendChangeScreen()?;
 
         // Frontend::UnhookInputHooks (0x004ED590) — full replacement;
         // multiple WA-side callers in the modal-dialog input-grab path.

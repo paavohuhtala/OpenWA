@@ -1,0 +1,10 @@
+# MinHook entries for the GfxDir subsystem.
+
+[[hook]]
+wa_function = "GfxDir__LoadImage"
+rust_impl = "crate::replacements::gfx_dir::impl_load_image"
+
+[[hook]]
+wa_function = "IMG__DecodeCached"
+rust_impl = "crate::replacements::gfx_dir::impl_displaygfx_ctor"
+preserve_registers = ["ecx"]

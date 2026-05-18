@@ -5,6 +5,21 @@ name = "Scheme__ReadFile"
 [[function]]
 va = 0x004D4480
 name = "Scheme__DetectVersion"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "dest"
+  type = "undefined4"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "output_ptr"
+  type = "undefined4"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x004D44F0
@@ -29,6 +44,16 @@ name = "Scheme__CheckWeaponLimits"
 [[function]]
 va = 0x004D5110
 name = "Scheme__ValidateExtendedOptions"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "options_ptr"
+  type = "undefined4"
+  storage = "EAX"
 
 [[function]]
 va = 0x004D54E0

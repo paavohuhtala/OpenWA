@@ -110,7 +110,7 @@ pub unsafe fn read_file(
 
 /// Validates the 110-byte extended-options block at `options_ptr`.
 /// Returns 0 = valid, 1 = invalid.
-pub unsafe fn validate_extended_options(options_ptr: u32) -> u32 {
+pub unsafe extern "cdecl" fn validate_extended_options(options_ptr: u32) -> u32 {
     unsafe {
         let bytes = core::slice::from_raw_parts(options_ptr as *const u8, EXTENDED_OPTIONS_SIZE);
         if ExtendedOptions::validate_bytes(bytes) {
@@ -143,7 +143,7 @@ pub unsafe fn file_exists(name: u32) -> u32 {
 ///
 /// Schemes are canonicalized to V3 in memory, so version detection no longer
 /// needs to scan for V1/V2-compatible truncation.
-pub unsafe fn detect_version(_dest: u32, output_ptr: u32) -> u32 {
+pub unsafe extern "cdecl" fn detect_version(_dest: u32, output_ptr: u32) -> u32 {
     unsafe {
         if output_ptr != 0 {
             *(output_ptr as *mut u32) = EXTENDED_OPTIONS_SIZE as u32;

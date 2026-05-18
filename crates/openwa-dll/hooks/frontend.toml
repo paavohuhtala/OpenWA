@@ -1,0 +1,5 @@
+# MinHook entries for the Frontend subsystem.
+
+[[hook]]
+wa_function = "FrontendChangeScreen"
+rust_impl = "crate::replacements::frontend::frontend_change_screen_impl"

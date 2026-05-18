@@ -1,0 +1,9 @@
+# MinHook entries for the Scheme subsystem.
+
+[[hook]]
+wa_function = "Scheme__ValidateExtendedOptions"
+rust_impl = "openwa_game::engine::scheme_ops::validate_extended_options"
+
+[[hook]]
+wa_function = "Scheme__DetectVersion"
+rust_impl = "openwa_game::engine::scheme_ops::detect_version"
