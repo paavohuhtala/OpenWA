@@ -160,12 +160,6 @@ pub mod va {
             /// `frame_tail_update` once every 150 frames or when latched.
             fn/Usercall HUD_DRAW_TEAM_LABELS_MAYBE = 0x005332B0;
             /// `TeamIndexMap__RemoveHandle` (0x00526000). Usercall
-            /// EAX=`*mut TeamIndexMap`, EDI=`*mut i32` (handle ptr), plain
-            /// RET. Ported to Rust as `TeamIndexMap::remove_handle`; address
-            /// kept for cross-reference and `install_trap!` of the WA-side
-            /// callers that still reach the original (TeamEntity ctor /
-            /// HandleMessage / WorldRootEntity destructor — 17 call sites).
-            fn/Usercall TEAM_INDEX_MAP_REMOVE_HANDLE = 0x00526000;
             /// Helper called from the online `ShouldInterpolate` path
             /// (GameRuntime__PeerInputQueueScan). Scans the per-peer input-message queue for any
             /// "gameplay-relevant" message type. Usercall EAX=this +
@@ -231,11 +225,6 @@ pub mod va {
             /// the center of any item whose `kind == 0` (last one wins).
             /// Ported as `engine::menu_panel::center_cursor_on_first_kind_zero`.
             fn/Usercall MENU_PANEL_CENTER_CURSOR_ON_KIND_ZERO = 0x00540780;
-            /// `TeamIndexMap__PopHandle` (0x00525F50). Thiscall
-            /// `ECX = *mut TeamIndexMap, [ESP+4] = key: i32`, RET 0x4.
-            /// Companion to `RemoveHandle`; ported to Rust as
-            /// `TeamIndexMap::pop_handle`.
-            fn/Thiscall TEAM_INDEX_MAP_POP_HANDLE = 0x00525F50;
             /// GameRuntime__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
             fn/Usercall GAME_RUNTIME_PROCESS_NETWORK_FRAME = 0x0053DF00;
             /// GameRuntime__IsReplayMode (usercall EAX=this, no stack params, plain RET)
@@ -593,29 +582,6 @@ pub mod va {
         fn ADD_AMMO = 0x00522640;
         /// Not the main ammo decrement path
         fn SUBTRACT_AMMO = 0x00522680;
-    }
-
-    // =========================================================================
-    // Team/worm accessor functions
-    // =========================================================================
-
-    crate::define_addresses! {
-        /// Counts teams by alliance membership
-        fn/Usercall COUNT_TEAMS_BY_ALLIANCE = 0x00522030;
-        /// Sums health of all worms on a team
-        fn/Fastcall GET_TEAM_TOTAL_HEALTH = 0x005224D0;
-        /// Checks if a worm is in a "special" state
-        fn/Usercall IS_WORM_IN_SPECIAL_STATE = 0x005226B0;
-        /// Reads worm X,Y position into output pointers
-        fn/Usercall GET_WORM_POSITION = 0x00522700;
-        /// Checks if any worm has state 0x64
-        fn/Usercall CHECK_WORM_STATE_0X64 = 0x005228D0;
-        /// Per-team version of CheckWormState0x64
-        fn/Usercall CHECK_TEAM_WORM_STATE_0X64 = 0x00522930;
-        /// Scans all teams for any worm with state 0x8b
-        fn/Usercall CHECK_ANY_WORM_STATE_0X8B = 0x00522970;
-        /// Sets the active worm for a team
-        fn/Usercall SET_ACTIVE_WORM = 0x00522500;
     }
 
     // =========================================================================

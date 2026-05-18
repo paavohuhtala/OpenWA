@@ -25,7 +25,7 @@ pub(crate) mod speech;
 mod sprite;
 mod steam;
 mod string_resource;
-mod team;
+pub(crate) mod team;
 mod trace_desync;
 mod weapon;
 mod weapon_release;

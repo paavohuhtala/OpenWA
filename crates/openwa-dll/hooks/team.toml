@@ -1,0 +1,42 @@
+# MinHook entries for the TeamArena / TeamIndexMap accessor subsystem.
+
+[[hook]]
+wa_function = "TeamArena__CountTeamsByAlliance"
+rust_impl = "crate::replacements::team::count_teams_by_alliance_impl"
+
+[[hook]]
+wa_function = "TeamArena__GetTeamTotalHealth"
+rust_impl = "crate::replacements::team::get_team_total_health_impl"
+
+[[hook]]
+wa_function = "TeamArena__SetActiveWorm"
+rust_impl = "crate::replacements::team::set_active_worm_impl"
+
+[[hook]]
+wa_function = "TeamArena__IsWormInSpecialState"
+rust_impl = "crate::replacements::team::is_worm_in_special_state_impl"
+
+[[hook]]
+wa_function = "TeamArena__GetWormPosition"
+rust_impl = "crate::replacements::team::get_worm_position_impl"
+
+[[hook]]
+wa_function = "TeamArena__CheckWormState0x64"
+rust_impl = "crate::replacements::team::check_worm_state_0x64_impl"
+
+[[hook]]
+wa_function = "TeamArena__CheckTeamWormState0x64"
+rust_impl = "crate::replacements::team::check_team_worm_state_0x64_impl"
+
+[[hook]]
+wa_function = "TeamArena__CheckAnyWormState0x8b"
+rust_impl = "crate::replacements::team::check_any_worm_state_0x8b_impl"
+
+[[hook]]
+wa_function = "TeamIndexMap__RemoveHandle"
+rust_impl = "crate::replacements::team::team_index_map_remove_handle_impl"
+
+[[hook]]
+wa_function = "TeamIndexMap__PopHandle"
+rust_impl = "crate::replacements::team::team_index_map_pop_handle_impl"
+preserve_registers = ["ecx"]

@@ -1451,6 +1451,12 @@ size = 0x2C48
 rust_path = "openwa_game::engine::team_arena::TeamArena"
 
 [[struct]]
+name = "TeamIndexMap"
+namespace = "/OpenWA"
+size = 0x64
+rust_path = "openwa_game::engine::team_arena::TeamIndexMap"
+
+[[struct]]
 name = "EntityActivityQueue"
 namespace = "/OpenWA"
 size = 0x300C

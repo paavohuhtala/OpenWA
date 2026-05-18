@@ -741,7 +741,7 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
         let team_arena: *mut TeamArena = &raw mut (*world).team_arena;
         wa_calls::TeamArena::SetActiveWorm(
             team_arena,
-            (*this).team_index as i32,
+            (*this).team_index as u32,
             (*this).worm_index as i32,
         );
 
@@ -810,7 +810,7 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
         (*this).turn_active = 0;
 
         let team_arena: *mut TeamArena = &raw mut (*world).team_arena;
-        wa_calls::TeamArena::SetActiveWorm(team_arena, (*this).team_index as i32, 0);
+        wa_calls::TeamArena::SetActiveWorm(team_arena, (*this).team_index as u32, 0);
 
         let state = (*this).state();
         if can_fire_subtype_16(state) {

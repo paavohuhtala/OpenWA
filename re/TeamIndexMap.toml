@@ -1,7 +1,37 @@
 [[function]]
 va = 0x00525F50
 name = "TeamIndexMap__PopHandle"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "TeamIndexMap *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "key"
+  type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x00526000
 name = "TeamIndexMap__RemoveHandle"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "map"
+  type = "TeamIndexMap *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "handle"
+  type = "int *"
+  storage = "EDI"

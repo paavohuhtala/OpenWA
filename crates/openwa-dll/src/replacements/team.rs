@@ -1,39 +1,36 @@
 //! Team and worm state accessor hooks.
 //!
 //! Thin hook shim — all game logic lives in `openwa_game::engine::team_ops`.
-//! This file contains only usercall trampolines and hook installation.
+//! All hooks are codegen-driven via `hooks/team.toml` + `re/**/*.toml`.
 
 use openwa_game::engine::team_ops;
-use openwa_game::{
-    address::va,
-    engine::{TeamArena, TeamIndexMap},
-};
+use openwa_game::engine::{TeamArena, TeamIndexMap};
 
-use crate::hook::{self, usercall_trampoline};
+use crate::generated::hooks;
 
-// ── CountTeamsByAlliance (0x522030): usercall(EAX=base, EDI=alliance_id) ──
+// ── TeamArena__CountTeamsByAlliance (0x522030) ──
 
-unsafe extern "cdecl" fn count_teams_by_alliance_impl(arena: *mut TeamArena, alliance_id: i32) {
+pub(crate) unsafe extern "cdecl" fn count_teams_by_alliance_impl(
+    arena: *mut TeamArena,
+    alliance_id: i32,
+) {
     unsafe {
         team_ops::count_teams_by_alliance(arena, alliance_id);
     }
 }
 
-usercall_trampoline!(fn trampoline_count_teams_by_alliance; impl_fn = count_teams_by_alliance_impl;
-    regs = [eax, edi]);
+// ── TeamArena__GetTeamTotalHealth (0x5224D0) ──
 
-// ── GetTeamTotalHealth (0x5224D0): fastcall(ECX=team_index, EDX=base) ──
-
-unsafe extern "cdecl" fn get_team_total_health_impl(team_index: u32, arena: *mut TeamArena) -> i32 {
+pub(crate) unsafe extern "cdecl" fn get_team_total_health_impl(
+    team_index: u32,
+    arena: *mut TeamArena,
+) -> i32 {
     unsafe { team_ops::get_team_total_health(team_index, arena) }
 }
 
-usercall_trampoline!(fn trampoline_get_team_total_health; impl_fn = get_team_total_health_impl;
-    regs = [ecx, edx]);
+// ── TeamArena__IsWormInSpecialState (0x5226B0) ──
 
-// ── IsWormInSpecialState (0x5226B0): usercall(EAX=team, ECX=worm, [ESP+4]=base) ──
-
-unsafe extern "cdecl" fn is_worm_in_special_state_impl(
+pub(crate) unsafe extern "cdecl" fn is_worm_in_special_state_impl(
     team_index: u32,
     worm_index: u32,
     arena: *mut TeamArena,
@@ -41,12 +38,9 @@ unsafe extern "cdecl" fn is_worm_in_special_state_impl(
     unsafe { team_ops::is_worm_in_special_state(team_index, worm_index, arena) }
 }
 
-usercall_trampoline!(fn trampoline_is_worm_in_special_state; impl_fn = is_worm_in_special_state_impl;
-    regs = [eax, ecx]; stack_params = 1; ret_bytes = "0x4");
+// ── TeamArena__GetWormPosition (0x522700) ──
 
-// ── GetWormPosition (0x522700): usercall(EAX=team, ECX=worm, stack=base,x,y) ──
-
-unsafe extern "cdecl" fn get_worm_position_impl(
+pub(crate) unsafe extern "cdecl" fn get_worm_position_impl(
     team_index: u32,
     worm_index: u32,
     arena: *mut TeamArena,
@@ -58,42 +52,30 @@ unsafe extern "cdecl" fn get_worm_position_impl(
     }
 }
 
-usercall_trampoline!(fn trampoline_get_worm_position; impl_fn = get_worm_position_impl;
-    regs = [eax, ecx]; stack_params = 3; ret_bytes = "0xC");
+// ── TeamArena__CheckWormState0x64 (0x5228D0) ──
 
-// ── CheckWormState0x64 (0x5228D0): usercall(EAX=base) ──
-
-unsafe extern "cdecl" fn check_worm_state_0x64_impl(arena: *mut TeamArena) -> u32 {
+pub(crate) unsafe extern "cdecl" fn check_worm_state_0x64_impl(arena: *mut TeamArena) -> u32 {
     unsafe { team_ops::check_worm_state_0x64(arena) }
 }
 
-usercall_trampoline!(fn trampoline_check_worm_state_0x64; impl_fn = check_worm_state_0x64_impl;
-    reg = eax);
+// ── TeamArena__CheckTeamWormState0x64 (0x522930) ──
 
-// ── CheckTeamWormState0x64 (0x522930): usercall(ECX=base, EAX=team_idx) ──
-
-unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(
+pub(crate) unsafe extern "cdecl" fn check_team_worm_state_0x64_impl(
     arena: *mut TeamArena,
     team_idx: u32,
 ) -> u32 {
     unsafe { team_ops::check_team_worm_state_0x64(arena, team_idx) }
 }
 
-usercall_trampoline!(fn trampoline_check_team_worm_state_0x64; impl_fn = check_team_worm_state_0x64_impl;
-    regs = [ecx, eax]);
+// ── TeamArena__CheckAnyWormState0x8b (0x522970) ──
 
-// ── CheckAnyWormState0x8b (0x522970): usercall(EAX=base) ──
-
-unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(arena: *mut TeamArena) -> u32 {
+pub(crate) unsafe extern "cdecl" fn check_any_worm_state_0x8b_impl(arena: *mut TeamArena) -> u32 {
     unsafe { team_ops::check_any_worm_state_0x8b(arena) }
 }
 
-usercall_trampoline!(fn trampoline_check_any_worm_state_0x8b; impl_fn = check_any_worm_state_0x8b_impl;
-    reg = eax);
+// ── TeamIndexMap__RemoveHandle (0x00526000) ──
 
-// ── TeamIndexMap__RemoveHandle (0x00526000): usercall(EAX=map, EDI=handle_ptr) ──
-
-unsafe extern "cdecl" fn team_index_map_remove_handle_impl(
+pub(crate) unsafe extern "cdecl" fn team_index_map_remove_handle_impl(
     map: *mut TeamIndexMap,
     handle: *mut i32,
 ) {
@@ -102,23 +84,21 @@ unsafe extern "cdecl" fn team_index_map_remove_handle_impl(
     }
 }
 
-usercall_trampoline!(fn trampoline_team_index_map_remove_handle;
-    impl_fn = team_index_map_remove_handle_impl;
-    regs = [eax, edi]);
+// ── TeamIndexMap__PopHandle (0x00525F50) ──
+// `preserve_registers = ["ecx"]` in the hook TOML: MSVC callers of thiscall
+// methods often loop without re-setting ECX between calls, relying on the
+// callee to preserve it.
 
-// ── TeamIndexMap__PopHandle (0x00525F50): thiscall(ECX=map), 1 stack arg ──
-
-unsafe extern "cdecl" fn team_index_map_pop_handle_impl(map: *mut TeamIndexMap, key: i32) -> i32 {
+pub(crate) unsafe extern "cdecl" fn team_index_map_pop_handle_impl(
+    map: *mut TeamIndexMap,
+    key: i32,
+) -> i32 {
     unsafe { TeamIndexMap::pop_handle(map, key) }
 }
 
-usercall_trampoline!(fn trampoline_team_index_map_pop_handle;
-    impl_fn = team_index_map_pop_handle_impl;
-    reg = ecx; stack_params = 1; ret_bytes = "0x4"; preserve_ecx);
+// ── TeamArena__SetActiveWorm (0x522500) ──
 
-// ── SetActiveWorm (0x522500): usercall(EAX=base, EDX=team_idx, ESI=worm) ──
-
-unsafe extern "cdecl" fn set_active_worm_impl(
+pub(crate) unsafe extern "cdecl" fn set_active_worm_impl(
     arena: *mut TeamArena,
     team_idx: u32,
     worm_index: i32,
@@ -128,63 +108,20 @@ unsafe extern "cdecl" fn set_active_worm_impl(
     }
 }
 
-usercall_trampoline!(fn trampoline_set_active_worm; impl_fn = set_active_worm_impl;
-    regs = [eax, edx, esi]);
-
 // ── Hook installation ──
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        let _ = hook::install(
-            "CountTeamsByAlliance",
-            va::COUNT_TEAMS_BY_ALLIANCE,
-            trampoline_count_teams_by_alliance as *const (),
-        )?;
-        let _ = hook::install(
-            "GetTeamTotalHealth",
-            va::GET_TEAM_TOTAL_HEALTH,
-            trampoline_get_team_total_health as *const (),
-        )?;
-        let _ = hook::install(
-            "IsWormInSpecialState",
-            va::IS_WORM_IN_SPECIAL_STATE,
-            trampoline_is_worm_in_special_state as *const (),
-        )?;
-        let _ = hook::install(
-            "GetWormPosition",
-            va::GET_WORM_POSITION,
-            trampoline_get_worm_position as *const (),
-        )?;
-        let _ = hook::install(
-            "CheckWormState0x64",
-            va::CHECK_WORM_STATE_0X64,
-            trampoline_check_worm_state_0x64 as *const (),
-        )?;
-        let _ = hook::install(
-            "CheckTeamWormState0x64",
-            va::CHECK_TEAM_WORM_STATE_0X64,
-            trampoline_check_team_worm_state_0x64 as *const (),
-        )?;
-        let _ = hook::install(
-            "CheckAnyWormState0x8b",
-            va::CHECK_ANY_WORM_STATE_0X8B,
-            trampoline_check_any_worm_state_0x8b as *const (),
-        )?;
-        let _ = hook::install(
-            "SetActiveWorm",
-            va::SET_ACTIVE_WORM,
-            trampoline_set_active_worm as *const (),
-        )?;
-        let _ = hook::install(
-            "TeamIndexMap__RemoveHandle",
-            va::TEAM_INDEX_MAP_REMOVE_HANDLE,
-            trampoline_team_index_map_remove_handle as *const (),
-        )?;
-        let _ = hook::install(
-            "TeamIndexMap__PopHandle",
-            va::TEAM_INDEX_MAP_POP_HANDLE,
-            trampoline_team_index_map_pop_handle as *const (),
-        )?;
+        hooks::install_TeamArena__CountTeamsByAlliance()?;
+        hooks::install_TeamArena__GetTeamTotalHealth()?;
+        hooks::install_TeamArena__IsWormInSpecialState()?;
+        hooks::install_TeamArena__GetWormPosition()?;
+        hooks::install_TeamArena__CheckWormState0x64()?;
+        hooks::install_TeamArena__CheckTeamWormState0x64()?;
+        hooks::install_TeamArena__CheckAnyWormState0x8b()?;
+        hooks::install_TeamArena__SetActiveWorm()?;
+        hooks::install_TeamIndexMap__RemoveHandle()?;
+        hooks::install_TeamIndexMap__PopHandle()?;
     }
     Ok(())
 }

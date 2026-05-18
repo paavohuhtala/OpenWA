@@ -40,7 +40,6 @@
 
 use openwa_re_data::model::{Function, Param};
 use openwa_re_data::toml_io::Catalog;
-use std::collections::HashSet;
 use std::fmt::Write as _;
 
 use crate::hook_map::{HookEntry, HookMap};
@@ -246,8 +245,12 @@ fn emit_custom_storage(
         }
     }
 
-    // Resolve `preserve_registers`. Reject overlap with input regs — same
-    // register can't be both a callee-save slot and an arg-input slot.
+    // Resolve `preserve_registers`. Overlap with a param-input register is
+    // legal: the input register is pushed first (for the post-call restore)
+    // and again later as the cdecl call arg — the register's live value
+    // survives both pushes, and the trailing `pop` restores it after the
+    // impl returns. Used by thiscall hooks (`preserve_registers = ["ecx"]`)
+    // where MSVC callers loop without re-setting ECX between calls.
     let preserve: Vec<Reg> = hook
         .preserve_registers
         .resolved()
@@ -258,15 +261,6 @@ fn emit_custom_storage(
             })
         })
         .collect::<Result<_, _>>()?;
-    let reg_input_set: HashSet<Reg> = reg_params.iter().map(|(_, r)| *r).collect();
-    for p in &preserve {
-        if reg_input_set.contains(p) {
-            return Err(EmitError::InvalidStorage(format!(
-                "preserve_registers includes {} which is also a param-input register",
-                p.asm_name()
-            )));
-        }
-    }
 
     // Sort stack params by offset ascending. They get pushed in reverse so
     // the lowest-offset one ends up at the lowest address in the impl's
@@ -788,14 +782,22 @@ mod tests {
     }
 
     #[test]
-    fn preserve_overlap_with_input_is_error() {
+    fn preserve_overlap_with_input_is_allowed() {
+        // ECX appears as both a param-input register and a preserve target.
+        // The trampoline pushes ECX twice (once for restore-after-call, once
+        // as the cdecl call arg) — the register's live value survives both
+        // pushes, and the trailing `pop ecx` restores it. Mirrors the
+        // hand-written `usercall_trampoline!(preserve_ecx)` variant.
         let cat = cat_with(vec![fn_with(
             0x00500000,
             "Foo__bar",
-            Some("__stdcall"),
+            Some("__thiscall"),
             true,
-            Some("void"),
-            vec![("this", "void *", Some("ECX"))],
+            Some("int"),
+            vec![
+                ("this", "void *", Some("ECX")),
+                ("key", "int", Some("stack:0x4")),
+            ],
         )]);
         let map = hook_map_with(vec![HookEntry {
             wa_function: "Foo__bar".into(),
@@ -803,8 +805,13 @@ mod tests {
             save_original: false,
             preserve_registers: PreserveSpec::List(vec!["ecx".into()]),
         }]);
-        let (_, stats) = generate(&cat, &map);
-        assert_eq!(stats.invalid_storage.len(), 1);
+        let (out, stats) = generate(&cat, &map);
+        assert_eq!(stats.emitted_custom_storage, 1);
+        assert!(stats.invalid_storage.is_empty());
+        // Two `push ecx` instructions: one for the preserve save, one for
+        // the cdecl call arg. Followed by one `pop ecx` to restore.
+        assert_eq!(out.matches("\"push ecx\",").count(), 2);
+        assert_eq!(out.matches("\"pop ecx\",").count(), 1);
     }
 
     #[test]

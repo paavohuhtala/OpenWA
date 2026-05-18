@@ -1,0 +1,166 @@
+[[function]]
+va = 0x00522030
+name = "TeamArena__CountTeamsByAlliance"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "alliance_id"
+  type = "int"
+  storage = "EDI"
+
+[[function]]
+va = 0x005224D0
+name = "TeamArena__GetTeamTotalHealth"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "EDX"
+
+[[function]]
+va = 0x00522500
+name = "TeamArena__SetActiveWorm"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "team_idx"
+  type = "uint"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "worm_index"
+  type = "int"
+  storage = "ESI"
+
+[[function]]
+va = 0x005226B0
+name = "TeamArena__IsWormInSpecialState"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "worm_index"
+  type = "uint"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "stack:0x4"
+
+[[function]]
+va = 0x00522700
+name = "TeamArena__GetWormPosition"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "worm_index"
+  type = "uint"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "out_x"
+  type = "int *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "out_y"
+  type = "int *"
+  storage = "stack:0xC"
+
+[[function]]
+va = 0x005228D0
+name = "TeamArena__CheckWormState0x64"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "EAX"
+
+[[function]]
+va = 0x00522930
+name = "TeamArena__CheckTeamWormState0x64"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "team_idx"
+  type = "uint"
+  storage = "EAX"
+
+[[function]]
+va = 0x00522970
+name = "TeamArena__CheckAnyWormState0x8b"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "EAX"

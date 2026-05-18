@@ -3,40 +3,8 @@ va = 0x00521D20
 name = "SerializeTeamArenaState"
 
 [[function]]
-va = 0x00522030
-name = "CountTeamsByAlliance"
-
-[[function]]
 va = 0x005223F0
 name = "UpdateDamageStats"
-
-[[function]]
-va = 0x005224D0
-name = "GetTeamTotalHealth"
-
-[[function]]
-va = 0x00522500
-name = "TeamArena__SetActiveWorm"
-calling_convention = "__stdcall"
-custom_storage = true
-
-  [function.signature]
-  returns = "void"
-
-  [[function.param]]
-  name = "team_arena"
-  type = "TeamArena *"
-  storage = "EAX"
-
-  [[function.param]]
-  name = "team_idx"
-  type = "int"
-  storage = "EDX"
-
-  [[function.param]]
-  name = "flag"
-  type = "int"
-  storage = "ESI"
 
 [[function]]
 va = 0x005225A0
@@ -59,28 +27,8 @@ name = "SubtractAmmo"
 plate_comment = "SubtractAmmo — __usercall(EAX=team_index, ECX=team_info_base, [ESP+4]=weapon_id), RET 0x4. Decrements ammo if > 0. team_info_base = DDGame + 0x4628."
 
 [[function]]
-va = 0x005226B0
-name = "IsWormInSpecialState"
-
-[[function]]
-va = 0x00522700
-name = "GetWormPosition"
-
-[[function]]
 va = 0x00522730
 name = "CopyTeamWormData_Maybe"
-
-[[function]]
-va = 0x005228D0
-name = "CheckWormState0x64"
-
-[[function]]
-va = 0x00522930
-name = "CheckTeamWormState0x64"
-
-[[function]]
-va = 0x00522970
-name = "CheckAnyWormState0x8b"
 
 [[function]]
 va = 0x005229E0
