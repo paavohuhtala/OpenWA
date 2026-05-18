@@ -18,7 +18,6 @@ crate::define_addresses! {
         ctor/Stdcall CGAMETASK_CONSTRUCTOR = 0x004FED50;
         vmethod CGAMETASK_VT0 = 0x004FF1C0;
         vmethod CGAMETASK_VT1_FREE = 0x004FEF10;
-        vmethod CGAMETASK_VT2_HANDLE_MESSAGE = 0x004FF280;
         /// `WorldEntity__TryMovePosition` (free function). 50+ direct
         /// callers across every WorldEntity subclass. Usercall:
         /// `ESI=this, EDI=y, [ESP+4]=x`, RET 0x4. Ported as

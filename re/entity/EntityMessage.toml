@@ -9,6 +9,7 @@
 name = "EntityMessage"
 namespace = "/OpenWA"
 size = 4
+rust_path = "openwa_game::game::message::EntityMessage"
 
   [enum.variant]
   None = 0x0

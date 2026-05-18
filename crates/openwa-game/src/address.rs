@@ -50,7 +50,7 @@ pub mod va {
     pub use crate::entity::fire::{FIRE_ENTITY_CTOR, FIRE_ENTITY_VTABLE};
     pub use crate::entity::game_entity::{
         CGAMETASK_CONSTRUCTOR, CGAMETASK_SOUND_EMITTER_VT, CGAMETASK_VT0, CGAMETASK_VT1_FREE,
-        CGAMETASK_VT2_HANDLE_MESSAGE, CGAMETASK_VTABLE, CHECK_MOVE_COLLISION, TRY_MOVE_POSITION,
+        CGAMETASK_VTABLE, CHECK_MOVE_COLLISION, TRY_MOVE_POSITION,
     };
     pub use crate::entity::mine::{MINE_ENTITY_CTOR, MINE_ENTITY_VTABLE};
     pub use crate::entity::missile::{MISSILE_ENTITY_CTOR, MISSILE_ENTITY_VTABLE};
@@ -64,10 +64,7 @@ pub mod va {
     pub use crate::entity::worm::{
         WORM_ENTITY_CAN_IDLE_SOUND, WORM_ENTITY_CONSTRUCTOR, WORM_ENTITY_VTABLE,
     };
-    pub use crate::game::game_entity_message::{
-        WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE, WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED,
-        WORLD_ENTITY_RELEASE_SOUND_HANDLE,
-    };
+    pub use crate::game::game_entity_message::WORLD_ENTITY_RELEASE_SOUND_HANDLE;
 
     // Re-exported from audio modules
     pub use crate::audio::dssound::DS_SOUND_VTABLE;
@@ -536,10 +533,8 @@ pub mod va {
         fn/Fastcall ADVANCE_GAME_RNG = 0x0053F320;
         /// Terrain hit → debris particles → RNG
         fn GENERATE_DEBRIS_PARTICLES = 0x00546F70;
-        fn CREATE_EXPLOSION = 0x00548080;
         fn SPECIAL_IMPACT = 0x005193D0;
         fn SPAWN_OBJECT = 0x00561CF0;
-        fn WEAPON_RELEASE = 0x0051C3D0;
         fn WORM_START_FIRING = 0x0051B7F0;
         fn FIRE_WEAPON = 0x0051EE60;
         /// Strike weapons (AirStrike, NapalmStrike, MineStrike, MoleSquadron, MailStrike).
@@ -566,9 +561,6 @@ pub mod va {
     // =========================================================================
 
     crate::define_addresses! {
-        /// SpawnEffect: complex usercall, RET 0x1C.
-        /// Builds a 0x408-byte struct from params, SharedData lookup, HandleMessage(0x56).
-        fn SPAWN_EFFECT = 0x00547C30;
         fn INIT_WEAPON_TABLE = 0x0053CAB0;
     }
 

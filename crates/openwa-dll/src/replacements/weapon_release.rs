@@ -1,22 +1,15 @@
-//! WeaponRelease hook (0x51C3D0) and SpawnEffect (0x547C30).
+//! WeaponRelease (0x0051C3D0) and SpawnEffect (0x00547C30) hooks.
 //!
 //! Thin hook shim — game logic lives in `openwa_game::game::weapon_release`.
-//! This file contains usercall trampolines and hook installation.
+//! Hook installation is generated from `crates/openwa-dll/hooks/weapon.toml`
+//! + `re/**/*.toml`.
 
 use openwa_core::fixed::Fixed;
-use openwa_game::address::va;
 use openwa_game::entity::BaseEntity;
 use openwa_game::entity::worm::WormEntity;
 use openwa_game::game::weapon_release as wr;
 
-use crate::hook::{self, usercall_trampoline};
-
-// ── WeaponRelease (0x51C3D0): usercall(EAX=worm) + 4 stack, RET 0x10 ──
-
-usercall_trampoline!(fn trampoline_weapon_release; impl_fn = weapon_release_impl;
-    reg = eax; stack_params = 4; ret_bytes = "0x10");
-
-unsafe extern "cdecl" fn weapon_release_impl(
+pub(crate) unsafe extern "cdecl" fn weapon_release_impl(
     worm: *mut WormEntity,
     spawn_x: u32,
     spawn_y: u32,
@@ -28,37 +21,7 @@ unsafe extern "cdecl" fn weapon_release_impl(
     }
 }
 
-// ── SpawnEffect (0x547C30): usercall(EAX=const, ECX=speed_x, ESI=worm) + 7 stack ──
-
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_spawn_effect() {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push ebp",
-        "push edi",
-        // ESI=worm, EAX=constant, ECX=speed_x
-        // Stack: 3 saves(12) + ret(4) = 16; original stack params at +16
-        "push [esp+40]",      // scale
-        "push [esp+40]",      // size
-        "push [esp+40]",      // state_flag
-        "push [esp+40]",      // palette
-        "push [esp+40]",      // rng_offset
-        "push [esp+40]",      // rng_scaled
-        "push [esp+40]",      // speed_y
-        "push ecx",           // speed_x (register param)
-        "push eax",           // constant (register param)
-        "push esi",           // worm (register param)
-        "call {impl_fn}",
-        "add esp, 40",        // clean 10 cdecl args
-        "pop edi",
-        "pop ebp",
-        "pop ebx",
-        "ret 0x1C",           // clean 7 original stack params
-        impl_fn = sym spawn_effect_cdecl,
-    );
-}
-
-unsafe extern "cdecl" fn spawn_effect_cdecl(
+pub(crate) unsafe extern "cdecl" fn spawn_effect_cdecl(
     sender: *mut BaseEntity,
     constant: u32,
     speed_x: Fixed,
@@ -78,20 +41,10 @@ unsafe extern "cdecl" fn spawn_effect_cdecl(
     }
 }
 
-// ── Hook installation ──
-
 pub fn install() -> Result<(), String> {
     unsafe {
-        hook::install(
-            "SpawnEffect",
-            va::SPAWN_EFFECT,
-            trampoline_spawn_effect as *const (),
-        )?;
-        hook::install(
-            "WeaponRelease",
-            va::WEAPON_RELEASE,
-            trampoline_weapon_release as *const (),
-        )?;
+        crate::generated::hooks::install_SpawnEffect()?;
+        crate::generated::hooks::install_WeaponRelease()?;
     }
     Ok(())
 }

@@ -1,6 +1,7 @@
 //! Hooks for `WorldEntity::HandleMessage` (0x004FF280) and its three
 //! formerly-bridged helpers. Logic lives in
-//! `openwa_game::game::game_entity_message`.
+//! `openwa_game::game::game_entity_message`. Hook installation is generated
+//! from `crates/openwa-dll/hooks/entity_message.toml` + `re/**/*.toml`.
 
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
@@ -8,54 +9,28 @@ use openwa_game::address::va;
 use openwa_game::entity::{BaseEntity, WorldEntity};
 use openwa_game::game::{EntityMessage, game_entity_message as gtm};
 
-use crate::hook::{self, usercall_trampoline};
+use crate::hook;
 
-usercall_trampoline!(fn trampoline_cgameentity_handle_message;
-    impl_fn = cgameentity_handle_message_impl;
-    reg = ecx; stack_params = 4; ret_bytes = "0x10");
-
-unsafe extern "cdecl" fn cgameentity_handle_message_impl(
+pub(crate) unsafe extern "cdecl" fn cgameentity_handle_message_impl(
     this: *mut WorldEntity,
     sender: *mut BaseEntity,
     msg_type: EntityMessage,
     size: u32,
-    data: *const u8,
+    data: *mut core::ffi::c_void,
 ) {
     unsafe {
-        gtm::world_entity_handle_message(this, sender, msg_type, size, data);
+        gtm::world_entity_handle_message(this, sender, msg_type, size, data as *const u8);
     }
 }
 
-usercall_trampoline!(fn trampoline_is_sound_handle_expired;
-    impl_fn = is_sound_handle_expired_impl;
-    regs = [ecx, eax]);
-
-unsafe extern "cdecl" fn is_sound_handle_expired_impl(
-    this: *const WorldEntity,
+pub(crate) unsafe extern "cdecl" fn is_sound_handle_expired_impl(
+    this: *mut WorldEntity,
     handle: u32,
 ) -> u32 {
-    unsafe { gtm::sound_handle_expired(this, handle) }
+    unsafe { gtm::sound_handle_expired(this as *const _, handle) }
 }
 
-// EDI is LLVM-reserved on x86, so the macro can't capture it — write the
-// trampoline by hand. The cdecl impl preserves EDI per ABI, so the WA
-// caller's `this` register survives the call without an explicit save.
-#[unsafe(naked)]
-unsafe extern "C" fn trampoline_compute_explosion_damage() {
-    core::arch::naked_asm!(
-        "push [esp+16]",
-        "push [esp+16]",
-        "push [esp+16]",
-        "push [esp+16]",
-        "push edi",
-        "call {impl_fn}",
-        "add esp, 20",
-        "ret 0x10",
-        impl_fn = sym compute_explosion_damage_impl,
-    );
-}
-
-unsafe extern "cdecl" fn compute_explosion_damage_impl(
+pub(crate) unsafe extern "cdecl" fn compute_explosion_damage_impl(
     this: *mut WorldEntity,
     strength: u32,
     damage: u32,
@@ -67,26 +42,14 @@ unsafe extern "cdecl" fn compute_explosion_damage_impl(
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        hook::install(
-            "WorldEntity::HandleMessage",
-            va::CGAMETASK_VT2_HANDLE_MESSAGE,
-            trampoline_cgameentity_handle_message as *const (),
-        )?;
-        hook::install(
-            "WorldEntity::IsSoundHandleExpired",
-            va::WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED,
-            trampoline_is_sound_handle_expired as *const (),
-        )?;
+        crate::generated::hooks::install_WorldEntity__vt2_HandleMessage()?;
+        crate::generated::hooks::install_WorldEntity__IsSoundHandleExpired()?;
         hook::install(
             "WorldEntity::ReleaseSoundHandle",
             va::WORLD_ENTITY_RELEASE_SOUND_HANDLE,
             gtm::release_sound_handle as *const (),
         )?;
-        hook::install(
-            "WorldEntity::ComputeExplosionDamage",
-            va::WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE,
-            trampoline_compute_explosion_damage as *const (),
-        )?;
+        crate::generated::hooks::install_WorldEntity__ComputeExplosionDamage()?;
     }
     Ok(())
 }

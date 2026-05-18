@@ -1,13 +1,13 @@
 mod bitgrid;
 mod config;
-mod create_explosion;
+pub(crate) mod create_explosion;
 pub(crate) mod debug_utils;
 pub(crate) mod entity;
 pub(crate) mod file_isolation;
 mod fire_effect;
 mod frame_hook;
 mod frontend;
-mod game_entity_message;
+pub(crate) mod game_entity_message;
 mod game_session;
 mod gfx_dir;
 mod hardware_init;
@@ -28,7 +28,7 @@ mod string_resource;
 pub(crate) mod team;
 mod trace_desync;
 pub(crate) mod weapon;
-mod weapon_release;
+pub(crate) mod weapon_release;
 mod world_init;
 
 /// Write gameplay milestone report and clean up. Called from DLL_PROCESS_DETACH.

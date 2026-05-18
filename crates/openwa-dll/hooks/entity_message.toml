@@ -1,0 +1,13 @@
+# MinHook entries for WorldEntity::HandleMessage and its sound/damage helpers.
+
+[[hook]]
+wa_function = "WorldEntity__vt2_HandleMessage"
+rust_impl = "crate::replacements::game_entity_message::cgameentity_handle_message_impl"
+
+[[hook]]
+wa_function = "WorldEntity__IsSoundHandleExpired"
+rust_impl = "crate::replacements::game_entity_message::is_sound_handle_expired_impl"
+
+[[hook]]
+wa_function = "WorldEntity__ComputeExplosionDamage"
+rust_impl = "crate::replacements::game_entity_message::compute_explosion_damage_impl"
