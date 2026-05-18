@@ -1,3 +1,11 @@
 [[function]]
 va = 0x00593180
 name = "WA__LoadStringResource"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "char *"
+
+  [[function.param]]
+  name = "resource_id"
+  type = "uint"

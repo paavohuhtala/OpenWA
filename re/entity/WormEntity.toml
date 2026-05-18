@@ -1,14 +1,74 @@
 [[function]]
 va = 0x004FF9F0
 name = "WormEntity__ApplyDragMods"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x004FFA60
 name = "WormEntity__AccumulateImpulse"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "delta_x"
+  type = "Fixed"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "delta_y"
+  type = "Fixed"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x004FFAF0
 name = "WormEntity__ApplyWind"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "out_x"
+  type = "Fixed *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "out_y"
+  type = "Fixed *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "zero1"
+  type = "uint"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "zero2"
+  type = "uint"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x005003D0
@@ -18,6 +78,16 @@ plate_comment = "Per-frame rope physics step. Not a \"snapshot\" — runs FUN_00
 [[function]]
 va = 0x00500630
 name = "WormEntity__RestoreKamikazeState_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00500720
@@ -27,6 +97,26 @@ plate_comment = "WormEntity::DrawAttachedRope — draws the segmented rope polyl
 [[function]]
 va = 0x00501210
 name = "WormEntity__HitTestRopeLine"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
+
+  [[function.param]]
+  name = "pos_x"
+  type = "Fixed"
+
+  [[function.param]]
+  name = "rope_param"
+  type = "uint"
+
+  [[function.param]]
+  name = "pos_y"
+  type = "Fixed"
 
 [[function]]
 va = 0x0050BFB0
@@ -59,6 +149,22 @@ name = "WormEntity__LandingCheck"
 [[function]]
 va = 0x0050D540
 name = "WormEntity__BroadcastWeaponName"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
+
+  [[function.param]]
+  name = "name_str"
+  type = "char *"
+
+  [[function.param]]
+  name = "flag"
+  type = "int"
 
 [[function]]
 va = 0x0050D570
@@ -95,10 +201,30 @@ name = "WormEntity__EaseAimVecA"
 [[function]]
 va = 0x0050E710
 name = "WormEntity__ClearWeaponState"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0050E790
 name = "WormEntity__CancelActiveWeapon"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0050E800
@@ -111,10 +237,40 @@ name = "WormEntity__SetState"
 [[function]]
 va = 0x0050F580
 name = "WormEntity__ApplyDamage"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "arg1"
+  type = "int"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "arg2"
+  type = "int"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x0050F730
 name = "WormEntity__NotifyMoved"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0050F7F0
@@ -127,6 +283,14 @@ name = "WormEntity__DrawTurnIndicator_Maybe"
 [[function]]
 va = 0x0050F900
 name = "WormEntity__DrawOffMapMarker_Maybe"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
 
 [[function]]
 va = 0x0050FB10
@@ -135,18 +299,58 @@ name = "WormEntity__EaseAuxValue"
 [[function]]
 va = 0x0050FB50
 name = "WormEntity__DrawWormName_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0050FCD0
 name = "WormEntity__DrawSprite_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x0050FDC0
 name = "WormEntity__DrawHudLabels_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00510260
 name = "WormEntity__DrawHealthLabel_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00510370
@@ -155,30 +359,138 @@ name = "WormEntity__BeginThinkingHide"
 [[function]]
 va = 0x005103A0
 name = "WormEntity__DrawCursorMarker_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00510430
 name = "WormEntity__SelectFuse"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "value"
+  type = "int"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x005104D0
 name = "WormEntity__SelectBounce"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "value"
+  type = "int"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00510540
 name = "WormEntity__SelectHerd"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "value"
+  type = "int"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00510600
 name = "WormEntity__BroadcastWeaponSettings"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
 
 [[function]]
 va = 0x00510830
 name = "WormEntity__CommitPendingHealth"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x005108D0
 name = "WormEntity__SpawnDamageParticles"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "damage"
+  type = "int"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "wx"
+  type = "Fixed"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "wy"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "mx"
+  type = "Fixed"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "my"
+  type = "Fixed"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x00510B40
@@ -211,18 +523,56 @@ calling_convention = "__thiscall"
 [[function]]
 va = 0x00513A90
 name = "WormEntity__DrawAimingArrow_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00513F90
 name = "WormEntity__ScrollAimX"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00514050
 name = "WormEntity__ScrollAimSmooth"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
 
 [[function]]
 va = 0x005148E0
 name = "WormEntity__DrainInputBuffer"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EDI"
 
 [[function]]
 va = 0x00515020
@@ -256,6 +606,14 @@ custom_storage = true
 [[function]]
 va = 0x00515650
 name = "WormEntity__BehaviorTick"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
 
 [[function]]
 va = 0x00516780
@@ -280,14 +638,54 @@ name = "WormEntity__CanFireSubtype16"
 [[function]]
 va = 0x0051AE50
 name = "WormEntity__SelectWeapon"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "weapon"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "ammo"
+  type = "int"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x0051B120
 name = "WormEntity__TryFireWeaponSpecial"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0051B2B0
 name = "WormEntity__TryFireWeapon"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0051C010
@@ -296,18 +694,90 @@ name = "WormEntity__ReleaseWeapon"
 [[function]]
 va = 0x0051D680
 name = "WormEntity__DrawAimCursor_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0051F350
 name = "WormEntity__IsSpawnAreaValid"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "weapon_param_3"
+  type = "int"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x"
+  type = "int"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "y"
+  type = "int"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x0051F510
 name = "WormEntity__FindClearSpawnLocation"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "out_x"
+  type = "int *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "out_y"
+  type = "int *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "flag"
+  type = "int"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x0051F970
 name = "WormEntity__LogWeaponFire"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
+
+  [[function.param]]
+  name = "entry"
+  type = "WeaponEntry *"
 
 [[function]]
 va = 0x0051FD40

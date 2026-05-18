@@ -217,75 +217,6 @@ crate::define_addresses! {
         vtable WORM_ENTITY_VTABLE = 0x006644C8;
         /// WormEntity constructor
         ctor WORM_ENTITY_CONSTRUCTOR = 0x0050BFB0;
-        /// `WormEntity::NotifyMoved` (was `BroadcastDamageEvent_Maybe`).
-        /// Usercall `(ESI = this)`, plain RET. Looks up the SharedData entity
-        /// at key `(esi=0, edi=0x14)` and sends it `WormMoved` (msg 0x47);
-        /// also commits the cursor-marker pos and bumps a per-worm "first
-        /// action of turn" counter. Called from `HandleMessage` Pre-switch A.
-        fn/Usercall WORM_ENTITY_NOTIFY_MOVED = 0x0050F730;
-        /// `WormEntity__CommitPendingHealth`. Usercall `(ESI = this)`,
-        /// plain RET, no stack args. Called from `HandleMessage` case 0x44
-        /// (ShowDamage); copies pending damage from `_field_188`/`_field_18C`
-        /// into the active health-display fields.
-        fn/Usercall WORM_ENTITY_COMMIT_PENDING_HEALTH = 0x00510830;
-        /// `WormEntity__CancelActiveWeapon`. Usercall `(ESI = this)`,
-        /// plain RET, no stack args. Called from `HandleMessage` case 0x79
-        /// (WeaponClaimControl); ends the worm's active weapon if one is in
-        /// flight.
-        fn/Usercall WORM_ENTITY_CANCEL_ACTIVE_WEAPON = 0x0050E790;
-        /// `WormEntity::ApplyDamage`. Usercall
-        /// `(ESI = this, [stack] = arg1, arg2)`, RET 0x8. Called from
-        /// `HandleMessage` case 0x42 (AdvanceWorm) with `(arg1=1, arg2=1)` —
-        /// applies the per-frame damage tick used by Drown/Strangle/etc.
-        fn/Usercall WORM_ENTITY_APPLY_DAMAGE = 0x0050F580;
-        /// `WormEntity::SelectWeapon`. Usercall
-        /// `(EDI = this, [stack] = weapon_id, ammo_count)`, RET 0x8. Called
-        /// from `HandleMessage` case 0x33 (SelectWeapon).
-        fn/Usercall WORM_ENTITY_SELECT_WEAPON = 0x0051AE50;
-        /// `WormStartFiring`. Usercall `(EAX = this)`, plain RET, no stack
-        /// args. 551 instructions, cyclo 108 — too large to port; bridged
-        /// from `HandleMessage` case 0x26 (FireWeapon).
-        fn/Usercall WORM_ENTITY_START_FIRING = 0x0051B7F0;
-        /// `WormEntity__ClearWeaponState`. Usercall `(ESI = this)`,
-        /// plain RET, no stack args. Sibling of `CancelActiveWeapon` —
-        /// called from `FinishTurn` (msg 0x37) when `shot_data_1 != 0` or
-        /// the network flag is set; full teardown including SharedData
-        /// notification and weapon-table fields.
-        fn/Usercall WORM_ENTITY_CLEAR_WEAPON_STATE = 0x0050E710;
-        /// `WormEntity::BroadcastWeaponName`. Thiscall
-        /// `(ECX = this, [stack] = name_str_ptr, flag)`, RET 0x8. Forwards
-        /// to `GameTask__comment_public(this, name_str_ptr, *(this+0x10c)+0x11, this+0x2f0)`.
-        /// Called from `StartTurn` (msg 0x34) with the resolved
-        /// `LocalizedStringCache` token 0x69D and `flag = 1`.
-        fn/Thiscall WORM_ENTITY_BROADCAST_WEAPON_NAME = 0x0050D540;
-        /// `WormEntity::BroadcastWeaponSettings`. Fastcall
-        /// `(ECX = this)`, plain RET, no stack args. Called from `StartTurn`
-        /// (msg 0x34) only when `selected_weapon != None`. Decodes the active
-        /// weapon's `WeaponSpawn` descriptor and broadcasts a settings string
-        /// via the same SharedData observer used by weapon-name announcements.
-        fn/Fastcall WORM_ENTITY_BROADCAST_WEAPON_SETTINGS = 0x00510600;
-        /// `WormEntity::SelectFuse`. Usercall
-        /// `(EDX = fuse_value, ESI = this)`, plain RET, no stack args. Called
-        /// from `HandleMessage` case 0x2F. Writes
-        /// `worm.selected_fuse_value` (+0x2BC) after decoding the active
-        /// `WeaponSpawn`, then broadcasts updated settings via
-        /// `BroadcastWeaponSettings_Maybe`.
-        fn/Usercall WORM_ENTITY_SELECT_FUSE = 0x00510430;
-        /// `WormEntity::SelectBounce`. Usercall
-        /// `(EAX = bounce_value, ESI = this)`, plain RET, no stack args.
-        /// Called from `HandleMessage` case 0x31. Writes
-        /// `worm.selected_bounce_flag` (+0x2C0), XOR-toggling the previous
-        /// value when the message carries `-1`, then broadcasts updated
-        /// settings.
-        fn/Usercall WORM_ENTITY_SELECT_BOUNCE = 0x005104D0;
-        /// `WormEntity::SelectHerd`. Usercall
-        /// `(EAX = herd_value, ESI = this)`, plain RET, no stack args. Called
-        /// from `HandleMessage` case 0x30. Writes
-        /// `worm.selected_herd_index` (+0x2C4), cycling `% iVar2` when the
-        /// message carries `-1` (capped to `selected_weapon_ammo` when
-        /// positive and below the cycled value), then broadcasts updated
-        /// settings.
-        fn/Usercall WORM_ENTITY_SELECT_HERD = 0x00510540;
         /// `WormEntity__CanIdleSound`. Usercall `(EAX = this)`, plain
         /// RET, returns `i32` in EAX (nonzero ⇒ idle sound permitted). Called
         /// from case 0x5 (UpdateNonCritical) — gates the idle-sound emission
@@ -303,41 +234,6 @@ crate::define_addresses! {
         /// (UpdateNonCritical) only inspects two of those outputs (arg3 +
         /// arg4) — both being zero means "no aim sprite required".
         fn/Usercall WEAPON_SPAWN_DECODE_DESCRIPTOR = 0x00565C10;
-    }
-
-    class "TeamArena" {
-        /// `SetActiveWorm`. Usercall
-        /// `(EAX = team_arena_base /* world+0x4628 */, EDX = team_idx,
-        /// ESI = activate_value)`, plain RET. Maintains the
-        /// "currently-active worm" registry at `world+0x2C30..+0x2C44` and
-        /// toggles a per-team-block flag at `team_idx*0x51c - 8`. ESI=0
-        /// deactivates; non-zero is stored as the active-worm marker (the
-        /// caller in `StartTurn` passes `worm_index` directly, in
-        /// `FinishTurn` passes 0).
-        fn/Usercall TEAM_ARENA_SET_ACTIVE_WORM = 0x00522500;
-    }
-
-    class "GameRuntime" {
-        /// `GameTask__set_track` — fastcall `(ECX = entity_owning_world,
-        /// EDX = arg)`, plain RET. Used by `WormEntity::FinishTurn` with
-        /// `arg = 0xE`. Resets a 14×0x14-byte queue at `world+0x73B0..` and
-        /// clears `world+0x739C`; stores `EDX` into `world+0x72E4`. Likely
-        /// some pending-event clearing.
-        fn/Fastcall WORM_FINISH_TURN_CLEANUP = 0x00547D80;
-    }
-
-    class "EntityActivityQueue" {
-        /// `EntityActivityQueue::ResetRank` (0x00541790) — usercall
-        /// `(EAX = queue, [stack] = slot)`, RET 0x4. Despite WA's "release"
-        /// shape, this does NOT free the slot: it zeroes `ages[slot]` and
-        /// "ages up" every younger slot, effectively promoting the calling
-        /// entity to "newest" in the activity ranking. The genuine free is
-        /// at 0x00541860 (`FreeSlotById`, called only from destructors).
-        /// The queue is the
-        /// [`EntityActivityQueue`](crate::engine::EntityActivityQueue)
-        /// embedded in `GameWorld` at offset `0x600`. Negative `slot` =
-        /// release-all (bumps every active slot's age, sets `count = 0`).
-        fn/Usercall ENTITY_ACTIVITY_QUEUE_RESET_RANK = 0x00541790;
     }
 }
 

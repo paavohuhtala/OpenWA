@@ -144,6 +144,46 @@ name = "BaseEntity__sub_562E90"
 [[function]]
 va = 0x00562EF0
 name = "BaseEntity__deliver"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "lookup_task"
+  type = "void *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "key_esi"
+  type = "uint"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "sender"
+  type = "BaseEntity *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "key_edi"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "msg_id"
+  type = "uint"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "payload"
+  type = "void *"
+  storage = "stack:0x14"
 
 [[function]]
 va = 0x00563070

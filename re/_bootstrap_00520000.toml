@@ -16,7 +16,27 @@ name = "GetTeamTotalHealth"
 
 [[function]]
 va = 0x00522500
-name = "SetActiveWorm"
+name = "TeamArena__SetActiveWorm"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "team_arena"
+  type = "TeamArena *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "team_idx"
+  type = "int"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "flag"
+  type = "int"
+  storage = "ESI"
 
 [[function]]
 va = 0x005225A0

@@ -16,7 +16,17 @@ name = "StartBungeeTrail"
 
 [[function]]
 va = 0x0051B7F0
-name = "WormStartFiring"
+name = "WormEntity__StartFiring"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x0051C3D0

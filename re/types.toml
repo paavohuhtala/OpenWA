@@ -1432,6 +1432,30 @@ namespace = "/OpenWA"
 size = 0x33C
 rust_path = "openwa_game::input::keyboard::Keyboard"
 
+[[struct]]
+name = "BaseEntity"
+namespace = "/OpenWA"
+size = 0x30
+rust_path = "openwa_game::entity::base::BaseEntity"
+
+[[struct]]
+name = "WorldEntity"
+namespace = "/OpenWA"
+size = 0xFC
+rust_path = "openwa_game::entity::game_entity::WorldEntity"
+
+[[struct]]
+name = "TeamArena"
+namespace = "/OpenWA"
+size = 0x2C48
+rust_path = "openwa_game::engine::team_arena::TeamArena"
+
+[[struct]]
+name = "EntityActivityQueue"
+namespace = "/OpenWA"
+size = 0x300C
+rust_path = "openwa_game::engine::entity_activity_queue::EntityActivityQueue"
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4

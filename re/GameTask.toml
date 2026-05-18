@@ -61,6 +61,36 @@ name = "GameTask__sound_play"
 [[function]]
 va = 0x00546DB0
 name = "GameTask__sub_546DB0"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "sound_id"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "channel"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "x"
+  type = "int"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "y"
+  type = "int"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x00546EB0
@@ -101,6 +131,18 @@ name = "GameTask__calc_damage"
 [[function]]
 va = 0x00547D80
 name = "GameTask__set_track"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "BaseEntity *"
+
+  [[function.param]]
+  name = "arg"
+  type = "int"
 
 [[function]]
 va = 0x00547DB0
@@ -133,6 +175,26 @@ name = "GameTask__game_text_secret"
 [[function]]
 va = 0x005480F0
 name = "GameTask__comment_public"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
+
+  [[function.param]]
+  name = "name_array"
+  type = "char * *"
+
+  [[function.param]]
+  name = "kind"
+  type = "uint"
+
+  [[function.param]]
+  name = "worm_name_ptr"
+  type = "char *"
 
 [[function]]
 va = 0x005481E0

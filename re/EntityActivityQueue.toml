@@ -26,6 +26,21 @@ name = "EntityActivityQueue__Deserialize"
 [[function]]
 va = 0x00541790
 name = "EntityActivityQueue__ResetRank"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "EntityActivityQueue *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "slot"
+  type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x00541860

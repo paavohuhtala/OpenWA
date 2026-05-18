@@ -28,4 +28,24 @@ name = "OnTerrainCollision"
 
 [[function]]
 va = 0x004FF020
-name = "PlayImpactSound"
+name = "WormEntity__PlayImpactSound"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "sound_id"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "mag"
+  type = "Fixed"
+  storage = "stack:0x8"

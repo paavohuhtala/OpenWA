@@ -18,10 +18,8 @@ use super::base::BaseEntity;
 use super::game_entity::WorldEntity;
 use super::sound_emitter::SoundEmitter;
 use super::worm::{KnownWormState, WormEntity, WormState};
-use crate::address::va;
 use crate::audio::sound_ops as sound;
 use crate::audio::{KnownSoundId, SoundId};
-use crate::engine::EntityActivityQueue;
 use crate::engine::team_arena::{TeamArena, WormEntry};
 use crate::engine::world::GameWorld;
 use crate::game::game_entity_message::{alliance_blocks_damage, world_entity_handle_message};
@@ -31,6 +29,7 @@ use crate::game::message::{
     Unknown129Message, WeaponReleasedMessage, WormMovedMessage,
 };
 use crate::game::{EntityMessage, weapon_fire};
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 
 /// Subtype on a [`FireType::Special`] weapon entry that triggers the
@@ -43,746 +42,16 @@ const BUNGEE_SPECIAL_SUBTYPE: i32 = 0xF;
 /// `vtable_replace!` at install time.
 pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
-// Rebased helper addresses, initialized by `init_addrs()`. Read by the naked
-// bridge trampolines below — must be statics, not inline values, so the
-// trampolines can `mov eax, [addr]` without leaking them through registers
-// the helpers expect to be set up.
-static mut ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR: u32 = 0;
-static mut WORM_NOTIFY_MOVED_ADDR: u32 = 0;
-static mut WORM_COMMIT_PENDING_HEALTH_ADDR: u32 = 0;
-static mut WORM_CANCEL_ACTIVE_WEAPON_ADDR: u32 = 0;
-static mut WORM_APPLY_DAMAGE_ADDR: u32 = 0;
-static mut WORM_SELECT_WEAPON_ADDR: u32 = 0;
-static mut WORM_START_FIRING_ADDR: u32 = 0;
-static mut WORM_CLEAR_WEAPON_STATE_ADDR: u32 = 0;
-static mut TEAM_ARENA_SET_ACTIVE_WORM_ADDR: u32 = 0;
-static mut WORM_FINISH_TURN_CLEANUP_ADDR: u32 = 0;
-static mut WORM_BROADCAST_WEAPON_NAME_ADDR: u32 = 0;
-static mut WORM_BROADCAST_WEAPON_SETTINGS_ADDR: u32 = 0;
-static mut WORM_SELECT_FUSE_ADDR: u32 = 0;
-static mut WORM_SELECT_BOUNCE_ADDR: u32 = 0;
-static mut WORM_SELECT_HERD_ADDR: u32 = 0;
-// Task__deliver — broadcasts a message via the SharedData parent observer.
-// `__usercall(EAX = lookup_task)` + 5 stack args (sender, key_edi, msg_id,
-// size, payload), RET 0x14. Caller must set ECX = key_esi (= 0 for the
-// WorldRoot dispatch used by case 0x51 PoisonWorm).
-static mut BROADCAST_VIA_SHARED_DATA_ADDR: u32 = 0;
-// GameTask__comment_public — picks a random non-null entry from a string-pointer array
-// and dispatches it through the SharedData random-text channel. Stdcall
-// (this, name_array, count_kind, worm_name_ptr), RET 0x10.
-static mut LOCALIZED_TEXT_RANDOM_PICK_ADDR: u32 = 0;
-// PlayImpactSound (0x004FF020) — usercall(EDI = this), 2 stack args
-// (sound_id, mag), RET 0x8. Reads the sound emitter pointer from
-// `[EDI+0xE0]`. Used by SpecialImpact (msg 0x4B) to play the corpse-hit
-// sound during the Dead-state branch.
-static mut WORM_PLAY_IMPACT_SOUND_ADDR: u32 = 0;
-// WormEntity::PlaySound (0x00515020) — usercall(EDI = this), 3 stack
-// args (sound_id, vol, channel), RET 0xC. Stops the worm's currently-held
-// sound handle (at `this+0x3B4`) before starting the new one.
-static mut WORM_PLAY_SOUND_ADDR: u32 = 0;
-// WormEntity::SpawnDamageParticles (0x005108D0) —
-// usercall(EAX = damage, ECX = this), 4 stack args (worm_x, worm_y, msg_x,
-// msg_y), RET 0x10. Bails out when damage <= 2.
-static mut WORM_SPAWN_DAMAGE_PARTICLES_ADDR: u32 = 0;
-// WormEntity::HitTestRopeLine (0x00501210) — fastcall(ECX = this,
-// EDX = pos_x), 2 stack args (rope_param, pos_y), RET 0x8. Returns
-// nonzero when an active rope at `this+0xBC` intersects the explosion at
-// (pos_x, pos_y). The `rope_param` arg comes from the message's offset
-// 0x10 (treated as a pre-multiplier `(arg + 2) << 17`).
-static mut WORM_HIT_TEST_ROPE_LINE_ADDR: u32 = 0;
-// WormEntity::StepRopePhysics_Maybe (0x005003D0) — usercall(stdcall this on
-// stack, AL = mode), RET 0x4. Per-frame rope-constraint solver step (NOT a
-// "snapshot" despite earlier naming). AL=0 runs full physics + segment
-// rewalk; AL=1 would zero +0x34 and skip — case 0x3 calls with AL=0.
-// Recomputes worm angle (+0x8C) from segment data and damps velocity
-// (+0x90/+0x94). The bridge zeroes AL explicitly before the call, matching
-// WA's `XOR AL,AL` at the case-0x3 call site.
+// `WormEntity__StepRopePhysics_Maybe` (0x005003D0) takes `this` on stack
+// and a mode flag in AL — `core::arch::naked_asm!` can't bind a sub-register
+// directly, so this one bridge stays hand-rolled. Every case-0x3 caller
+// passes mode=0, so the trampoline just xor-zeroes AL before the call.
 static mut WORM_STEP_ROPE_PHYSICS_ADDR: u32 = 0;
-// 0x00500630 — usercall(EAX = this), no stack args, plain RET. Paired with
-// StepRopePhysics in case 0x3's tail; semantics not yet fully nailed down.
-// Likely a complementary rope-step or post-render cleanup. Was previously
-// guessed as "RestoreKamikazeState" — that name was wrong.
-static mut WORM_ROPE_PHYSICS_TAIL_ADDR: u32 = 0;
-// DrainInputBuffer (0x005148E0) — usercall(EDI = this), no stack args,
-// plain RET. Consumes/clears the four `input_msg_move_*` edge-trigger
-// flags into pending-action state.
-static mut WORM_DRAIN_INPUT_BUFFER_ADDR: u32 = 0;
-// ScrollAimX (0x00513F90) — usercall(EAX = this), no stack args, plain RET.
-// Per-frame aim-X scroll for AimingAngle (state 0x7B).
-static mut WORM_SCROLL_AIM_X_ADDR: u32 = 0;
-// ScrollAimSmooth (0x00514050) — thiscall(ECX = this), no stack args,
-// plain RET. Per-frame smoothed aim scroll for RopeSwinging (state 0x7C).
-static mut WORM_SCROLL_AIM_SMOOTH_ADDR: u32 = 0;
-// Worm draw helpers (case 0x3 RenderScene).
-static mut WORM_DRAW_AIMING_ARROW_ADDR: u32 = 0;
-static mut WORM_DRAW_WORM_NAME_ADDR: u32 = 0;
-static mut WORM_DRAW_SPRITE_ADDR: u32 = 0;
-static mut WORM_DRAW_HEALTH_LABEL_ADDR: u32 = 0;
-static mut WORM_DRAW_OFF_MAP_MARKER_ADDR: u32 = 0;
-static mut WORM_DRAW_HUD_LABELS_ADDR: u32 = 0;
-static mut WORM_DRAW_AIM_CURSOR_ADDR: u32 = 0;
-static mut WORM_DRAW_CURSOR_MARKER_ADDR: u32 = 0;
-// WormEntity::BehaviorTick (0x00515650) — plain stdcall, this on
-// stack, RET 0x4, returns u32 in EAX. The 645-line per-frame behaviour
-// driver; far too large to port in one slice.
-static mut WORM_BEHAVIOR_TICK_ADDR: u32 = 0;
-// WormEntity__TryFireWeapon (0x0051B2B0) — usercall(ESI=this), no
-// stack args, plain RET, returns u32. Drives the normal fire path during
-// the case-0x24 firing-tick block.
-static mut WORM_TRY_FIRE_WEAPON_ADDR: u32 = 0;
-// WormEntity__TryFireWeaponSpecial (0x0051B120) — same shape as
-// TryFireWeapon. Reached only on schemes with `_scheme_d964 > 1`.
-static mut WORM_TRY_FIRE_WEAPON_SPECIAL_ADDR: u32 = 0;
-// WormEntity__LogWeaponFire (0x0051F970) — plain stdcall (this,
-// weapon_entry), RET 0x8. Records the just-fired weapon for replay/log.
-static mut WORM_LOG_WEAPON_FIRE_ADDR: u32 = 0;
-// WormEntity__FindClearSpawnLocation (0x0051F510) — usercall(ESI=this)
-// + stdcall(out_x, out_y, flag), RET 0xC. Returns nonzero when the
-// teleport target is OK.
-static mut WORM_FIND_CLEAR_SPAWN_LOCATION_ADDR: u32 = 0;
-// WormEntity__IsSpawnAreaValid (0x0051F350) — usercall(EAX=weapon_param_3)
-// + stdcall(this, x, y), RET 0xC. Returns nonzero when the girder spawn
-// region passes its overlap test.
-static mut WORM_IS_SPAWN_AREA_VALID_ADDR: u32 = 0;
-// WeaponSpawn__IsIndirect (0x00565A80) — usercall(EAX=weapon_entry),
-// no stack args, plain RET, returns u32. Inspects the weapon's fire
-// type/method to decide whether the projectile is "indirect" (mortar/
-// homing-style).
-static mut WEAPON_SPAWN_IS_INDIRECT_ADDR: u32 = 0;
-// GameTask__sub_546DB0 — thin wrapper around DispatchLocalSound that gates on
-// game_info f348/f344 and active_sounds, used by case-0x24 to emit the
-// "weapon-blocked" 0x78 sound. usercall(EAX=this), 4 stack args
-// (sound_id, channel, x, y), RET 0x10.
-static mut WORM_DISPATCH_BLOCKED_SOUND_ADDR: u32 = 0;
-// WA__LoadStringResource (0x00593180) — plain stdcall(resource_id),
-// RET 0x4, returns `*const c_char` (or null). Used to populate the
-// HUD status text when the weapon descriptor is null mid-fire.
-static mut WA_LOAD_STRING_RESOURCE_ADDR: u32 = 0;
-// WormEntity::ApplyDragMods (0x004FF9F0) — usercall(EAX=this), no
-// stack args, plain RET. Bails when `class_type ∈ {0xF, 0x15, 0x1E}`;
-// otherwise rewrites `subclass_data[0x20]` and/or `subclass_data[0x24]`
-// (worm entity offsets +0x58/+0x5C) from the scheme's
-// `_scheme_d9b8` / `_scheme_d9c0` dwords.
-static mut WORM_APPLY_DRAG_MODS_ADDR: u32 = 0;
-// WormEntity::ApplyWind (0x004FFAF0) — usercall(ESI=this), 4 stack
-// args (out_x_p, out_y_p, 0, 0), RET 0x10. Computes per-axis wind impulse
-// from the scheme's drag/wind dwords and the worm's distance from the
-// world center, writing into `*out_x_p` and `*out_y_p`.
-static mut WORM_APPLY_WIND_ADDR: u32 = 0;
-// WormEntity::AccumulateImpulse (0x004FFA60) — usercall(EAX=delta_x,
-// ECX=delta_y, ESI=this), no stack args, plain RET. Adds EAX into
-// WorldEntity speed_x (+0x90) and ECX into speed_y (+0x94), with a
-// scaling step gated on scheme byte `_scheme_d9b3`.
-static mut WORM_ACCUMULATE_IMPULSE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
-        ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR = rb(va::ENTITY_ACTIVITY_QUEUE_RESET_RANK);
-        WORM_NOTIFY_MOVED_ADDR = rb(va::WORM_ENTITY_NOTIFY_MOVED);
-        WORM_COMMIT_PENDING_HEALTH_ADDR = rb(va::WORM_ENTITY_COMMIT_PENDING_HEALTH);
-        WORM_CANCEL_ACTIVE_WEAPON_ADDR = rb(va::WORM_ENTITY_CANCEL_ACTIVE_WEAPON);
-        WORM_APPLY_DAMAGE_ADDR = rb(va::WORM_ENTITY_APPLY_DAMAGE);
-        WORM_SELECT_WEAPON_ADDR = rb(va::WORM_ENTITY_SELECT_WEAPON);
-        WORM_START_FIRING_ADDR = rb(va::WORM_ENTITY_START_FIRING);
-        WORM_CLEAR_WEAPON_STATE_ADDR = rb(va::WORM_ENTITY_CLEAR_WEAPON_STATE);
-        TEAM_ARENA_SET_ACTIVE_WORM_ADDR = rb(va::TEAM_ARENA_SET_ACTIVE_WORM);
-        WORM_FINISH_TURN_CLEANUP_ADDR = rb(va::WORM_FINISH_TURN_CLEANUP);
-        WORM_BROADCAST_WEAPON_NAME_ADDR = rb(va::WORM_ENTITY_BROADCAST_WEAPON_NAME);
-        WORM_BROADCAST_WEAPON_SETTINGS_ADDR = rb(va::WORM_ENTITY_BROADCAST_WEAPON_SETTINGS);
-        WORM_SELECT_FUSE_ADDR = rb(va::WORM_ENTITY_SELECT_FUSE);
-        WORM_SELECT_BOUNCE_ADDR = rb(va::WORM_ENTITY_SELECT_BOUNCE);
-        WORM_SELECT_HERD_ADDR = rb(va::WORM_ENTITY_SELECT_HERD);
-        BROADCAST_VIA_SHARED_DATA_ADDR = rb(0x00562EF0);
-        LOCALIZED_TEXT_RANDOM_PICK_ADDR = rb(0x005480F0);
-        WORM_PLAY_IMPACT_SOUND_ADDR = rb(0x004FF020);
-        WORM_PLAY_SOUND_ADDR = rb(0x00515020);
-        WORM_SPAWN_DAMAGE_PARTICLES_ADDR = rb(0x005108D0);
-        WORM_HIT_TEST_ROPE_LINE_ADDR = rb(0x00501210);
-        WORM_BEHAVIOR_TICK_ADDR = rb(0x00515650);
-        WORM_TRY_FIRE_WEAPON_ADDR = rb(0x0051B2B0);
-        WORM_TRY_FIRE_WEAPON_SPECIAL_ADDR = rb(0x0051B120);
-        WORM_LOG_WEAPON_FIRE_ADDR = rb(0x0051F970);
-        WORM_FIND_CLEAR_SPAWN_LOCATION_ADDR = rb(0x0051F510);
-        WORM_IS_SPAWN_AREA_VALID_ADDR = rb(0x0051F350);
-        WEAPON_SPAWN_IS_INDIRECT_ADDR = rb(0x00565A80);
-        WORM_DISPATCH_BLOCKED_SOUND_ADDR = rb(0x00546DB0);
-        WA_LOAD_STRING_RESOURCE_ADDR = rb(0x00593180);
-        WORM_APPLY_DRAG_MODS_ADDR = rb(0x004FF9F0);
-        WORM_APPLY_WIND_ADDR = rb(0x004FFAF0);
-        WORM_ACCUMULATE_IMPULSE_ADDR = rb(0x004FFA60);
         WORM_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
-        WORM_ROPE_PHYSICS_TAIL_ADDR = rb(0x00500630);
-        WORM_DRAIN_INPUT_BUFFER_ADDR = rb(0x005148E0);
-        WORM_SCROLL_AIM_X_ADDR = rb(0x00513F90);
-        WORM_SCROLL_AIM_SMOOTH_ADDR = rb(0x00514050);
-        WORM_DRAW_AIMING_ARROW_ADDR = rb(0x00513A90);
-        WORM_DRAW_WORM_NAME_ADDR = rb(0x0050FB50);
-        WORM_DRAW_SPRITE_ADDR = rb(0x0050FCD0);
-        WORM_DRAW_HEALTH_LABEL_ADDR = rb(0x00510260);
-        WORM_DRAW_OFF_MAP_MARKER_ADDR = rb(0x0050F900);
-        WORM_DRAW_HUD_LABELS_ADDR = rb(0x0050FDC0);
-        WORM_DRAW_AIM_CURSOR_ADDR = rb(0x0051D680);
-        WORM_DRAW_CURSOR_MARKER_ADDR = rb(0x005103A0);
     }
-}
-
-#[inline]
-unsafe fn bridge_behavior_tick(this: *mut WormEntity) -> u32 {
-    type Fn = unsafe extern "stdcall" fn(*mut WormEntity) -> u32;
-    let f: Fn = unsafe { core::mem::transmute(WORM_BEHAVIOR_TICK_ADDR as usize) };
-    unsafe { f(this) }
-}
-
-#[inline]
-unsafe fn bridge_load_string_resource(resource_id: u32) -> *const c_char {
-    type Fn = unsafe extern "stdcall" fn(u32) -> *const c_char;
-    let f: Fn = unsafe { core::mem::transmute(WA_LOAD_STRING_RESOURCE_ADDR as usize) };
-    unsafe { f(resource_id) }
-}
-
-#[inline]
-unsafe fn bridge_log_weapon_fire(
-    this: *mut WormEntity,
-    entry: *mut crate::game::weapon::WeaponEntry,
-) {
-    type Fn = unsafe extern "stdcall" fn(*mut WormEntity, *mut crate::game::weapon::WeaponEntry);
-    let f: Fn = unsafe { core::mem::transmute(WORM_LOG_WEAPON_FIRE_ADDR as usize) };
-    unsafe { f(this, entry) }
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET. Returns u32.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_try_fire_weapon(_this: *mut WormEntity) -> u32 {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_TRY_FIRE_WEAPON_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET. Returns u32.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_try_fire_weapon_special(_this: *mut WormEntity) -> u32 {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_TRY_FIRE_WEAPON_SPECIAL_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this) + stdcall(out_x, out_y, flag)`, RET 0xC.
-/// Returns nonzero when the teleport target is OK.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_find_clear_spawn_location(
-    _this: *mut WormEntity,
-    _out_x: *mut i32,
-    _out_y: *mut i32,
-    _flag: i32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "push dword ptr [esp+20]",
-        "push dword ptr [esp+20]",
-        "push dword ptr [esp+20]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 16",
-        addr = sym WORM_FIND_CLEAR_SPAWN_LOCATION_ADDR,
-    );
-}
-
-/// `__usercall(EAX = weapon_param_3) + stdcall(this, x, y)`, RET 0xC.
-/// Returns nonzero when the girder spawn region is valid.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_is_spawn_area_valid(
-    _weapon_param_3: i32,
-    _this: *mut WormEntity,
-    _x: i32,
-    _y: i32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 16",
-        addr = sym WORM_IS_SPAWN_AREA_VALID_ADDR,
-    );
-}
-
-/// `__usercall(EAX = weapon_entry)`, no stack args, plain RET. Returns u32.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_weapon_spawn_is_indirect(
-    _entry: *mut crate::game::weapon::WeaponEntry,
-) -> u32 {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "jmp ecx",
-        addr = sym WEAPON_SPAWN_IS_INDIRECT_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, 4 stack args (sound_id, channel, x, y), RET 0x10.
-/// Thin wrapper around DispatchLocalSound that gates on the same sound-mute
-/// / sound_start_frame / active_sounds checks the firing-tick tail performs.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_dispatch_blocked_sound(
-    _this: *mut WormEntity,
-    _sound_id: u32,
-    _channel: u32,
-    _x: i32,
-    _y: i32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+20]",
-        "push dword ptr [esp+20]",
-        "push dword ptr [esp+20]",
-        "push dword ptr [esp+20]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 20",
-        addr = sym WORM_DISPATCH_BLOCKED_SOUND_ADDR,
-    );
-}
-
-/// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4. Resets the entity's
-/// rank to "newest" and ages up younger slots — does NOT free the slot
-/// (genuine free is `FreeSlotById` at 0x00541860, used only by destructors).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_reset_activity_rank(
-    _queue: *mut EntityActivityQueue,
-    _slot: i32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "mov eax, dword ptr [esp+8]",
-        "push dword ptr [esp+12]",
-        "mov ebx, dword ptr [{addr}]",
-        "call ebx",
-        "pop ebx",
-        "ret 8",
-        addr = sym ENTITY_ACTIVITY_QUEUE_RESET_RANK_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_notify_moved(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_NOTIFY_MOVED_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_commit_pending_health(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_COMMIT_PENDING_HEALTH_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_cancel_active_weapon(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_CANCEL_ACTIVE_WEAPON_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this, [stack] = arg1, arg2)`, RET 0x8.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_apply_damage(_this: *mut WormEntity, _arg1: i32, _arg2: i32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 12",
-        addr = sym WORM_APPLY_DAMAGE_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_start_firing(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov edx, dword ptr [{addr}]",
-        "call edx",
-        "ret 4",
-        addr = sym WORM_START_FIRING_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_clear_weapon_state(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_CLEAR_WEAPON_STATE_ADDR,
-    );
-}
-
-/// `__usercall(EAX = team_arena_base, EDX = team_idx, ESI = activate_value)`,
-/// plain RET, no stack args. Caller must pass `world + 0x4628` (the
-/// TeamArena base) as the first arg — WA reads it as a teams-array pointer.
-/// `flag = 0` deactivates; non-zero is stored as the active-worm marker.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_set_active_worm(
-    _team_arena: *mut TeamArena,
-    _team_idx: i32,
-    _flag: i32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov eax, dword ptr [esp+8]",
-        "mov edx, dword ptr [esp+12]",
-        "mov esi, dword ptr [esp+16]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 12",
-        addr = sym TEAM_ARENA_SET_ACTIVE_WORM_ADDR,
-    );
-}
-
-/// `__fastcall(ECX = entity_owning_world, EDX = arg)`, plain RET. Wraps
-/// the call as Rust stdcall(this, arg) for ergonomics.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_finish_turn_cleanup(_this: *mut BaseEntity, _arg: i32) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov edx, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 8",
-        addr = sym WORM_FINISH_TURN_CLEANUP_ADDR,
-    );
-}
-
-/// `__usercall(EDI = this, [stack] = weapon, ammo)`, RET 0x8. NB: this
-/// helper takes `this` in EDI, not ECX or ESI — only WA helper to do so.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_select_weapon(_this: *mut WormEntity, _weapon: u32, _ammo: i32) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop edi",
-        "ret 12",
-        addr = sym WORM_SELECT_WEAPON_ADDR,
-    );
-}
-
-/// `__thiscall(ECX = this, [stack] = name_str_ptr, flag)`, RET 0x8.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_broadcast_weapon_name(
-    _this: *mut WormEntity,
-    _name_str: *const core::ffi::c_char,
-    _flag: i32,
-) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "push dword ptr [esp+12]",
-        "push dword ptr [esp+12]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 12",
-        addr = sym WORM_BROADCAST_WEAPON_NAME_ADDR,
-    );
-}
-
-/// `__fastcall(ECX = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_broadcast_weapon_settings(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 4",
-        addr = sym WORM_BROADCAST_WEAPON_SETTINGS_ADDR,
-    );
-}
-
-/// `__usercall(EDX = fuse_value, ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_select_fuse(_this: *mut WormEntity, _value: i32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov edx, dword ptr [esp+12]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 8",
-        addr = sym WORM_SELECT_FUSE_ADDR,
-    );
-}
-
-/// `__usercall(EAX = bounce_value, ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_select_bounce(_this: *mut WormEntity, _value: i32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "mov eax, dword ptr [esp+12]",
-        "call ecx",
-        "pop esi",
-        "ret 8",
-        addr = sym WORM_SELECT_BOUNCE_ADDR,
-    );
-}
-
-/// `__usercall(EAX = herd_value, ESI = this)`, plain RET, no stack args.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_select_herd(_this: *mut WormEntity, _value: i32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "mov eax, dword ptr [esp+12]",
-        "call ecx",
-        "pop esi",
-        "ret 8",
-        addr = sym WORM_SELECT_HERD_ADDR,
-    );
-}
-
-/// `__usercall(EAX = lookup_task, ECX = key_esi)` + stdcall stack args
-/// `(sender, key_edi, msg_id, size, payload)`, RET 0x14. The bridge sets
-/// `ECX = 0` since every WormEntity caller routes through the WorldRoot
-/// (key `(0, 0x14)`).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_broadcast_via_shared_data(
-    _this: *mut WormEntity,
-    _sender: *mut BaseEntity,
-    _key_edi: u32,
-    _msg_id: u32,
-    _size: u32,
-    _payload: *const u8,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "mov eax, dword ptr [esp+8]",
-        "xor ecx, ecx",
-        "push dword ptr [esp+28]",
-        "push dword ptr [esp+28]",
-        "push dword ptr [esp+28]",
-        "push dword ptr [esp+28]",
-        "push dword ptr [esp+28]",
-        "mov ebx, dword ptr [{addr}]",
-        "call ebx",
-        "pop ebx",
-        "ret 24",
-        addr = sym BROADCAST_VIA_SHARED_DATA_ADDR,
-    );
-}
-
-/// Plain stdcall tail-jump — args fall through unchanged.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_localized_text_random_pick(
-    _this: *mut WormEntity,
-    _name_array: *const *const c_char,
-    _kind: u32,
-    _worm_name_ptr: *const c_char,
-) {
-    core::arch::naked_asm!(
-        "jmp dword ptr [{addr}]",
-        addr = sym LOCALIZED_TEXT_RANDOM_PICK_ADDR,
-    );
-}
-
-/// `__usercall(EDI = this, [stack] = sound_id, mag)`, RET 0x8.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_play_impact_sound(
-    _this: *mut WormEntity,
-    _sound_id: u32,
-    _mag: Fixed,
-) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop edi",
-        "ret 12",
-        addr = sym WORM_PLAY_IMPACT_SOUND_ADDR,
-    );
-}
-
-/// `__usercall(EDI = this, [stack] = sound_id, vol, channel)`, RET 0xC.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_play_sound(
-    _this: *mut WormEntity,
-    _sound_id: u32,
-    _vol: Fixed,
-    _channel: u32,
-) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "push dword ptr [esp+20]",
-        "push dword ptr [esp+20]",
-        "push dword ptr [esp+20]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop edi",
-        "ret 16",
-        addr = sym WORM_PLAY_SOUND_ADDR,
-    );
-}
-
-/// `__usercall(EAX = damage, ECX = this, [stack] = wx, wy, mx, my)`, RET 0x10.
-/// The native function bails out when `damage <= 2`, so callers can pass
-/// any damage value — the gate runs inside.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_spawn_damage_particles(
-    _this: *mut WormEntity,
-    _damage: i32,
-    _wx: Fixed,
-    _wy: Fixed,
-    _mx: Fixed,
-    _my: Fixed,
-) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov eax, dword ptr [esp+8]",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "mov edx, dword ptr [{addr}]",
-        "call edx",
-        "ret 24",
-        addr = sym WORM_SPAWN_DAMAGE_PARTICLES_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, no stack args, plain RET. Rewrites
-/// `subclass_data[0x20]` / `subclass_data[0x24]` (worm entity offsets
-/// +0x58/+0x5C) from the scheme drag dwords; bails when
-/// `class_type ∈ {0xF, 0x15, 0x1E}`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_apply_drag_mods(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov edx, dword ptr [{addr}]",
-        "jmp edx",
-        addr = sym WORM_APPLY_DRAG_MODS_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this) + stdcall(out_x_p, out_y_p, 0, 0)`, RET 0x10.
-/// Writes per-axis wind impulse into `*out_x_p` / `*out_y_p`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_apply_wind(
-    _this: *mut WormEntity,
-    _out_x: *mut Fixed,
-    _out_y: *mut Fixed,
-    _zero1: u32,
-    _zero2: u32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "push dword ptr [esp+24]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 20",
-        addr = sym WORM_APPLY_WIND_ADDR,
-    );
-}
-
-/// `__usercall(EAX = delta_x, ECX = delta_y, ESI = this)`, no stack args,
-/// plain RET. Folds `delta_x` into `speed_x` (`+0x90`) and `delta_y` into
-/// `speed_y` (`+0x94`), with optional scheme-gated scaling.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_accumulate_impulse(
-    _this: *mut WormEntity,
-    _delta_x: Fixed,
-    _delta_y: Fixed,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [esp+12]",
-        "mov ecx, dword ptr [esp+16]",
-        "mov edx, dword ptr [{addr}]",
-        "call edx",
-        "pop esi",
-        "ret 12",
-        addr = sym WORM_ACCUMULATE_IMPULSE_ADDR,
-    );
-}
-
-/// `__fastcall(ECX = this, EDX = pos_x, [stack] = rope_param, pos_y)`, RET 0x8.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_hit_test_rope_line(
-    _this: *mut WormEntity,
-    _pos_x: Fixed,
-    _rope_param: u32,
-    _pos_y: Fixed,
-) -> u32 {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov edx, dword ptr [esp+8]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 16",
-        addr = sym WORM_HIT_TEST_ROPE_LINE_ADDR,
-    );
 }
 
 /// `__usercall(stdcall this on stack, AL = mode)`, RET 0x4. Per-frame rope
@@ -797,163 +66,6 @@ unsafe extern "stdcall" fn bridge_step_rope_physics(_this: *mut WormEntity) {
         "call ecx",
         "ret 4",
         addr = sym WORM_STEP_ROPE_PHYSICS_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, no stack args, plain RET. Tail companion to
-/// `bridge_step_rope_physics` in case 0x3.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_rope_physics_tail(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym WORM_ROPE_PHYSICS_TAIL_ADDR,
-    );
-}
-
-/// `__usercall(EDI = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_drain_input_buffer(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop edi",
-        "ret 4",
-        addr = sym WORM_DRAIN_INPUT_BUFFER_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_scroll_aim_x(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym WORM_SCROLL_AIM_X_ADDR,
-    );
-}
-
-/// `__thiscall(ECX = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_scroll_aim_smooth(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 4",
-        addr = sym WORM_SCROLL_AIM_SMOOTH_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_aiming_arrow(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_DRAW_AIMING_ARROW_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_worm_name(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_DRAW_WORM_NAME_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_sprite(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym WORM_DRAW_SPRITE_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_health_label(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_DRAW_HEALTH_LABEL_ADDR,
-    );
-}
-
-/// `__stdcall(this)`, 1 stack arg, RET 0x4.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_off_map_marker(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push dword ptr [esp+4]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 4",
-        addr = sym WORM_DRAW_OFF_MAP_MARKER_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_hud_labels(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_DRAW_HUD_LABELS_ADDR,
-    );
-}
-
-/// `__usercall(ESI = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_aim_cursor(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 4",
-        addr = sym WORM_DRAW_AIM_CURSOR_ADDR,
-    );
-}
-
-/// `__usercall(EAX = this)`, no stack args, plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_cursor_marker(_this: *mut WormEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym WORM_DRAW_CURSOR_MARKER_ADDR,
     );
 }
 
@@ -1071,9 +183,9 @@ unsafe fn pre_switch_a(this: *mut WormEntity) {
         let world = (*(this as *const BaseEntity)).world;
         let queue = &raw mut (*world).entity_activity_queue;
         let slot = (*this).activity_rank_slot as i32;
-        bridge_reset_activity_rank(queue, slot);
+        wa_calls::EntityActivityQueue::ResetRank(queue, slot);
         (*this).stationary_frames = 0;
-        bridge_notify_moved(this);
+        wa_calls::WormEntity::NotifyMoved(this);
         (*this).aim_fade[1] = Fixed::ZERO;
         (*this).aim_fade[3] = Fixed::ZERO;
         (*this).aim_fade[5] = Fixed::ZERO;
@@ -1534,7 +646,7 @@ unsafe fn msg_bring_forward(this: *mut WormEntity) {
     unsafe {
         let world = (*(this as *const BaseEntity)).world;
         let queue = &raw mut (*world).entity_activity_queue;
-        bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
+        wa_calls::EntityActivityQueue::ResetRank(queue, (*this).activity_rank_slot as i32);
     }
 }
 
@@ -1593,7 +705,7 @@ unsafe fn msg_resume_turn(this: *mut WormEntity) {
             GameWorld::register_event_point_raw(world, pos_x, pos_y);
         }
         let queue = &raw mut (*world).entity_activity_queue;
-        bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
+        wa_calls::EntityActivityQueue::ResetRank(queue, (*this).activity_rank_slot as i32);
         (*this).turn_paused = 0;
     }
 }
@@ -1617,7 +729,7 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
         GameWorld::register_event_point_raw(world, pos_x, pos_y);
 
         let queue = &raw mut (*world).entity_activity_queue;
-        bridge_reset_activity_rank(queue, (*this).activity_rank_slot as i32);
+        wa_calls::EntityActivityQueue::ResetRank(queue, (*this).activity_rank_slot as i32);
 
         (*this)._field_1bc = 0;
         (*this).shot_data_1 = 0;
@@ -1627,7 +739,7 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
         (*this).turn_active = 1;
 
         let team_arena: *mut TeamArena = &raw mut (*world).team_arena;
-        bridge_set_active_worm(
+        wa_calls::TeamArena::SetActiveWorm(
             team_arena,
             (*this).team_index as i32,
             (*this).worm_index as i32,
@@ -1636,10 +748,10 @@ unsafe fn msg_start_turn(this: *mut WormEntity) -> bool {
         let cache = (*world).localized_string_cache;
         let resolved = crate::wa::localized_string_cache::resolve_split_array_raw(cache, 0x69D)
             as *const core::ffi::c_char;
-        bridge_broadcast_weapon_name(this, resolved, 1);
+        wa_calls::WormEntity::BroadcastWeaponName(this, resolved as *mut c_char, 1);
 
         if (*this).selected_weapon != KnownWeaponId::None {
-            bridge_broadcast_weapon_settings(this);
+            wa_calls::WormEntity::BroadcastWeaponSettings(this);
         }
 
         (*this).stationary_frames = 0;
@@ -1679,9 +791,9 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
         }
 
         if (*this).shot_data_1 == 0 && (*this)._unknown_2cc == 0 {
-            bridge_cancel_active_weapon(this);
+            wa_calls::WormEntity::CancelActiveWeapon(this);
         } else {
-            bridge_clear_weapon_state(this);
+            wa_calls::WormEntity::ClearWeaponState(this);
         }
 
         (*this).shot_data_1 = u32::MAX; // -1 as i32
@@ -1698,7 +810,7 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
         (*this).turn_active = 0;
 
         let team_arena: *mut TeamArena = &raw mut (*world).team_arena;
-        bridge_set_active_worm(team_arena, (*this).team_index as i32, 0);
+        wa_calls::TeamArena::SetActiveWorm(team_arena, (*this).team_index as i32, 0);
 
         let state = (*this).state();
         if can_fire_subtype_16(state) {
@@ -1727,7 +839,7 @@ unsafe fn msg_finish_turn(this: *mut WormEntity) {
             }
         }
 
-        bridge_finish_turn_cleanup(this as *mut BaseEntity, 0xE);
+        wa_calls::GameTask::set_track(this as *mut BaseEntity, 0xE);
 
         if (*world).version_flag_4 == 0 {
             (*this)._field_250 = 0;
@@ -1892,26 +1004,26 @@ unsafe fn msg_select_weapon(this: *mut WormEntity, message: *const SelectWeaponM
             pre_switch_a(this);
         }
         if (*message).worm_index == (*this).worm_index && (*this)._unknown_2cc == 0 {
-            bridge_select_weapon(this, (*message).weapon_id, (*message).ammo_count);
+            wa_calls::WormEntity::SelectWeapon(this, (*message).weapon_id, (*message).ammo_count);
         }
     }
 }
 
 unsafe fn msg_advance_worm(this: *mut WormEntity) {
     unsafe {
-        bridge_apply_damage(this, 1, 1);
+        wa_calls::WormEntity::ApplyDamage(this, 1, 1);
     }
 }
 
 unsafe fn msg_show_damage(this: *mut WormEntity) {
     unsafe {
-        bridge_commit_pending_health(this);
+        wa_calls::WormEntity::CommitPendingHealth(this);
     }
 }
 
 unsafe fn msg_weapon_claim_control(this: *mut WormEntity) {
     unsafe {
-        bridge_cancel_active_weapon(this);
+        wa_calls::WormEntity::CancelActiveWeapon(this);
     }
 }
 
@@ -1919,7 +1031,7 @@ unsafe fn msg_weapon_claim_control(this: *mut WormEntity) {
 unsafe fn msg_fire_weapon(this: *mut WormEntity) {
     unsafe {
         pre_switch_a(this);
-        bridge_start_firing(this);
+        wa_calls::WormEntity::StartFiring(this);
     }
 }
 
@@ -2015,7 +1127,7 @@ unsafe fn msg_jump(this: *mut WormEntity) -> bool {
             }
             0x78 => {
                 (*this)._field_15c = scheme_facing;
-                bridge_play_sound(this, 0x1B, Fixed::ONE, 3);
+                wa_calls::WormEntity::PlaySound(this, SoundId(0x1B), Fixed::ONE, 3);
                 (*this).base.speed_x = Fixed(0);
                 let to_post_fire = (*game_info)._scheme_d96e == 0
                     && WorldEntity::is_moving_raw(this as *const WorldEntity);
@@ -2099,15 +1211,16 @@ unsafe fn firing_tick(this: *mut WormEntity) {
                     if game_version < 0x1ce {
                         // Show the "weapon descriptor missing" HUD message.
                         (*world).hud_status_code = 6;
-                        (*world).hud_status_text = bridge_load_string_resource(0x710);
+                        (*world).hud_status_text = wa_calls::WA::LoadStringResource(0x710);
                         return;
                     }
                     // Modern null-descriptor: fall through to sound emit.
                     emit_sound = true;
                 } else {
-                    if (*this)._field_2e8 == 0 && bridge_weapon_spawn_is_indirect(saved_entry) != 0
+                    if (*this)._field_2e8 == 0
+                        && wa_calls::WeaponSpawn::IsIndirect(saved_entry) != 0
                     {
-                        bridge_dispatch_blocked_sound(
+                        wa_calls::GameTask::sub_546DB0(
                             this,
                             0x78,
                             8,
@@ -2123,8 +1236,11 @@ unsafe fn firing_tick(this: *mut WormEntity) {
                             10 => {
                                 let out_x: *mut i32 = &raw mut (*this).weapon_param_1;
                                 let out_y: *mut i32 = &raw mut (*this).weapon_param_2;
-                                if bridge_find_clear_spawn_location(this, out_x, out_y, 0) == 0 {
-                                    bridge_dispatch_blocked_sound(
+                                if wa_calls::WormEntity::FindClearSpawnLocation(
+                                    this, out_x, out_y, 0,
+                                ) == 0
+                                {
+                                    wa_calls::GameTask::sub_546DB0(
                                         this,
                                         0x78,
                                         8,
@@ -2143,10 +1259,11 @@ unsafe fn firing_tick(this: *mut WormEntity) {
                                         *((this as *const u8).add(0x2E2) as *const i16) as i32;
                                     let pos_y_lo =
                                         *((this as *const u8).add(0x2E6) as *const i16) as i32;
-                                    if bridge_is_spawn_area_valid(arg, this, pos_x_lo, pos_y_lo)
-                                        == 0
+                                    if wa_calls::WormEntity::IsSpawnAreaValid(
+                                        arg, this, pos_x_lo, pos_y_lo,
+                                    ) == 0
                                     {
-                                        bridge_dispatch_blocked_sound(
+                                        wa_calls::GameTask::sub_546DB0(
                                             this,
                                             0x78,
                                             8,
@@ -2164,13 +1281,15 @@ unsafe fn firing_tick(this: *mut WormEntity) {
             }
 
             if !emit_sound {
-                if bridge_try_fire_weapon(this) != 0 {
-                    bridge_log_weapon_fire(this, saved_entry);
+                if wa_calls::WormEntity::TryFireWeapon(this) != 0 {
+                    wa_calls::WormEntity::LogWeaponFire(this, saved_entry);
                     return;
                 }
 
-                if (*game_info)._scheme_d964 > 1 && bridge_try_fire_weapon_special(this) != 0 {
-                    bridge_log_weapon_fire(this, saved_entry);
+                if (*game_info)._scheme_d964 > 1
+                    && wa_calls::WormEntity::TryFireWeaponSpecial(this) != 0
+                {
+                    wa_calls::WormEntity::LogWeaponFire(this, saved_entry);
                     let v = game_version.wrapping_sub(0x29);
                     if (v as u32) < 0x2c {
                         (*this)._field_250 = 0;
@@ -2249,7 +1368,7 @@ unsafe fn msg_select_fuse(this: *mut WormEntity, message: *const SelectArmingMes
         if value == -1 && scheme_d9b1 > 0x1F {
             value = 0xFF;
         }
-        bridge_select_fuse(this, value);
+        wa_calls::WormEntity::SelectFuse(value, this);
     }
 }
 
@@ -2279,7 +1398,7 @@ unsafe fn msg_select_herd(this: *mut WormEntity, message: *const SelectArmingMes
         if !(game_version < -1 || in_range) {
             return;
         }
-        bridge_select_herd(this, (*message).value);
+        wa_calls::WormEntity::SelectHerd((*message).value, this);
     }
 }
 
@@ -2294,7 +1413,7 @@ unsafe fn msg_select_bounce(this: *mut WormEntity, message: *const SelectArmingM
         if (*message).worm_index != (*this).worm_index || (*this)._unknown_2cc != 0 {
             return;
         }
-        bridge_select_bounce(this, (*message).value);
+        wa_calls::WormEntity::SelectBounce((*message).value, this);
     }
 }
 
@@ -2372,23 +1491,24 @@ unsafe fn msg_poison_worm(this: *mut WormEntity, message: *const PoisonWormMessa
             (*message).damage,
             0,
         ];
-        bridge_broadcast_via_shared_data(
-            this,
+        wa_calls::BaseEntity::deliver(
+            this as *mut core::ffi::c_void,
+            0,
             this as *mut BaseEntity,
             0x14,
             0x48,
             0x408,
-            payload.as_ptr() as *const u8,
+            payload.as_ptr() as *mut core::ffi::c_void,
         );
 
         let cache = (*world).localized_string_cache;
         let resolved = crate::wa::localized_string_cache::resolve_split_array_raw(cache, 0x6CF)
-            as *const *const c_char;
-        bridge_localized_text_random_pick(
+            as *mut *mut c_char;
+        wa_calls::GameTask::comment_public(
             this,
             resolved,
             0x17,
-            &raw const (*this).worm_name as *const c_char,
+            &raw const (*this).worm_name as *mut c_char,
         );
         true
     }
@@ -2419,7 +1539,7 @@ unsafe fn msg_special_impact(
         // zero it out instead).
         if (*this).state().is(KnownWormState::Dead) {
             let saved_speed_x = (*this).base.speed_x;
-            bridge_play_impact_sound(this, 0x6A, Fixed::ONE);
+            wa_calls::WormEntity::PlayImpactSound(this, 0x6A, Fixed::ONE);
             world_entity_handle_message(
                 this as *mut WorldEntity,
                 sender,
@@ -2501,7 +1621,7 @@ unsafe fn msg_special_impact(
         if ((*world).frame_counter - (*this).last_damage_sound_frame) > 0x18 {
             let rng = (*world).advance_rng();
             let sound_id = (*world).team_damage_grunt_id((*this).team_index, (rng & 0xFF) % 3);
-            bridge_play_sound(this, sound_id, Fixed::ONE, 3);
+            wa_calls::WormEntity::PlaySound(this, SoundId(sound_id), Fixed::ONE, 3);
             (*this).last_damage_sound_frame = (*world).frame_counter;
         }
 
@@ -2527,9 +1647,9 @@ unsafe fn msg_special_impact(
         } else {
             working_damage
         };
-        bridge_spawn_damage_particles(
-            this,
+        wa_calls::WormEntity::SpawnDamageParticles(
             damage_for_particles,
+            this,
             (*this).base.pos.x,
             (*this).base.pos.y,
             (*message).pos_x,
@@ -2634,8 +1754,12 @@ unsafe fn msg_explosion(
         let damage_accum = (*this).base.damage_accum;
         (*this).base.damage_accum = 0;
 
-        if bridge_hit_test_rope_line(this, (*message).pos.x, (*message).damage, (*message).pos.y)
-            != 0
+        if wa_calls::WormEntity::HitTestRopeLine(
+            this,
+            (*message).pos.x,
+            (*message).damage,
+            (*message).pos.y,
+        ) != 0
         {
             WormEntity::set_state_raw(this, KnownWormState::WeaponCharging_Maybe);
         }
@@ -2647,9 +1771,9 @@ unsafe fn msg_explosion(
             } else {
                 damage_accum
             };
-            bridge_spawn_damage_particles(
-                this,
+            wa_calls::WormEntity::SpawnDamageParticles(
                 halved,
+                this,
                 (*this).base.pos.x,
                 (*this).base.pos.y,
                 (*message).pos.x,
@@ -2818,13 +1942,14 @@ unsafe fn apply_raw_damage_unchecked(
             is_not_kamikaze,
             0,
         ];
-        bridge_broadcast_via_shared_data(
-            this,
+        wa_calls::BaseEntity::deliver(
+            this as *mut core::ffi::c_void,
+            0,
             this as *mut BaseEntity,
             0x14,
             0x48,
             0x408,
-            payload.as_ptr() as *const u8,
+            payload.as_ptr() as *mut core::ffi::c_void,
         );
     }
 }
@@ -2911,7 +2036,7 @@ unsafe fn msg_frame_finish(
             data,
         );
 
-        if bridge_behavior_tick(this) == 0 {
+        if wa_calls::WormEntity::BehaviorTick(this) == 0 {
             return true;
         }
 
@@ -2996,7 +2121,7 @@ unsafe fn msg_frame_start(
             (*this).base.subclass_data._field_60 = Fixed::ONE;
 
             if (*this).base._field_bc != 0 {
-                bridge_apply_drag_mods(this);
+                wa_calls::WormEntity::ApplyDragMods(this);
                 // ApplyWind writes the X-axis impulse into `*out_x` and the
                 // Y-axis impulse into `*out_y`; AccumulateImpulse then folds
                 // them into `speed_x` (+0x90) and `speed_y` (+0x94). WA's
@@ -3006,8 +2131,8 @@ unsafe fn msg_frame_start(
                 // path, so zero-init is faithful.
                 let mut wind_dx = Fixed::ZERO;
                 let mut wind_dy = Fixed::ZERO;
-                bridge_apply_wind(this, &raw mut wind_dx, &raw mut wind_dy, 0, 0);
-                bridge_accumulate_impulse(this, wind_dx, wind_dy);
+                wa_calls::WormEntity::ApplyWind(this, &raw mut wind_dx, &raw mut wind_dy, 0, 0);
+                wa_calls::WormEntity::AccumulateImpulse(wind_dx, wind_dy, this);
             }
         }
 
@@ -3093,12 +2218,12 @@ unsafe fn msg_render_scene(
             bridge_step_rope_physics(this);
             if world_field_i32(world, 0x8150) != 0 {
                 if state.is(KnownWormState::AimingAngle_Maybe) {
-                    bridge_drain_input_buffer(this);
-                    bridge_scroll_aim_x(this);
+                    wa_calls::WormEntity::DrainInputBuffer(this);
+                    wa_calls::WormEntity::ScrollAimX(this);
                 } else if state.is(KnownWormState::RopeSwinging) {
                     *kamikaze_aux_save = (*this)._field_1e8;
-                    bridge_drain_input_buffer(this);
-                    bridge_scroll_aim_smooth(this);
+                    wa_calls::WormEntity::DrainInputBuffer(this);
+                    wa_calls::WormEntity::ScrollAimSmooth(this);
                 }
             }
         }
@@ -3136,10 +2261,10 @@ unsafe fn msg_render_scene(
                 }
 
                 // Draw helpers — all rendering side-effects, bridged into WA.
-                bridge_draw_aiming_arrow(this);
-                bridge_draw_worm_name(this);
-                bridge_draw_sprite(this);
-                bridge_draw_health_label(this);
+                wa_calls::WormEntity::DrawAimingArrow_Maybe(this);
+                wa_calls::WormEntity::DrawWormName_Maybe(this);
+                wa_calls::WormEntity::DrawSprite_Maybe(this);
+                wa_calls::WormEntity::DrawHealthLabel_Maybe(this);
                 // DrawCrosshairLine has a Rust port; the worm pointer is the
                 // receiver (the "WeaponAimEntity" overlay is similarly
                 // synthetic — its offsets line up with WormEntity).
@@ -3150,15 +2275,15 @@ unsafe fn msg_render_scene(
                 // HUD/aim/rope sub-block: gated on `_field_b0 == 0`.
                 if (*this).base._field_b0 == 0 {
                     if (*this)._unknown_208 == 0 {
-                        bridge_draw_off_map_marker(this);
+                        wa_calls::WormEntity::DrawOffMapMarker_Maybe(this);
                     }
-                    bridge_draw_hud_labels(this);
-                    bridge_draw_aim_cursor(this);
+                    wa_calls::WormEntity::DrawHudLabels_Maybe(this);
+                    wa_calls::WormEntity::DrawAimCursor_Maybe(this);
                     crate::render::worm::draw_turn_indicator(this);
                     let rope_style = (*world).gfx_color_table[8];
                     let rope_fill = (*world).gfx_color_table[6];
                     crate::render::worm::draw_attached_rope(this, rope_style, rope_fill);
-                    bridge_draw_cursor_marker(this);
+                    wa_calls::WormEntity::DrawCursorMarker_Maybe(this);
                 }
             }
         }
@@ -3178,7 +2303,7 @@ unsafe fn msg_render_scene(
             let saved_y = *kamikaze_pos_save_y;
             WorldEntity::try_move_position_raw(this as *mut WorldEntity, saved_x, saved_y);
         } else if tail_fire_complete != 0 && tail_action_field == 0 {
-            bridge_rope_physics_tail(this);
+            wa_calls::WormEntity::RestoreKamikazeState_Maybe(this);
             (*this).cliff_fall_flag = *kamikaze_cliff_fall_save;
             if world_field_i32(world, 0x8150) != 0 && tail_state.is(KnownWormState::RopeSwinging) {
                 (*this)._field_1e8 = *kamikaze_aux_save;

@@ -1,6 +1,16 @@
 [[function]]
 va = 0x00565A80
 name = "WeaponSpawn__IsIndirect"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "entry"
+  type = "WeaponEntry *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00565C10
