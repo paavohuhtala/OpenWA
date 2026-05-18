@@ -9,19 +9,8 @@
 //! WA-side caller in `WormEntity::BehaviorTick` need to land on the
 //! ported impl.
 
-use crate::hook;
 use openwa_game::address::va;
 use openwa_game::entity::{worm::WormEntityVtable, worm_handle_message};
-
-// usercall(EAX=this) trampoline for `WormEntity__CanIdleSound`.
-// Captures `this` from EAX and forwards it to the cdecl impl in
-// `openwa-game`. The impl returns `i32` in EAX, which the trampoline
-// preserves through the cdecl call.
-hook::usercall_trampoline!(
-    fn worm_can_idle_sound_trampoline;
-    impl_fn = openwa_game::entity::worm::worm_can_idle_sound_impl;
-    reg = eax
-);
 
 pub fn install() -> Result<(), String> {
     use openwa_game::vtable_replace;
@@ -34,11 +23,7 @@ pub fn install() -> Result<(), String> {
     })?;
 
     unsafe {
-        hook::install(
-            "WormEntity__CanIdleSound",
-            va::WORM_ENTITY_CAN_IDLE_SOUND,
-            worm_can_idle_sound_trampoline as *const (),
-        )?;
+        crate::generated::hooks::install_WormEntity__CanIdleSound()?;
     }
 
     Ok(())

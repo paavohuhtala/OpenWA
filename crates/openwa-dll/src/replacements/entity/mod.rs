@@ -3,7 +3,7 @@ mod filter;
 mod mine;
 mod missile;
 mod oil_drum;
-mod try_move_position;
+pub(crate) mod try_move_position;
 mod worm_handle_message;
 
 pub fn install() -> Result<(), String> {
