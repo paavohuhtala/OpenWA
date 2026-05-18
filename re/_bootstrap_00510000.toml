@@ -31,6 +31,36 @@ custom_storage = true
 [[function]]
 va = 0x0051C3D0
 name = "WeaponRelease"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "worm"
+  type = "WormEntity *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "spawn_x"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "spawn_y"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "aim_dir_x"
+  type = "Fixed"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "aim_dir_y"
+  type = "Fixed"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x0051EE60

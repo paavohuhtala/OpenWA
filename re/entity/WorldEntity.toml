@@ -34,33 +34,69 @@ name = "WorldEntity__vt0_override"
 va = 0x004FF280
 name = "WorldEntity__vt2_HandleMessage"
 calling_convention = "__thiscall"
+custom_storage = true
 
   [function.signature]
   returns = "void"
 
   [[function.param]]
   name = "this"
-  type = "void *"
+  type = "WorldEntity *"
+  storage = "ECX"
 
   [[function.param]]
   name = "sender"
-  type = "void *"
+  type = "BaseEntity *"
+  storage = "stack:0x4"
 
   [[function.param]]
   name = "msg_type"
   type = "EntityMessage"
+  storage = "stack:0x8"
 
   [[function.param]]
   name = "size"
   type = "uint"
+  storage = "stack:0xC"
 
   [[function.param]]
   name = "data"
   type = "void *"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x004FF390
 name = "WorldEntity__ComputeExplosionDamage"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "this"
+  type = "WorldEntity *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "strength"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "damage"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "pos_x"
+  type = "Fixed"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "pos_y"
+  type = "Fixed"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x004FF720
@@ -101,6 +137,21 @@ name = "WorldEntity__SecondaryVT__Slot1"
 [[function]]
 va = 0x00546CD0
 name = "WorldEntity__IsSoundHandleExpired"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "WorldEntity *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "handle"
+  type = "uint"
+  storage = "EAX"
 
 [[function]]
 va = 0x00546D20

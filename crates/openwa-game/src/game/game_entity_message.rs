@@ -24,9 +24,7 @@ use crate::game::message::{
 
 crate::define_addresses! {
     class "WorldEntity" {
-        fn/Usercall WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED = 0x00546CD0;
         fn/Fastcall WORLD_ENTITY_RELEASE_SOUND_HANDLE = 0x00546D20;
-        fn/Usercall WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE = 0x004FF390;
     }
 }
 

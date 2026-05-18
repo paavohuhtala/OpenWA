@@ -31,3 +31,11 @@ rust_impl = "crate::replacements::weapon::hook_create_arrow"
 [[hook]]
 wa_function = "WeaponSpawn__DecodeDescriptor"
 rust_impl = "openwa_game::game::weapon_aim_flags::decode_weapon_aim_flags_impl"
+
+[[hook]]
+wa_function = "WeaponRelease"
+rust_impl = "crate::replacements::weapon_release::weapon_release_impl"
+
+[[hook]]
+wa_function = "SpawnEffect"
+rust_impl = "crate::replacements::weapon_release::spawn_effect_cdecl"

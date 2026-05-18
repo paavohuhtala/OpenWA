@@ -1,0 +1,5 @@
+# MinHook entries for explosion-related WA functions.
+
+[[hook]]
+wa_function = "CreateExplosion"
+rust_impl = "crate::replacements::create_explosion::create_explosion_cdecl"
