@@ -1,0 +1,14 @@
+# MinHook entries for the Sprite subsystem.
+
+[[hook]]
+wa_function = "ConstructSprite"
+rust_impl = "crate::replacements::sprite::construct_sprite_impl"
+
+[[hook]]
+wa_function = "ProcessSprite"
+rust_impl = "crate::replacements::sprite::process_sprite_impl"
+
+[[hook]]
+wa_function = "PaletteContext__MapColor"
+rust_impl = "crate::replacements::sprite::palette_map_color_impl"
+preserve_registers = ["ecx"]

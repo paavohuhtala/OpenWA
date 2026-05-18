@@ -111,15 +111,12 @@ pub mod va {
     pub use crate::render::display::vtable::DISPLAY_GFX_VTABLE;
 
     // Sprite, SpriteBank, PaletteContext — defined alongside their structs
-    pub use crate::render::palette::{
-        PALETTE_CONTEXT_INIT, PALETTE_CONTEXT_INIT_RANGE, PALETTE_CONTEXT_MAP_COLOR,
-    };
+    pub use crate::render::palette::{PALETTE_CONTEXT_INIT, PALETTE_CONTEXT_INIT_RANGE};
     pub use crate::render::sprite::frame_cache::FRAME_CACHE_ALLOCATE;
     pub use crate::render::sprite::{
-        CBITMAP_VTABLE_MAYBE, CONSTRUCT_SPRITE, DESTROY_SPRITE, FREE_SPRITE_OBJECT,
-        LOAD_SPRITE_BY_NAME, LOAD_SPRITE_FROM_VFS, PROCESS_SPRITE, SPRITE_BANK_GET_FRAME_FOR_BLIT,
-        SPRITE_BANK_GET_INFO, SPRITE_BANK_INIT, SPRITE_GET_FRAME_FOR_BLIT, SPRITE_GET_INFO,
-        SPRITE_VTABLE,
+        CBITMAP_VTABLE_MAYBE, DESTROY_SPRITE, FREE_SPRITE_OBJECT, LOAD_SPRITE_BY_NAME,
+        LOAD_SPRITE_FROM_VFS, SPRITE_BANK_GET_FRAME_FOR_BLIT, SPRITE_BANK_GET_INFO,
+        SPRITE_BANK_INIT, SPRITE_GET_FRAME_FOR_BLIT, SPRITE_GET_INFO, SPRITE_VTABLE,
     };
 
     crate::define_addresses! {
@@ -182,11 +179,6 @@ pub mod va {
             /// `GameRuntime::IsHudActive` (usercall ESI=this, returns u8):
             /// "should the ESC menu stay open / be allowed to open?"
             /// predicate. Runs the slot-3 `HudDataQuery` (msg 0x7D3) and
-            /// inspects end-of-round flags. Ported as
-            /// `engine::main_loop::dispatch_frame::is_hud_active`; address
-            /// kept for the WA-side hook (still called by `OpenEscMenu`
-            /// = GameRuntime__OpenEscMenu).
-            fn/Usercall GAME_RUNTIME_IS_HUD_ACTIVE = 0x00534C30;
             /// `GameRuntime::EscMenu_TickClosed` (usercall EAX=this):
             /// per-frame tick while the ESC menu is closed
             /// (`esc_menu_state == 0`); polls for ESC keypress to open
@@ -200,12 +192,6 @@ pub mod va {
             /// `runtime.menu_panel_a`, then sets `esc_menu_state = 1`.
             /// 628 instructions / cyclo 69 / 30 calls. Still bridged.
             fn/Stdcall GAME_RUNTIME_OPEN_ESC_MENU = 0x00535200;
-            /// `MenuPanel::AppendItem` (usercall(EAX=x, ESI=panel),
-            /// 6 stack params, RET 0x18). Appends one item (button or
-            /// slider) to a `MenuPanel`'s items array; called 5× from
-            /// `OpenEscMenu` and once from `GameRuntime__OpenEscMenuConfirmDialog`. Ported as
-            /// `engine::menu_panel::append_item_impl`.
-            fn/Usercall MENU_PANEL_APPEND_ITEM = 0x005408F0;
             /// `GameRuntime::EscMenu_TickState1` (usercall EDI=this):
             /// per-frame tick while the menu is open; handles arrow nav
             /// + Enter to activate items.
@@ -379,8 +365,6 @@ pub mod va {
             fn GFX_DIR_LOAD_DIR = 0x005663E0;
             /// GfxDir find entry
             fn GFX_DIR_FIND_ENTRY = 0x00566520;
-            /// GfxDir load image
-            fn GFX_DIR_LOAD_IMAGE = 0x005666D0;
         }
 
         class "GfxDirStream" {
@@ -396,8 +380,6 @@ pub mod va {
         class "DisplayGfx" {
             /// DisplayGfx constructor
             ctor/Stdcall DISPLAYGFX_CTOR = 0x00569C10;
-            /// IMG__DecodeCached: decode cached raw image buffer into DisplayBitGrid
-            fn/Stdcall IMG_DECODE_CACHED = 0x004F5E80;
             /// DisplayGfx construct full (5 params)
             fn/Stdcall DISPLAYGFX_CONSTRUCT_FULL = 0x00563FC0;
             /// DisplayGfx init team palette display objects
@@ -581,8 +563,6 @@ pub mod va {
             /// GameSession constructor — replaced by Rust `construct_session`,
             /// trapped (only WA-side caller is `GameSession__Run`, also replaced).
             ctor/Usercall GAME_SESSION_CONSTRUCTOR = 0x0058BFA0;
-            /// GameSession__Run
-            fn/Usercall GAME_SESSION_RUN = 0x00572F50;
             /// GameSession__ProcessFrame — per-frame processing (desktop check, engine tick, render)
             fn/Cdecl GAME_SESSION_PROCESS_FRAME = 0x00572C80;
             /// GameSession__AdvanceFrame — frame timing + engine vtable dispatch
@@ -743,11 +723,6 @@ pub mod va {
         /// ECX=max_y, stack=ctx,vh,min_x,min_y,max_x). RET 0x14.
         /// Ported in `render::queue_dispatch::clamp_camera_to_bounds`.
         fn/Usercall CLIP_CONTEXT_CLAMP_CAMERA_TO_BOUNDS = 0x00542F10;
-        /// `GameRuntime::RenderEscMenuOverlay` — per-frame ESC-menu blit
-        /// (was misnamed `RenderTerrain_Maybe`; the actual terrain renders
-        /// via the world entity tree's message-3 handlers, not in any tail
-        /// render function). usercall(EAX = GameRuntime*).
-        fn/Usercall GAME_RUNTIME_RENDER_ESC_MENU_OVERLAY = 0x00535000;
         /// `MenuPanel::Render` — per-frame incremental redraw of a panel's
         /// canvas; returns `panel.display_a` (DisplayBitGrid*) for caller to
         /// blit. usercall(EDI = MenuPanel*).
@@ -938,7 +913,6 @@ pub mod va {
     crate::define_addresses! {
         /// Main navigation loop (CWinApp::Run override)
         fn FRONTEND_MAIN_NAVIGATION_LOOP = 0x004E6440;
-        fn/Usercall FRONTEND_CHANGE_SCREEN = 0x00447A20;
         /// Wraps DoModal: palette transition + custom DoModal
         fn FRONTEND_DO_MODAL_WRAPPER = 0x00447960;
         fn FRONTEND_FRAME_CONSTRUCTOR = 0x004ECCA0;
@@ -1037,16 +1011,12 @@ pub mod va {
         fn/Thiscall SCHEME_SAVE_FILE = 0x004D44F0;
         /// Variant file-exists check for numbered schemes
         fn SCHEME_FILE_EXISTS_NUMBERED = 0x004D4E00;
-        /// Version detection
-        fn SCHEME_DETECT_VERSION = 0x004D4480;
         /// Extracts built-in schemes from PE resources
         fn SCHEME_EXTRACT_BUILTINS = 0x004D5720;
         /// Copies payload data + V3 defaults into scheme struct
         fn/Fastcall SCHEME_INIT_FROM_DATA = 0x004D5020;
         /// Validates weapon ammo counts
         fn SCHEME_CHECK_WEAPON_LIMITS = 0x004D50E0;
-        /// Validates V3 extended options
-        fn SCHEME_VALIDATE_EXTENDED_OPTIONS = 0x004D5110;
         /// Scans User\Schemes\ directory
         fn SCHEME_SCAN_DIRECTORY = 0x004D54E0;
         /// Slot 13 feature check

@@ -22,6 +22,8 @@ name = "GameSession__PumpMessages"
 [[function]]
 va = 0x00572F50
 name = "GameSession__Run"
+calling_convention = "__stdcall"
+custom_storage = true
 plate_comment = """
 GameSession__Run: Main game loop. Allocates a GameSession (0x120 bytes), inits hardware, then loops PumpMessages + ProcessFrame until exit_flag (offset 0x3c) is set.
 
@@ -52,6 +54,34 @@ GameSession struct layout (partial):
   +0xA4: keyboard object ptr
   +0xAC: another object ptr (vtable+0x68 for non-engine frame)
 """
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "game_info"
+  type = "GameInfo *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "arg1_module_state"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "state_buf"
+  type = "byte *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "peer_connections"
+  type = "PeerState * *"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "peer_connection_count"
+  type = "uint"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x0058BFA0

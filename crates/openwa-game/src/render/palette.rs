@@ -358,7 +358,5 @@ crate::define_addresses! {
         fn/Usercall PALETTE_CONTEXT_INIT = 0x005411A0;
         /// PaletteContext__InitRange — usercall ESI=ctx*, 2 stack params (range_min, range_max)
         fn/Usercall PALETTE_CONTEXT_INIT_RANGE = 0x00541170;
-        /// PaletteContext__MapColor — thiscall(palette_ctx, rgb_u32), returns nearest palette index
-        fn/Thiscall PALETTE_CONTEXT_MAP_COLOR = 0x005412B0;
     }
 }

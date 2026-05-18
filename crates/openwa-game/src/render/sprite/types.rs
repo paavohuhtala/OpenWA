@@ -501,14 +501,10 @@ crate::define_addresses! {
     }
 
     class "Sprite" {
-        /// ConstructSprite — usercall EAX=sprite_ptr, ECX=context_ptr
-        ctor/Usercall CONSTRUCT_SPRITE = 0x004FAA30;
         /// Sprite destructor — thiscall, vtable slot 0
         fn/Thiscall DESTROY_SPRITE = 0x004FAA80;
         /// LoadSpriteFromVfs
         fn/Usercall LOAD_SPRITE_FROM_VFS = 0x004FAAF0;
-        /// ProcessSprite — parses .spr binary format
-        fn/Usercall PROCESS_SPRITE = 0x004FAB80;
         /// Sprite__GetInfo — usercall EAX=Sprite*, ESI=out_data, ECX=out_width, stack=out_flags
         fn/Usercall SPRITE_GET_INFO = 0x004FAEC0;
     }

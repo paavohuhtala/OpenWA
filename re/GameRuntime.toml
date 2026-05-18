@@ -313,7 +313,17 @@ name = "GameRuntime__ApplyVolumeSettings"
 [[function]]
 va = 0x00534C30
 name = "GameRuntime__IsHudActive"
+calling_convention = "__cdecl"
+custom_storage = true
 plate_comment = "Returns 1 only when the HUD slew state should remain active. Calls WorldRootEntity vtable slot 3 (HudDataQuery) with msg 0x7D3 to fill a 916-byte (0x394) scratch buffer, then inspects two early DWORDs (buf[+0x4], buf[+0x8]) plus runtime/world flags. Returns 1 iff game_end_phase == 0 AND (replay_flag_a != 0 OR (_field_460 == 0 AND world.fast_forward_request == 0 AND buf[+0x4] == 0 AND buf[+0x8] == 0)). Ported to Rust at openwa_game::engine::main_loop::dispatch_frame::hud_gate; WA-side hooked via usercall_trampoline(reg=esi) so the remaining caller FUN_005351B0 (state_zero) routes through the Rust impl."
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "GameRuntime *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00534CA0
@@ -396,6 +406,8 @@ engine::main_loop::render_frame::render_waiting_for_peers_textbox.
 [[function]]
 va = 0x00535000
 name = "GameRuntime__RenderEscMenuOverlay"
+calling_convention = "__cdecl"
+custom_storage = true
 plate_comment = """
 Per-frame ESC-menu overlay renderer. Called from GameRender_Maybe (0x533DC0) as one of the tail render funcs (was misnamed RenderTerrain_Maybe — but actual terrain is rendered via the world entity tree's message-3 handlers, not here).
 
@@ -434,6 +446,14 @@ state-open via OpenEscMenu / OpenEscMenuConfirmDialog, then incrementally
 redrawn each frame inside MenuPanel__Render to reflect cursor hover
 state changes.
 """
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "GameRuntime *"
+  storage = "EAX"
 
 [[function]]
 va = 0x005351B0

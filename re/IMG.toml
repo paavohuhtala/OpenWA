@@ -1,6 +1,22 @@
 [[function]]
 va = 0x004F5E80
 name = "IMG__DecodeCached"
+calling_convention = "__stdcall"
+custom_storage = true
+plate_comment = "DisplayGfx::Constructor / IMG__DecodeCached — usercall(EBX = palette_ctx, callee-saved from caller) + 1 stack(raw_image). RET 0x4. ECX must be preserved across the call (MSVC caller relies on it)."
+
+  [function.signature]
+  returns = "byte *"
+
+  [[function.param]]
+  name = "palette_ctx"
+  type = "PaletteContext *"
+  storage = "EBX"
+
+  [[function.param]]
+  name = "raw_image"
+  type = "byte *"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x004F6300

@@ -1,0 +1,13 @@
+# MinHook entries for main-loop subsystem (HUD gate, ESC-menu render, menu items).
+
+[[hook]]
+wa_function = "GameRuntime__IsHudActive"
+rust_impl = "crate::replacements::main_loop::is_hud_active_impl"
+
+[[hook]]
+wa_function = "GameRuntime__RenderEscMenuOverlay"
+rust_impl = "crate::replacements::main_loop::render_esc_menu_overlay_impl"
+
+[[hook]]
+wa_function = "MenuPanel__AppendItem"
+rust_impl = "openwa_game::engine::menu_panel::append_item_impl"

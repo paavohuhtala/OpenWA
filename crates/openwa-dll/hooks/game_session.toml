@@ -1,0 +1,5 @@
+# MinHook entries for the GameSession subsystem.
+
+[[hook]]
+wa_function = "GameSession__Run"
+rust_impl = "crate::replacements::game_session::run_game_session_impl"

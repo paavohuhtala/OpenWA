@@ -1468,6 +1468,60 @@ namespace = "/OpenWA"
 size = 0x8
 rust_path = "openwa_game::audio::wav_player::WavPlayer"
 
+[[struct]]
+name = "GameRuntime"
+namespace = "/OpenWA"
+size = 0x6F10
+rust_path = "openwa_game::engine::runtime::GameRuntime"
+
+[[struct]]
+name = "MenuPanel"
+namespace = "/OpenWA"
+size = 0x3D4
+rust_path = "openwa_game::engine::menu_panel::MenuPanel"
+
+[[struct]]
+name = "Sprite"
+namespace = "/OpenWA"
+size = 0x70
+rust_path = "openwa_game::render::sprite::Sprite"
+
+[[struct]]
+name = "SpriteCache"
+namespace = "/OpenWA"
+size = 0x28
+rust_path = "openwa_game::render::SpriteCache"
+
+[[struct]]
+name = "PaletteContext"
+namespace = "/OpenWA"
+size = 0x70C
+rust_path = "openwa_game::render::palette::PaletteContext"
+
+[[struct]]
+name = "GfxDir"
+namespace = "/OpenWA"
+size = 0x19C
+rust_path = "openwa_game::asset::gfx_dir::GfxDir"
+
+[[struct]]
+name = "GfxDirStream"
+namespace = "/OpenWA"
+size = 0x18
+rust_path = "openwa_game::asset::gfx_dir::GfxDirStream"
+
+[[struct]]
+name = "CWnd"
+namespace = "/OpenWA"
+size = 0x4
+rust_path = "openwa_game::wa::mfc::CWnd"
+
+[[struct]]
+name = "PeerState"
+namespace = "/OpenWA"
+size = 0x4
+rust_path = "openwa_game::input::controller::PeerState"
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4
