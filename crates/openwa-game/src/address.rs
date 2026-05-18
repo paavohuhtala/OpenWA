@@ -848,7 +848,6 @@ pub mod va {
     crate::define_addresses! {
         /// DirectSoundCreate IAT thunk
         fn/Stdcall DIRECTSOUND_CREATE = 0x005B493E;
-        fn PLAY_SOUND_LOCAL = 0x004FDFE0;
         fn PLAY_SOUND_GLOBAL = 0x00546E20;
         /// DispatchGlobalSound
         fn/Fastcall DISPATCH_GLOBAL_SOUND = 0x00526270;
@@ -857,9 +856,6 @@ pub mod va {
         /// LoadAndPlayStreamingPositional (0x546BB0): usercall(EAX=entity) + stack(volume, sound_id, flags, x, y).
         /// Like LoadAndPlayStreaming but with explicit position. Only caller is PlayWormSound2.
         fn/Usercall LOAD_AND_PLAY_STREAMING_POSITIONAL = 0x00546BB0;
-        /// LoadAndPlayStreaming: usercall(EAX=entity, ESI=&sound_emitter) + stack(sound_id, flags, volume).
-        /// Checks game conditions, then starts a streaming sound. Returns handle | 0x40000000.
-        fn/Usercall LOAD_AND_PLAY_STREAMING = 0x00546C20;
         /// ComputeDistanceParams
         fn/Fastcall COMPUTE_DISTANCE_PARAMS = 0x00546300;
         /// DispatchLocalSound

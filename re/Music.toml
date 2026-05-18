@@ -1,6 +1,26 @@
 [[function]]
 va = 0x0058BC10
 name = "Music__Constructor"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "Music *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "ids"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "path_ptr"
+  type = "const byte *"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x0058BC60

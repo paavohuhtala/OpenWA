@@ -15,3 +15,11 @@ rust_impl = "crate::replacements::sound::play_worm_sound_cdecl"
 [[hook]]
 wa_function = "GameWorld__IsSoundSuppressed"
 rust_impl = "crate::replacements::sound::hook_is_sound_suppressed"
+
+[[hook]]
+wa_function = "PlaySoundLocal"
+rust_impl = "crate::replacements::sound::play_sound_local_impl"
+
+[[hook]]
+wa_function = "LoadAndPlayStreaming"
+rust_impl = "crate::replacements::sound::load_and_play_streaming_cdecl"

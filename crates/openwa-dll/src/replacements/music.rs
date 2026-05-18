@@ -69,14 +69,11 @@ unsafe extern "thiscall" fn hook_stop_and_cleanup(this: *mut Music) {
 
 // Hook for Music::Constructor (0x58BC10).
 // usercall(ESI=this) + stack(IDirectSound*, path_ptr), RET 0x8.
-hook::usercall_trampoline!(
-    fn trampoline_music_constructor;
-    impl_fn = music_constructor_cdecl;
-    reg = esi;
-    stack_params = 2; ret_bytes = "0x8"
-);
-
-unsafe extern "cdecl" fn music_constructor_cdecl(this: *mut Music, ids: u32, path_ptr: *const u8) {
+pub(crate) unsafe extern "cdecl" fn music_constructor_cdecl(
+    this: *mut Music,
+    ids: u32,
+    path_ptr: *const u8,
+) {
     unsafe {
         let path = std::ffi::CStr::from_ptr(path_ptr as *const i8)
             .to_str()
@@ -105,11 +102,7 @@ pub fn install() -> Result<(), String> {
         })?;
 
         // Hook the Music constructor
-        let _ = hook::install(
-            "Music_Constructor",
-            va::MUSIC_CONSTRUCTOR,
-            trampoline_music_constructor as *const (),
-        )?;
+        crate::generated::hooks::install_Music__Constructor()?;
 
         // Trap the internal destructor (only called from our scalar_deleting_dtor)
         hook::install_trap!("Music_Destructor", va::MUSIC_DESTRUCTOR);

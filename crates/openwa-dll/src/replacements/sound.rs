@@ -44,10 +44,7 @@ unsafe extern "thiscall" fn hook_play_sound_global(
 
 // ── PlaySoundLocal (0x4FDFE0): usercall(EAX=pitch, ECX=volume, EDI=entity, stack) ──
 
-hook::usercall_trampoline!(fn trampoline_play_sound_local; impl_fn = play_sound_local_impl;
-    regs = [eax, ecx, edi]; stack_params = 2; ret_bytes = "0x8");
-
-unsafe extern "cdecl" fn play_sound_local_impl(
+pub(crate) unsafe extern "cdecl" fn play_sound_local_impl(
     pitch: Fixed,
     volume: Fixed,
     entity: *mut WorldEntity,
@@ -153,15 +150,9 @@ pub(crate) unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut WormEntity)
     }
 }
 
-// ── LoadAndPlayStreaming (0x546C20): usercall(EAX=entity, ESI=emitter) + stack(sound_id, flags, volume), RET 0xC ──
+// ── LoadAndPlayStreaming (0x546C20): usercall(EAX=entity) + stack(sound_id, flags, volume), RET 0xC ──
 
-hook::usercall_trampoline!(
-    fn trampoline_load_and_play_streaming;
-    impl_fn = load_and_play_streaming_cdecl;
-    reg = eax; stack_params = 3; ret_bytes = "0xC"
-);
-
-unsafe extern "cdecl" fn load_and_play_streaming_cdecl(
+pub(crate) unsafe extern "cdecl" fn load_and_play_streaming_cdecl(
     entity: *mut WorldEntity,
     sound_id: SoundId,
     flags: u32,
@@ -184,11 +175,7 @@ pub fn install() -> Result<(), String> {
             va::PLAY_SOUND_GLOBAL,
             hook_play_sound_global as *const (),
         )?;
-        let _ = hook::install(
-            "PlaySoundLocal",
-            va::PLAY_SOUND_LOCAL,
-            trampoline_play_sound_local as *const (),
-        )?;
+        crate::generated::hooks::install_PlaySoundLocal()?;
         crate::generated::hooks::install_GameWorld__IsSoundSuppressed()?;
         let _ = hook::install(
             "DispatchGlobalSound",
@@ -223,11 +210,7 @@ pub fn install() -> Result<(), String> {
         // exercised in headful mode. Cannot trap until those entry points are also hooked.
 
         // Hook LoadAndPlayStreaming — has many WA callers (MissileEntity, etc.)
-        let _ = hook::install(
-            "LoadAndPlayStreaming",
-            va::LOAD_AND_PLAY_STREAMING,
-            trampoline_load_and_play_streaming as *const (),
-        )?;
+        crate::generated::hooks::install_LoadAndPlayStreaming()?;
     }
 
     Ok(())

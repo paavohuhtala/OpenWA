@@ -48,7 +48,32 @@ name = "GameTask__sub_546BB0"
 
 [[function]]
 va = 0x00546C20
-name = "GameTask__sound_start_0"
+name = "LoadAndPlayStreaming"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "entity"
+  type = "WorldEntity *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "sound_id"
+  type = "SoundId"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "volume"
+  type = "Fixed"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x00546C80
