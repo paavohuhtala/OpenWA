@@ -153,7 +153,7 @@ va = 0x00523690
 name = "DisplayGfx__SetFontPalette"
 calling_convention = "__thiscall"
 custom_storage = true
-plate_comment = "DisplayGfx::SetFontPalette (vtable slot 36). Misleadingly named — see Font__SetPalette (0x4F9F20) for what it actually does. Just looks up font_table[font_index] and forwards to Font__SetPalette. Called once during DDGame::LoadFonts to extend the digital font with derived '.' and ';' glyphs. Ported as openwa-core display::vtable::set_font_palette."
+plate_comment = "DisplayGfx::SetFontPalette (vtable slot 36). Misleadingly named — see Font__SetPalette (0x4F9F20) for what it actually does. Just looks up font_table[font_index] and forwards to Font__SetPalette. Called once during GameWorld::LoadFonts to extend the digital font with derived '.' and ';' glyphs. Ported as openwa-core display::vtable::set_font_palette."
 
   [function.signature]
   returns = "void"

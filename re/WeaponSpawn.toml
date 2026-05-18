@@ -15,3 +15,53 @@ custom_storage = true
 [[function]]
 va = 0x00565C10
 name = "WeaponSpawn__DecodeDescriptor"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "out_a"
+  type = "int *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "out_b"
+  type = "int *"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "entry"
+  type = "const WeaponEntry *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "out_c"
+  type = "int *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "out_d"
+  type = "int *"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "out_e"
+  type = "int *"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "out_f"
+  type = "int *"
+  storage = "stack:0x14"
+
+  [[function.param]]
+  name = "out_g"
+  type = "int *"
+  storage = "stack:0x18"
+
+  [[function.param]]
+  name = "out_h"
+  type = "int *"
+  storage = "stack:0x1C"

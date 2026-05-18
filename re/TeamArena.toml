@@ -164,3 +164,103 @@ custom_storage = true
   name = "arena"
   type = "TeamArena *"
   storage = "EAX"
+
+[[function]]
+va = 0x005225A0
+name = "TeamArena__CountAliveWorms"
+calling_convention = "__stdcall"
+custom_storage = true
+plate_comment = "Returns 1 if >1 worm alive on team. Iterates worm data at team_entry - 0x4A0, stride 0x9C."
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "ECX"
+
+[[function]]
+va = 0x005225E0
+name = "TeamArena__GetAmmo"
+calling_convention = "__stdcall"
+custom_storage = true
+plate_comment = "Returns ammo count or 0 if delayed/unavailable. arena = GameWorld + 0x4628."
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "weapon_id"
+  type = "uint"
+  storage = "EDX"
+
+[[function]]
+va = 0x00522640
+name = "TeamArena__AddAmmo"
+calling_convention = "__stdcall"
+custom_storage = true
+plate_comment = "If ammo >= 0: negative amount sets unlimited, else adds. arena = GameWorld + 0x4628."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "amount"
+  type = "int"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "weapon_id"
+  type = "uint"
+  storage = "stack:0x8"
+
+[[function]]
+va = 0x00522680
+name = "TeamArena__SubtractAmmo"
+calling_convention = "__stdcall"
+custom_storage = true
+plate_comment = "Decrements ammo if > 0. arena = GameWorld + 0x4628."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "arena"
+  type = "TeamArena *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "weapon_id"
+  type = "uint"
+  storage = "stack:0x4"

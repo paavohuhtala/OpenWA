@@ -111,7 +111,7 @@ pub unsafe fn frontend_change_screen(dialog: *mut CWnd, screen_id: u32) {
 // so the WA address is hooked as a full replacement.
 //
 // The first arg is the MFC application singleton `&g_CWinApp` (Ghidra's
-// prototype calls it "DDGame"; that's misleading — every caller passes the
+// prototype historically called it "DDGame" pre-rename; that's misleading — every caller passes the
 // MFC `theApp`). MSVC reaches several scattered BSS globals via
 // `app + huge_offset` base-relative addressing rather than absolute loads;
 // in WA's disassembly those look like fields of the param, but they are NOT:

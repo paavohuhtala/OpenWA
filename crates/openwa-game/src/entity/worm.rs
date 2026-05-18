@@ -223,18 +223,6 @@ crate::define_addresses! {
         /// alongside `stationary_frames > 499`.
         fn/Usercall WORM_ENTITY_CAN_IDLE_SOUND = 0x0050E5E0;
     }
-
-    class "WeaponSpawn" {
-        /// `WeaponSpawn__DecodeDescriptor`. Usercall
-        /// `(EAX = out_eax_ptr, EDX = out_edx_ptr)` + 7 stack args
-        /// `(descriptor, out2..out7)`, RET 0x1C. Decodes a weapon's spawn
-        /// descriptor at `weapon_table.entries[id].fire_params` (offset
-        /// 0x510 inside `GameWorld`, stride 0x1D0) and writes 9 output
-        /// flags/ints into the caller's stack slots. Case 0x5
-        /// (UpdateNonCritical) only inspects two of those outputs (arg3 +
-        /// arg4) — both being zero means "no aim sprite required".
-        fn/Usercall WEAPON_SPAWN_DECODE_DESCRIPTOR = 0x00565C10;
-    }
 }
 
 /// Virtual method table for WormEntity (vtable at 0x6644C8, 20 slots).

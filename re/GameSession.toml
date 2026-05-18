@@ -32,7 +32,7 @@ GameSession struct layout (partial):
   +0x2C: active flag (set to 1)
   +0x30: desktop_lost flag
   +0x34: some state flag
-  +0x38: DDGame/frontend pointer (ESI param)
+  +0x38: GameWorld/frontend pointer (ESI param)
   +0x3C: exit_flag (non-zero = exit loop)
   +0x40: quit_flag
   +0x4C: from frontend+0xf39c
@@ -48,7 +48,7 @@ GameSession struct layout (partial):
   +0x90: perf counter freq low
   +0x94: perf counter freq high
   +0x98: timing accumulator (8 bytes)
-  +0xA0: engine/DDGame object ptr (vtable dispatch for frame advance)
+  +0xA0: engine/GameWorld object ptr (vtable dispatch for frame advance)
   +0xA4: keyboard object ptr
   +0xAC: another object ptr (vtable+0x68 for non-engine frame)
 """

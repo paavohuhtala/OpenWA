@@ -62,8 +62,7 @@ pub mod va {
         WORLD_ROOT_HANDLE_MESSAGE, WORLD_ROOT_HURRY_HANDLER,
     };
     pub use crate::entity::worm::{
-        WEAPON_SPAWN_DECODE_DESCRIPTOR, WORM_ENTITY_CAN_IDLE_SOUND, WORM_ENTITY_CONSTRUCTOR,
-        WORM_ENTITY_VTABLE,
+        WORM_ENTITY_CAN_IDLE_SOUND, WORM_ENTITY_CONSTRUCTOR, WORM_ENTITY_VTABLE,
     };
     pub use crate::game::game_entity_message::{
         WORLD_ENTITY_COMPUTE_EXPLOSION_DAMAGE, WORLD_ENTITY_IS_SOUND_HANDLE_EXPIRED,
@@ -543,18 +542,12 @@ pub mod va {
         fn WEAPON_RELEASE = 0x0051C3D0;
         fn WORM_START_FIRING = 0x0051B7F0;
         fn FIRE_WEAPON = 0x0051EE60;
-        fn CREATE_WEAPON_PROJECTILE = 0x0051E0F0;
-        /// stdcall(worm, fire_params, local_struct), RET 0xC
-        fn PROJECTILE_FIRE = 0x0051DFB0;
         /// Strike weapons (AirStrike, NapalmStrike, MineStrike, MoleSquadron, MailStrike).
         /// stdcall(worm, &subtype_34, local_struct), RET 0xC.
         /// Spawns AirStrikeEntity or similar. NOT for grenades — grenades use CWP.
         fn STRIKE_FIRE = 0x0051E2C0;
         /// usercall(ECX=local_struct, EDX=worm, [ESP+4]=fire_params), RET 0x4
         fn PLACED_EXPLOSIVE = 0x0051EC80;
-        /// Spawns ArrowEntity (Shotgun, Longbow). Allocates 0x168 bytes.
-        /// thiscall(ECX=worm, fire_params, local_struct), RET 0x8.
-        fn CREATE_ARROW = 0x0051ED90;
         /// stdcall(worm, fire_params, local_struct), RET 0xC
         fn ROPE_TYPE1_FIRE = 0x0051E1C0;
         /// stdcall(worm, fire_params, local_struct), RET 0xC
@@ -577,11 +570,6 @@ pub mod va {
         /// Builds a 0x408-byte struct from params, SharedData lookup, HandleMessage(0x56).
         fn SPAWN_EFFECT = 0x00547C30;
         fn INIT_WEAPON_TABLE = 0x0053CAB0;
-        fn COUNT_ALIVE_WORMS = 0x005225A0;
-        fn GET_AMMO = 0x005225E0;
-        fn ADD_AMMO = 0x00522640;
-        /// Not the main ammo decrement path
-        fn SUBTRACT_AMMO = 0x00522680;
     }
 
     // =========================================================================
@@ -1361,7 +1349,7 @@ pub mod va {
         /// Possibly a stub from an early code path that was never finished.
         global G_MAIN_FRONTEND = 0x007C028C;
         /// Zero-init pointer cell, never written anywhere in the binary —
-        /// "DDGame" is WA's old codename for it. Read by `Frontend::LaunchGameSession`,
+        /// "DDGame" is WA's pre-rename codename (now `GameWorld`). Read by `Frontend::LaunchGameSession`,
         /// `MouseModeEnterWindowed_Maybe`, `MouseCursorRecenterOnWindow_Maybe`,
         /// and a few others. The launch-path comparison `app != g_GameWorldInstance`
         /// is always true (param is `&g_CWinApp`, this is null), making the

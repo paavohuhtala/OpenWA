@@ -27,7 +27,7 @@ mod steam;
 mod string_resource;
 pub(crate) mod team;
 mod trace_desync;
-mod weapon;
+pub(crate) mod weapon;
 mod weapon_release;
 mod world_init;
 

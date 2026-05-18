@@ -1,0 +1,33 @@
+# MinHook entries for the weapon (ammo + fire pipeline) subsystem.
+
+[[hook]]
+wa_function = "TeamArena__AddAmmo"
+rust_impl = "crate::replacements::weapon::add_ammo_impl"
+
+[[hook]]
+wa_function = "TeamArena__SubtractAmmo"
+rust_impl = "crate::replacements::weapon::subtract_ammo_impl"
+
+[[hook]]
+wa_function = "TeamArena__GetAmmo"
+rust_impl = "crate::replacements::weapon::get_ammo_impl"
+
+[[hook]]
+wa_function = "TeamArena__CountAliveWorms"
+rust_impl = "crate::replacements::weapon::count_alive_worms_impl"
+
+[[hook]]
+wa_function = "FireWeapon__ProjectileFire"
+rust_impl = "crate::replacements::weapon::hook_projectile_fire"
+
+[[hook]]
+wa_function = "FireWeapon__CreateWeaponProjectile"
+rust_impl = "crate::replacements::weapon::hook_create_weapon_projectile"
+
+[[hook]]
+wa_function = "FireWeapon__CreateArrow"
+rust_impl = "crate::replacements::weapon::hook_create_arrow"
+
+[[hook]]
+wa_function = "WeaponSpawn__DecodeDescriptor"
+rust_impl = "openwa_game::game::weapon_aim_flags::decode_weapon_aim_flags_impl"

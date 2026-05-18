@@ -4,7 +4,7 @@ name = "ScreenshotHook__GetCaptureRequest"
 plate_comment = """
 ScreenshotHook::GetCaptureRequest — vtable[1] of the PNG screenshot subclass (vtable 0x66A2C4).
 
-Returns 2 if `g_DDGame->screenshot_pending` (DDGame+0x44) is non-zero, else 0. Called every frame by DisplayGfx::DispatchFramePostProcessHooks (0x56CDB0) to poll whether a capture should run this frame.
+Returns 2 if `g_GameWorld->screenshot_pending` (GameWorld+0x44) is non-zero, else 0. Called every frame by DisplayGfx::DispatchFramePostProcessHooks (0x56CDB0) to poll whether a capture should run this frame.
 """
 
 [[function]]
@@ -13,9 +13,9 @@ name = "ScreenshotHook__CaptureToPng"
 plate_comment = """
 ScreenshotHook::CaptureToPng — vtable[2] of the PNG screenshot subclass (vtable 0x66A2C4).
 
-Reads `g_DDGame->screenshot_counter` (DDGame+0x48), clears `screenshot_pending` (DDGame+0x44), increments the counter, formats the filename `"%s%06d.png"` from `g_GameInfo+0xEF40` (the screenshot path prefix) and the counter, then calls FUN_0056C6F0 to actually write the PNG file using `g_DDGame+0x4C` (the source surface or encoder context).
+Reads `g_GameWorld->screenshot_counter` (GameWorld+0x48), clears `screenshot_pending` (GameWorld+0x44), increments the counter, formats the filename `"%s%06d.png"` from `g_GameInfo+0xEF40` (the screenshot path prefix) and the counter, then calls FUN_0056C6F0 to actually write the PNG file using `g_GameWorld+0x4C` (the source surface or encoder context).
 
-Called by DisplayGfx::DispatchFramePostProcessHooks (0x56CDB0) when GetCaptureRequest returns non-zero, with the rendered frame's layer_0 DisplayBitGrid as the implicit input (passed via the dispatcher's vtable[2](layer_0) call). Note: this function ignores its arg and reads g_DDGame instead — possibly because screenshot capture predates the layer_0 plumbing, or because it captures the FINAL backend surface rather than just layer_0.
+Called by DisplayGfx::DispatchFramePostProcessHooks (0x56CDB0) when GetCaptureRequest returns non-zero, with the rendered frame's layer_0 DisplayBitGrid as the implicit input (passed via the dispatcher's vtable[2](layer_0) call). Note: this function ignores its arg and reads g_GameWorld instead — possibly because screenshot capture predates the layer_0 plumbing, or because it captures the FINAL backend surface rather than just layer_0.
 """
 
 [[global]]

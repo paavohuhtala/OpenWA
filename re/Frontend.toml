@@ -61,7 +61,7 @@ name = "Frontend__PostScreenCleanup"
 [[function]]
 va = 0x004EC540
 name = "Frontend__LaunchGameSession"
-plate_comment = "Frontend__LaunchGameSession: Called from frontend dialogs to start a game. Hides frontend UI, stops audio, calls GameSession__Run, then restores frontend state. param_1=frontend/DDGame, param_2=dialog window, param_3/4=display params passed to GameEngine__InitHardware."
+plate_comment = "Frontend__LaunchGameSession: Called from frontend dialogs to start a game. Hides frontend UI, stops audio, calls GameSession__Run, then restores frontend state. param_1=frontend/GameWorld, param_2=dialog window, param_3/4=display params passed to GameEngine__InitHardware."
 
 [[function]]
 va = 0x004ED050

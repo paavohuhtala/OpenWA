@@ -15,7 +15,7 @@ va = 0x00529F30
 name = "GameRuntime__StepFrame"
 calling_convention = "__thiscall"
 custom_storage = true
-plate_comment = "thiscall: ECX = DDGameWrapper* this. EAX = counter_ptr (extra register param). 5 stack params, RET 0x14."
+plate_comment = "thiscall: ECX = GameRuntime* this. EAX = counter_ptr (extra register param). 5 stack params, RET 0x14."
 
   [function.signature]
   returns = "uint"
@@ -78,7 +78,7 @@ custom_storage = true
 va = 0x0052A910
 name = "GameRuntime__ResetFrameState"
 calling_convention = "__cdecl"
-plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET."
+plate_comment = "usercall: EAX = GameRuntime* this. No stack params, plain RET."
 
   [function.signature]
   returns = "void"
@@ -88,7 +88,7 @@ va = 0x0052A9C0
 name = "GameRuntime__BroadcastFrameTiming"
 calling_convention = "__stdcall"
 custom_storage = true
-plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
+plate_comment = "usercall: ESI = GameRuntime* this. 4 stdcall stack params, RET 0x10."
 
   [function.signature]
   returns = "void"
@@ -190,7 +190,7 @@ va = 0x0052ABF0
 name = "GameRuntime__CalcTimingRatio"
 calling_convention = "__stdcall"
 custom_storage = true
-plate_comment = "usercall: ESI = DDGameWrapper* this. 1 stdcall stack param (ratio), RET 0x4. Ported to Rust in dispatch_frame.rs."
+plate_comment = "usercall: ESI = GameRuntime* this. 1 stdcall stack param (ratio), RET 0x4. Ported to Rust in dispatch_frame.rs."
 
   [function.signature]
   returns = "void"
@@ -231,7 +231,7 @@ name = "GameRuntime__AllPeerTeamsHaveJoined"
 va = 0x0052DB90
 name = "GameRuntime__FrameTailUpdate"
 calling_convention = "__cdecl"
-plate_comment = "usercall: ESI = DDGameWrapper* this. No stack params, plain RET."
+plate_comment = "usercall: ESI = GameRuntime* this. No stack params, plain RET."
 
   [function.signature]
   returns = "void"
@@ -240,9 +240,9 @@ plate_comment = "usercall: ESI = DDGameWrapper* this. No stack params, plain RET
 va = 0x0052DC70
 name = "GameRuntime__ShouldInterpolate_OnlineCheck"
 plate_comment = """
-DDGameWrapper::IsFramePaused — online sub-check. Only caller is IsFramePaused (0x00534880), invoked when DDGame::net_session != NULL. Calling convention: usercall ESI=this (DDGameWrapper*), no stack params, plain RET. Returns bool in AL.
+GameRuntime::IsFramePaused — online sub-check. Only caller is IsFramePaused (0x00534880), invoked when GameWorld::net_session != NULL. Calling convention: usercall ESI=this (GameRuntime*), no stack params, plain RET. Returns bool in AL.
 
-Internal flow: calls three sub-predicates (FUN_0052d830 / FUN_0052d920 / FUN_0052db60, all usercall EAX=this) that must all return nonzero; then checks DDGame[0x7264] (==0 → paused, AL=1) else forwards DDGame[0x726C] to FUN_0052e880. Still bridged from Rust.
+Internal flow: calls three sub-predicates (FUN_0052d830 / FUN_0052d920 / FUN_0052db60, all usercall EAX=this) that must all return nonzero; then checks GameWorld[0x7264] (==0 → paused, AL=1) else forwards GameWorld[0x726C] to FUN_0052e880. Still bridged from Rust.
 """
 
 [[function]]
@@ -252,7 +252,7 @@ name = "GameRuntime__PeerInputQueueScan"
 [[function]]
 va = 0x0052F770
 name = "GameRuntime__ShouldInterpolate_OfflineCheck"
-plate_comment = "DDGameWrapper::IsFramePaused — offline sub-check. Only caller is IsFramePaused (0x00534880). Calling convention: usercall EDI=this (DDGameWrapper*), no stack params, plain RET. Returns bool in AL. Still bridged from Rust."
+plate_comment = "GameRuntime::IsFramePaused — offline sub-check. Only caller is IsFramePaused (0x00534880). Calling convention: usercall EDI=this (GameRuntime*), no stack params, plain RET. Returns bool in AL. Still bridged from Rust."
 
 [[function]]
 va = 0x0052F9C0
@@ -279,7 +279,7 @@ To port: needs LocalizationData typing, sprite/font ID enums, and the BitGrid::B
 va = 0x005344B0
 name = "GameRuntime__StepRenderScaleFade"
 plate_comment = """
-DDGameWrapper::StepRenderScaleFade — smooths DDGame::render_scale (offset 0x7394) one frame toward a target selected by the sign of DDGameWrapper::render_scale_fade_request (offset 0x464):
+GameRuntime::StepRenderScaleFade — smooths GameWorld::render_scale (offset 0x7394) one frame toward a target selected by the sign of GameRuntime::render_scale_fade_request (offset 0x464):
   < 0  → fade in, target 0x10000 (Fixed::ONE)
   >= 0 → fade out, target 0
 Step size 0x0F5C per frame (~0.06 in 16.16), clamped to [0, 0x10000]. When the fade reaches its target, the latch (field 0x464) is cleared to 0. Return value is the post-update latch; 0 means the fade has settled.
@@ -292,7 +292,7 @@ va = 0x00534880
 name = "GameRuntime__ShouldInterpolate"
 calling_convention = "__cdecl"
 plate_comment = """
-DDGameWrapper__ShouldInterpolate (0x00534880). Usercall EAX=this, no stack params, plain RET. Returns nonzero in AL when render interpolation should be SUPPRESSED and the main-loop `frame_accum_a` branch should be taken; zero when normal interpolation proceeds. Caller: DispatchFrame only (0x00529A88). Inverted semantics are used in the Rust port (`engine::dispatch_frame::should_interpolate`).
+GameRuntime__ShouldInterpolate (0x00534880). Usercall EAX=this, no stack params, plain RET. Returns nonzero in AL when render interpolation should be SUPPRESSED and the main-loop `frame_accum_a` branch should be taken; zero when normal interpolation proceeds. Caller: DispatchFrame only (0x00529A88). Inverted semantics are used in the Rust port (`engine::dispatch_frame::should_interpolate`).
 
 Previously guessed as "IsFramePaused" but that was a misleading name — this function does not track pause state directly; it gates the render interpolation path.
 
@@ -320,7 +320,7 @@ va = 0x00534CA0
 name = "GameRuntime__SetupFrameParams"
 calling_convention = "__stdcall"
 custom_storage = true
-plate_comment = "usercall: EAX = DDGameWrapper* this. 3 stdcall stack params."
+plate_comment = "usercall: EAX = GameRuntime* this. 3 stdcall stack params."
 
   [function.signature]
   returns = "void"
@@ -502,7 +502,7 @@ name = "GameRuntime__OnRoundEndingCountdown"
 va = 0x00537060
 name = "GameRuntime__IsReplayMode"
 calling_convention = "__cdecl"
-plate_comment = "usercall: EAX = DDGameWrapper* this. No stack params, plain RET. Returns bool."
+plate_comment = "usercall: EAX = GameRuntime* this. No stack params, plain RET. Returns bool."
 
   [function.signature]
   returns = "uint"
@@ -512,7 +512,7 @@ va = 0x0053DF00
 name = "GameRuntime__ProcessNetworkFrame"
 calling_convention = "__stdcall"
 custom_storage = true
-plate_comment = "usercall: ESI = DDGameWrapper* this. 4 stdcall stack params, RET 0x10."
+plate_comment = "usercall: ESI = GameRuntime* this. 4 stdcall stack params, RET 0x10."
 
   [function.signature]
   returns = "void"

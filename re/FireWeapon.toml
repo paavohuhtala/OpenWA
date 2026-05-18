@@ -33,7 +33,7 @@ calling_convention = "__stdcall"
 
   [[function.param]]
   name = "worm"
-  type = "void *"
+  type = "WormEntity *"
 
   [[function.param]]
   name = "fire_params"
@@ -54,7 +54,7 @@ custom_storage = true
 
   [[function.param]]
   name = "this"
-  type = "void *"
+  type = "WormEntity *"
   storage = "ECX"
 
   [[function.param]]
@@ -146,3 +146,23 @@ name = "FireWeapon__PlacedExplosive"
 [[function]]
 va = 0x0051ED90
 name = "FireWeapon__CreateArrow"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WormEntity *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "fire_params"
+  type = "const WeaponFireParams *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "release_ctx"
+  type = "const WeaponReleaseContext *"
+  storage = "stack:0x8"

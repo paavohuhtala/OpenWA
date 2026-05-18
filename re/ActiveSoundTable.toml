@@ -2,7 +2,7 @@
 va = 0x005464E0
 name = "ActiveSoundTable__Update"
 calling_convention = "__stdcall"
-plate_comment = "stdcall: 1 param (ActiveSoundTable*). Called from DDGameWrapper__DispatchFrame."
+plate_comment = "stdcall: 1 param (ActiveSoundTable*). Called from GameRuntime__DispatchFrame."
 
   [function.signature]
   returns = "void"
