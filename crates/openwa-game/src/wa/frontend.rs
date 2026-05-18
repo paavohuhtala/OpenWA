@@ -4,6 +4,7 @@ use core::mem::transmute;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::address::va;
+use crate::audio::wav_player::WavPlayer;
 use crate::engine::game_info::GameInfo;
 use crate::engine::game_info_snapshot;
 use crate::engine::game_session_run::run_game_session;
@@ -420,13 +421,8 @@ pub unsafe extern "stdcall" fn launch_game_session(
             f();
 
             let audio_table = *(rb(va::G_AUDIO_HANDLE_TABLE_PTR) as *const *mut u8);
-            let wav_handle = *(audio_table.add(0x128) as *const u32);
-            wa_call::call_usercall_edi_stack2(
-                &raw mut audio_state_local as u32,
-                wav_handle,
-                1,
-                rb(crate::generated::addresses::WavPlayer__Play),
-            );
+            let wav_handle = *(audio_table.add(0x128) as *const *mut WavPlayer);
+            crate::generated::wa_calls::WavPlayer::Play(&raw mut audio_state_local, wav_handle, 1);
         }
 
         cwnd_show_window(dialog, 5); // SW_SHOW
