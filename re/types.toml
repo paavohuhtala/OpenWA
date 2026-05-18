@@ -1468,6 +1468,47 @@ namespace = "/OpenWA"
 size = 0x8
 rust_path = "openwa_game::audio::wav_player::WavPlayer"
 
+[[struct]]
+name = "RenderQueue"
+namespace = "/OpenWA"
+size = 0x12008
+rust_path = "openwa_game::render::queue::RenderQueue"
+
+[[struct]]
+name = "TiledBitmapSource"
+namespace = "/OpenWA"
+size = 0x1C
+rust_path = "openwa_game::render::display::vtable::TiledBitmapSource"
+
+[[struct]]
+name = "DisplayBitGrid"
+namespace = "/OpenWA"
+size = 0x20
+rust_path = "openwa_game::bitgrid::DisplayBitGrid"
+
+[[struct]]
+name = "DisplayGfx"
+namespace = "/OpenWA"
+size = 0x24E28
+rust_path = "openwa_game::render::display::gfx::DisplayGfx"
+
+[[struct]]
+name = "ClipContext"
+namespace = "/OpenWA"
+size = 0x10
+rust_path = "openwa_game::render::queue_dispatch::ClipContext"
+
+[[struct]]
+name = "WeaponAimEntity"
+namespace = "/OpenWA"
+size = 0x328
+rust_path = "openwa_game::entity::overlays::WeaponAimEntity"
+
+[[typedef]]
+name = "SpriteOp"
+target = "uint"
+rust_path = "openwa_game::render::SpriteOp"
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4

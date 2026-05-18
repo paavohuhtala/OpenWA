@@ -5,6 +5,16 @@ name = "SpecialImpact"
 [[function]]
 va = 0x005197D0
 name = "DrawCrosshairLine"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "entity"
+  type = "const WeaponAimEntity *"
+  storage = "EDI"
 
 [[function]]
 va = 0x00519F60

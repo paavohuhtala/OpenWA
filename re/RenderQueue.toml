@@ -1,3 +1,28 @@
 [[function]]
 va = 0x005422A0
 name = "RenderQueue__PushDrawTiledTerrain"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "y"
+  type = "Fixed"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "x"
+  type = "Fixed"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "count"
+  type = "int"
+  storage = "stack:0x8"
