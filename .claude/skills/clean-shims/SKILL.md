@@ -44,7 +44,7 @@ Each hook group should have at most a single-line comment:
 ```
 
 Remove:
-- Calling convention details (already encoded in `usercall_trampoline!` / `extern` decl)
+- Calling convention details (already encoded in the hook's `re/*.toml` entry + the `extern` decl)
 - Algorithm descriptions (belong in the core implementation, not the shim)
 - Dispatch path descriptions ("dispatched by X case Y into vtable slot N")
 - RE history notes ("formerly mis-labelled", "earlier passes")
