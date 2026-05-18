@@ -21,6 +21,36 @@ name = "SetTextboxText"
 [[function]]
 va = 0x004FDFE0
 name = "PlaySoundLocal"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "pitch"
+  type = "Fixed"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "volume"
+  type = "Fixed"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "entity"
+  type = "WorldEntity *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "sound_id"
+  type = "SoundId"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x004FE750

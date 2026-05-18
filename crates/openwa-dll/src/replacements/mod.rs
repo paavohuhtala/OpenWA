@@ -15,7 +15,7 @@ mod headless;
 mod init_session;
 mod keyboard;
 mod main_loop;
-mod music;
+pub(crate) mod music;
 mod render;
 mod replay;
 mod replay_test;

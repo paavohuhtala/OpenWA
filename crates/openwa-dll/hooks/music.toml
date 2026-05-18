@@ -1,0 +1,5 @@
+# MinHook entries for the Music subsystem.
+
+[[hook]]
+wa_function = "Music__Constructor"
+rust_impl = "crate::replacements::music::music_constructor_cdecl"
