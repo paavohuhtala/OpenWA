@@ -7,7 +7,7 @@ pub mod game_entity;
 pub mod mine;
 pub mod missile;
 pub mod oil_drum;
-mod overlays;
+pub mod overlays;
 pub mod shared_data;
 pub mod sound_emitter;
 pub mod supply_crate;

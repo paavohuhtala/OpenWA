@@ -5,42 +5,412 @@ name = "SendGamePacketWrapped"
 [[function]]
 va = 0x00541D60
 name = "RQ_EnqueueTiledBitmap"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "y"
+  type = "Fixed"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "source"
+  type = "const TiledBitmapSource *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x00541DD0
 name = "RQ_DrawLineStrip"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "count"
+  type = "uint"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "vertices"
+  type = "int *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "color"
+  type = "uint"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x00541E50
 name = "RQ_DrawPolygon"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "count"
+  type = "uint"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "vertices"
+  type = "int *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "color1"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "color2"
+  type = "uint"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x00541ED0
 name = "RQ_DrawCrosshair"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "y"
+  type = "Fixed"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "color_fg"
+  type = "uint"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "color_bg"
+  type = "uint"
+  storage = "stack:0x14"
 
 [[function]]
 va = 0x00541F40
 name = "RQ_DrawRect"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "y_clip"
+  type = "Fixed"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x1"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "y1"
+  type = "Fixed"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "x2"
+  type = "Fixed"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "y2"
+  type = "Fixed"
+  storage = "stack:0x14"
+
+  [[function.param]]
+  name = "color"
+  type = "uint"
+  storage = "stack:0x18"
 
 [[function]]
 va = 0x00541FE0
 name = "RQ_DrawSpriteGlobal"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "y_pos"
+  type = "Fixed"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x_pos"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "sprite"
+  type = "SpriteOp"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "anim_value"
+  type = "Fixed"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x00542060
 name = "RQ_DrawSpriteLocal"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "y_pos"
+  type = "Fixed"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x_pos"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "sprite"
+  type = "SpriteOp"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "anim_value"
+  type = "Fixed"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x005420E0
 name = "RQ_DrawSpriteOffset"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "y_clip"
+  type = "Fixed"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x_pos"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "y_pos"
+  type = "Fixed"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "sprite"
+  type = "SpriteOp"
+  storage = "stack:0x14"
+
+  [[function.param]]
+  name = "anim_value"
+  type = "Fixed"
+  storage = "stack:0x18"
 
 [[function]]
 va = 0x00542170
 name = "RQ_DrawBitmapGlobal"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "y_pos"
+  type = "Fixed"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x_pos"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "bitmap"
+  type = "DisplayBitGrid *"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "src_y"
+  type = "int"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "src_w"
+  type = "int"
+  storage = "stack:0x14"
+
+  [[function.param]]
+  name = "src_h"
+  type = "int"
+  storage = "stack:0x18"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0x1C"
 
 [[function]]
 va = 0x00542200
 name = "RQ_DrawTextboxLocal"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "y_pos"
+  type = "Fixed"
+  storage = "EDX"
+
+  [[function.param]]
+  name = "layer"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "x_pos"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "bitmap"
+  type = "DisplayBitGrid *"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "src_w"
+  type = "int"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "src_h"
+  type = "int"
+  storage = "stack:0x14"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0x18"
 
 [[function]]
 va = 0x00542330
@@ -49,6 +419,26 @@ name = "RQ_DrawCmdSortComparator"
 [[function]]
 va = 0x00542350
 name = "RenderDrawingQueue"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "RenderQueue *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "display"
+  type = "DisplayGfx *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "clip"
+  type = "ClipContext *"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x00542B10

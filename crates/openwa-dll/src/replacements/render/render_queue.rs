@@ -1,7 +1,10 @@
 //! RenderQueue enqueue hooks and the per-frame dispatcher bridge.
+//!
+//! Trampolines + install helpers come from `crate::generated::hooks` via
+//! `crates/openwa-dll/hooks/render.toml`. The cdecl impls below are the
+//! WA→Rust forwarding shims.
 
 use openwa_core::fixed::Fixed;
-use openwa_game::address::va;
 use openwa_game::bitgrid::DisplayBitGrid;
 use openwa_game::entity::{WeaponAimEntity, WormEntity};
 use openwa_game::render::SpriteOp;
@@ -11,14 +14,9 @@ use openwa_game::render::message::RenderMessage;
 use openwa_game::render::queue::RenderQueue;
 use openwa_game::render::queue_dispatch::{ClipContext, render_drawing_queue};
 
-use crate::hook::{self, usercall_trampoline};
-
 // EnqueueTiledBitmap (0x541D60)
 
-usercall_trampoline!(fn trampoline_enqueue_tiled_bitmap; impl_fn = enqueue_tiled_bitmap_impl;
-    reg = eax; stack_params = 3; ret_bytes = "0xC");
-
-unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
+pub(crate) unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
     queue: *mut RenderQueue,
     y: Fixed,
     source: *const TiledBitmapSource,
@@ -41,10 +39,7 @@ unsafe extern "cdecl" fn enqueue_tiled_bitmap_impl(
 // __usercall(ECX = queue, EAX = y, [stack0] = x, [stack1] = count), RET 0x8.
 // WA hardcodes layer = 0x180000, mode = 0, ref_z = 0, flags = 1.
 
-usercall_trampoline!(fn trampoline_enqueue_tiled_terrain; impl_fn = enqueue_tiled_terrain_impl;
-    regs = [eax, ecx]; stack_params = 2; ret_bytes = "0x8");
-
-unsafe extern "cdecl" fn enqueue_tiled_terrain_impl(
+pub(crate) unsafe extern "cdecl" fn enqueue_tiled_terrain_impl(
     y: Fixed,
     queue: *mut RenderQueue,
     x: Fixed,
@@ -64,13 +59,10 @@ unsafe extern "cdecl" fn enqueue_tiled_terrain_impl(
 
 // DrawLineStrip (0x541DD0) — variable-size: vertex data via alloc_aux
 
-usercall_trampoline!(fn trampoline_draw_line_strip; impl_fn = draw_line_strip_impl;
-    regs = [eax, edi]; stack_params = 2; ret_bytes = "0x8");
-
-unsafe extern "cdecl" fn draw_line_strip_impl(
+pub(crate) unsafe extern "cdecl" fn draw_line_strip_impl(
     queue: *mut RenderQueue,
     count: u32,
-    vertices: *const [i32; 3],
+    vertices: *mut i32,
     color: u32,
 ) {
     unsafe {
@@ -92,13 +84,10 @@ unsafe extern "cdecl" fn draw_line_strip_impl(
 
 // DrawPolygon (0x541E50) — variable-size: vertex data via alloc_aux
 
-usercall_trampoline!(fn trampoline_draw_polygon; impl_fn = draw_polygon_impl;
-    regs = [ecx, esi]; stack_params = 3; ret_bytes = "0xC");
-
-unsafe extern "cdecl" fn draw_polygon_impl(
+pub(crate) unsafe extern "cdecl" fn draw_polygon_impl(
     queue: *mut RenderQueue,
     count: u32,
-    vertices: *const [i32; 3],
+    vertices: *mut i32,
     color1: u32,
     color2: u32,
 ) {
@@ -122,10 +111,7 @@ unsafe extern "cdecl" fn draw_polygon_impl(
 
 // DrawCrosshair (0x541ED0)
 
-usercall_trampoline!(fn trampoline_draw_crosshair; impl_fn = draw_crosshair_impl;
-    reg = ecx; stack_params = 5; ret_bytes = "0x14");
-
-unsafe extern "cdecl" fn draw_crosshair_impl(
+pub(crate) unsafe extern "cdecl" fn draw_crosshair_impl(
     queue: *mut RenderQueue,
     layer: u32,
     x: Fixed,
@@ -148,10 +134,7 @@ unsafe extern "cdecl" fn draw_crosshair_impl(
 
 // DrawRect (0x541F40)
 
-usercall_trampoline!(fn trampoline_draw_rect; impl_fn = draw_rect_impl;
-    regs = [ecx, edx]; stack_params = 6; ret_bytes = "0x18");
-
-unsafe extern "cdecl" fn draw_rect_impl(
+pub(crate) unsafe extern "cdecl" fn draw_rect_impl(
     queue: *mut RenderQueue,
     y_clip: Fixed,
     layer: u32,
@@ -178,10 +161,7 @@ unsafe extern "cdecl" fn draw_rect_impl(
 
 // DrawSpriteGlobal (0x541FE0)
 
-usercall_trampoline!(fn trampoline_draw_sprite_global; impl_fn = draw_sprite_global_impl;
-    regs = [eax, ecx]; stack_params = 4; ret_bytes = "0x10");
-
-unsafe extern "cdecl" fn draw_sprite_global_impl(
+pub(crate) unsafe extern "cdecl" fn draw_sprite_global_impl(
     y_pos: Fixed,
     queue: *mut RenderQueue,
     layer: u32,
@@ -205,10 +185,7 @@ unsafe extern "cdecl" fn draw_sprite_global_impl(
 
 // DrawSpriteLocal (0x542060)
 
-usercall_trampoline!(fn trampoline_draw_sprite_local; impl_fn = draw_sprite_local_impl;
-    regs = [eax, ecx]; stack_params = 4; ret_bytes = "0x10");
-
-unsafe extern "cdecl" fn draw_sprite_local_impl(
+pub(crate) unsafe extern "cdecl" fn draw_sprite_local_impl(
     y_pos: Fixed,
     queue: *mut RenderQueue,
     layer: u32,
@@ -232,10 +209,7 @@ unsafe extern "cdecl" fn draw_sprite_local_impl(
 
 // DrawSpriteOffset (0x5420E0)
 
-usercall_trampoline!(fn trampoline_draw_sprite_offset; impl_fn = draw_sprite_offset_impl;
-    regs = [ecx, edx]; stack_params = 6; ret_bytes = "0x18");
-
-unsafe extern "cdecl" fn draw_sprite_offset_impl(
+pub(crate) unsafe extern "cdecl" fn draw_sprite_offset_impl(
     queue: *mut RenderQueue,
     y_clip: Fixed,
     layer: u32,
@@ -262,10 +236,7 @@ unsafe extern "cdecl" fn draw_sprite_offset_impl(
 
 // DrawBitmapGlobal (0x542170)
 
-usercall_trampoline!(fn trampoline_draw_bitmap_global; impl_fn = draw_bitmap_global_impl;
-    regs = [ecx, edx]; stack_params = 7; ret_bytes = "0x1C");
-
-unsafe extern "cdecl" fn draw_bitmap_global_impl(
+pub(crate) unsafe extern "cdecl" fn draw_bitmap_global_impl(
     queue: *mut RenderQueue,
     y_pos: Fixed,
     layer: u32,
@@ -294,10 +265,7 @@ unsafe extern "cdecl" fn draw_bitmap_global_impl(
 
 // DrawTextboxLocal (0x542200)
 
-usercall_trampoline!(fn trampoline_draw_textbox_local; impl_fn = draw_textbox_local_impl;
-    regs = [ecx, edx]; stack_params = 6; ret_bytes = "0x18");
-
-unsafe extern "cdecl" fn draw_textbox_local_impl(
+pub(crate) unsafe extern "cdecl" fn draw_textbox_local_impl(
     q: *mut RenderQueue,
     y_pos: Fixed,
     layer: u32,
@@ -324,7 +292,11 @@ unsafe extern "cdecl" fn draw_textbox_local_impl(
 
 // WormEntity::DrawAttachedRope (0x00500720)
 
-unsafe extern "stdcall" fn draw_attached_rope_impl(this: *const WormEntity, style: u32, fill: u32) {
+pub(crate) unsafe extern "stdcall" fn draw_attached_rope_impl(
+    this: *const WormEntity,
+    style: u32,
+    fill: u32,
+) {
     unsafe {
         openwa_game::render::worm::draw_attached_rope(this, style, fill);
     }
@@ -332,10 +304,7 @@ unsafe extern "stdcall" fn draw_attached_rope_impl(this: *const WormEntity, styl
 
 // DrawCrosshairLine (0x5197D0)
 
-usercall_trampoline!(fn trampoline_draw_crosshair_line; impl_fn = draw_crosshair_line_impl;
-    reg = edi);
-
-unsafe extern "cdecl" fn draw_crosshair_line_impl(entity: *const WeaponAimEntity) {
+pub(crate) unsafe extern "cdecl" fn draw_crosshair_line_impl(entity: *const WeaponAimEntity) {
     unsafe {
         openwa_game::render::crosshair_line::draw_crosshair_line(entity);
     }
@@ -343,11 +312,7 @@ unsafe extern "cdecl" fn draw_crosshair_line_impl(entity: *const WeaponAimEntity
 
 // RenderDrawingQueue (0x542350)
 
-usercall_trampoline!(fn trampoline_render_drawing_queue;
-    impl_fn = render_drawing_queue_impl;
-    reg = eax; stack_params = 2; ret_bytes = "0x8");
-
-unsafe extern "cdecl" fn render_drawing_queue_impl(
+pub(crate) unsafe extern "cdecl" fn render_drawing_queue_impl(
     rq: *mut RenderQueue,
     display: *mut DisplayGfx,
     clip: *mut ClipContext,
@@ -359,89 +324,20 @@ unsafe extern "cdecl" fn render_drawing_queue_impl(
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        let _ = hook::install(
-            "EnqueueTiledBitmap",
-            va::RQ_ENQUEUE_TILED_BITMAP,
-            trampoline_enqueue_tiled_bitmap as *const (),
-        )?;
-
-        let _ = hook::install(
-            "EnqueueTiledTerrain",
-            va::RQ_ENQUEUE_TILED_TERRAIN,
-            trampoline_enqueue_tiled_terrain as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawLineStrip",
-            va::RQ_DRAW_LINE_STRIP,
-            trampoline_draw_line_strip as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawPolygon",
-            va::RQ_DRAW_POLYGON,
-            trampoline_draw_polygon as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawCrosshair",
-            va::RQ_DRAW_CROSSHAIR,
-            trampoline_draw_crosshair as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawRect",
-            va::RQ_DRAW_RECT,
-            trampoline_draw_rect as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawSpriteGlobal",
-            va::RQ_DRAW_SPRITE_GLOBAL,
-            trampoline_draw_sprite_global as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawSpriteLocal",
-            va::RQ_DRAW_SPRITE_LOCAL,
-            trampoline_draw_sprite_local as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawSpriteOffset",
-            va::RQ_DRAW_SPRITE_OFFSET,
-            trampoline_draw_sprite_offset as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawBitmapGlobal",
-            va::RQ_DRAW_BITMAP_GLOBAL,
-            trampoline_draw_bitmap_global as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawTextboxLocal",
-            va::RQ_DRAW_TEXTBOX_LOCAL,
-            trampoline_draw_textbox_local as *const (),
-        )?;
-
-        let _ = hook::install(
-            "WormEntity::DrawAttachedRope",
-            va::WORM_ENTITY_DRAW_ATTACHED_ROPE,
-            draw_attached_rope_impl as *const (),
-        )?;
-
-        let _ = hook::install(
-            "DrawCrosshairLine",
-            va::DRAW_CROSSHAIR_LINE,
-            trampoline_draw_crosshair_line as *const (),
-        )?;
-
-        let _ = hook::install(
-            "RenderDrawingQueue",
-            va::RQ_RENDER_DRAWING_QUEUE,
-            trampoline_render_drawing_queue as *const (),
-        )?;
+        crate::generated::hooks::install_RQ_EnqueueTiledBitmap()?;
+        crate::generated::hooks::install_RenderQueue__PushDrawTiledTerrain()?;
+        crate::generated::hooks::install_RQ_DrawLineStrip()?;
+        crate::generated::hooks::install_RQ_DrawPolygon()?;
+        crate::generated::hooks::install_RQ_DrawCrosshair()?;
+        crate::generated::hooks::install_RQ_DrawRect()?;
+        crate::generated::hooks::install_RQ_DrawSpriteGlobal()?;
+        crate::generated::hooks::install_RQ_DrawSpriteLocal()?;
+        crate::generated::hooks::install_RQ_DrawSpriteOffset()?;
+        crate::generated::hooks::install_RQ_DrawBitmapGlobal()?;
+        crate::generated::hooks::install_RQ_DrawTextboxLocal()?;
+        crate::generated::hooks::install_WormEntity__DrawAttachedRope()?;
+        crate::generated::hooks::install_DrawCrosshairLine()?;
+        crate::generated::hooks::install_RenderDrawingQueue()?;
     }
     Ok(())
 }

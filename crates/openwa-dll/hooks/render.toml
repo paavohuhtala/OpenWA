@@ -1,0 +1,57 @@
+# MinHook entries for the Render queue + display vtable subsystem.
+
+[[hook]]
+wa_function = "RQ_EnqueueTiledBitmap"
+rust_impl = "crate::replacements::render::render_queue::enqueue_tiled_bitmap_impl"
+
+[[hook]]
+wa_function = "RenderQueue__PushDrawTiledTerrain"
+rust_impl = "crate::replacements::render::render_queue::enqueue_tiled_terrain_impl"
+
+[[hook]]
+wa_function = "RQ_DrawLineStrip"
+rust_impl = "crate::replacements::render::render_queue::draw_line_strip_impl"
+
+[[hook]]
+wa_function = "RQ_DrawPolygon"
+rust_impl = "crate::replacements::render::render_queue::draw_polygon_impl"
+
+[[hook]]
+wa_function = "RQ_DrawCrosshair"
+rust_impl = "crate::replacements::render::render_queue::draw_crosshair_impl"
+
+[[hook]]
+wa_function = "RQ_DrawRect"
+rust_impl = "crate::replacements::render::render_queue::draw_rect_impl"
+
+[[hook]]
+wa_function = "RQ_DrawSpriteGlobal"
+rust_impl = "crate::replacements::render::render_queue::draw_sprite_global_impl"
+
+[[hook]]
+wa_function = "RQ_DrawSpriteLocal"
+rust_impl = "crate::replacements::render::render_queue::draw_sprite_local_impl"
+
+[[hook]]
+wa_function = "RQ_DrawSpriteOffset"
+rust_impl = "crate::replacements::render::render_queue::draw_sprite_offset_impl"
+
+[[hook]]
+wa_function = "RQ_DrawBitmapGlobal"
+rust_impl = "crate::replacements::render::render_queue::draw_bitmap_global_impl"
+
+[[hook]]
+wa_function = "RQ_DrawTextboxLocal"
+rust_impl = "crate::replacements::render::render_queue::draw_textbox_local_impl"
+
+[[hook]]
+wa_function = "DrawCrosshairLine"
+rust_impl = "crate::replacements::render::render_queue::draw_crosshair_line_impl"
+
+[[hook]]
+wa_function = "RenderDrawingQueue"
+rust_impl = "crate::replacements::render::render_queue::render_drawing_queue_impl"
+
+[[hook]]
+wa_function = "WormEntity__DrawAttachedRope"
+rust_impl = "crate::replacements::render::render_queue::draw_attached_rope_impl"

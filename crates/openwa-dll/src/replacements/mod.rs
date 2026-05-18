@@ -16,7 +16,7 @@ mod init_session;
 mod keyboard;
 mod main_loop;
 pub(crate) mod music;
-mod render;
+pub(crate) mod render;
 mod replay;
 mod replay_test;
 mod scheme;

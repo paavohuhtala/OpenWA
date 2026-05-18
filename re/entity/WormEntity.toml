@@ -92,7 +92,23 @@ custom_storage = true
 [[function]]
 va = 0x00500720
 name = "WormEntity__DrawAttachedRope"
+calling_convention = "__stdcall"
 plate_comment = "WormEntity::DrawAttachedRope — draws the segmented rope polyline + anchor sprite for a worm currently attached to a ninja rope or bungee. The unattached/in-flight rope is drawn by a different (currently-unidentified) function. Operates directly on a WormEntity*; no separate \"BungeeTrailEntity\" class exists. Gated by +0xBC (1 = active, set by InitWormAttachedRope 0x005008D0). Fields: +0xC0/+0xC4 anchor, +0xD0 segment count, +0xE4 segment buffer (0x40 × 8 bytes; angle at +4+i*8), +0x84/+0x88 worm position (= rope's other endpoint). Caller: WormEntity::HandleMessage case 0x3 (RenderScene)."
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "const WormEntity *"
+
+  [[function.param]]
+  name = "style"
+  type = "uint"
+
+  [[function.param]]
+  name = "fill"
+  type = "uint"
 
 [[function]]
 va = 0x00501210

@@ -689,26 +689,7 @@ pub mod va {
         fn SPRINTF_ROTATING_BUFFER = 0x005978A0;
         fn CONSTRUCT_FRAME_BUFFER = 0x005A2430;
         fn BLIT_SCREEN = 0x005A2020;
-        fn RQ_RENDER_DRAWING_QUEUE = 0x00542350;
         fn DRAW_LANDSCAPE = 0x005A2790;
-        /// `RQ_EnqueueTiledBitmap` — formerly mis-labelled `RQ_DrawPixel`.
-        /// Enqueues a tile-cached bitmap draw command (type 0xD), dispatched
-        /// by `RenderDrawingQueue` into `DisplayGfx::draw_tiled_bitmap`.
-        fn RQ_ENQUEUE_TILED_BITMAP = 0x00541D60;
-        fn RQ_DRAW_LINE_STRIP = 0x00541DD0;
-        fn RQ_DRAW_POLYGON = 0x00541E50;
-        fn RQ_DRAW_CROSSHAIR = 0x00541ED0;
-        fn RQ_DRAW_RECT = 0x00541F40;
-        fn RQ_DRAW_SPRITE_GLOBAL = 0x00541FE0;
-        fn RQ_DRAW_SPRITE_LOCAL = 0x00542060;
-        fn RQ_DRAW_SPRITE_OFFSET = 0x005420E0;
-        fn RQ_DRAW_BITMAP_GLOBAL = 0x00542170;
-        fn RQ_DRAW_TEXTBOX_LOCAL = 0x00542200;
-        /// `RQ_EnqueueTiledTerrain` — formerly mis-labelled
-        /// `RQ_DrawClippedSprite_Maybe`. Enqueues a tile-cached terrain draw
-        /// command (type 0xE), dispatched by `RenderDrawingQueue` into
-        /// `DisplayGfx::draw_tiled_terrain`. Sole caller: `LandEntity::RenderLandscape`.
-        fn RQ_ENQUEUE_TILED_TERRAIN = 0x005422A0;
         fn RQ_CLIP_COORDINATES = 0x00542BA0;
         fn RQ_GET_CAMERA_OFFSET_MAYBE = 0x00542B10;
         fn RQ_CLIP_WITH_REF_OFFSET_MAYBE = 0x00542C70;
@@ -819,15 +800,6 @@ pub mod va {
         fn GAME_WORLD_INIT_DISPLAY_LAYER_COLORS = 0x00570E20;
         /// IMG_Decode
         fn/Stdcall IMG_DECODE = 0x004F5F80;
-        /// `WormEntity::DrawAttachedRope` (0x00500720). Draws the segmented
-        /// rope polyline + anchor sprite for a worm currently attached to
-        /// a ninja rope or bungee. The unattached/in-flight rope is drawn
-        /// by a different (currently-unidentified) function. Operates
-        /// directly on a `WormEntity*`; no separate "BungeeTrailEntity"
-        /// class exists.
-        fn/Stdcall WORM_ENTITY_DRAW_ATTACHED_ROPE = 0x00500720;
-        /// DrawCrosshairLine
-        fn/Usercall DRAW_CROSSHAIR_LINE = 0x005197D0;
         fn DESTRUCT_LANDSCAPE = 0x0057B540;
         fn REDRAW_LAND_REGION = 0x0057CC10;
         fn WRITE_LAND_RAW = 0x0057C300;

@@ -7,7 +7,7 @@
 mod backend;
 mod display_vtable;
 mod landscape;
-mod render_queue;
+pub(crate) mod render_queue;
 mod textbox;
 
 pub fn install() -> Result<(), String> {
