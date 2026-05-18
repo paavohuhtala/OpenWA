@@ -173,3 +173,9 @@ name = "GameWorld__LoadFonts"
 [[global]]
 va = 0x00669C28
 name = "GameWorld__vtable_Maybe"
+
+[[struct]]
+name = "GameWorld"
+namespace = "/OpenWA"
+size = 0x73F8
+rust_path = "openwa_game::engine::world::GameWorld"

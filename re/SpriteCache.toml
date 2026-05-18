@@ -1,0 +1,5 @@
+[[struct]]
+name = "SpriteCache"
+namespace = "/OpenWA"
+size = 0x28
+rust_path = "openwa_game::render::SpriteCache"

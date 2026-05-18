@@ -20,3 +20,9 @@ Field writes:
 
 Caller: SpriteBank__GetFrameForBlit (0x4F98A3) — sets up the bitgrid embedded at SpriteBank+0x130 to point at the freshly decompressed subframe pixels.
 """
+
+[[struct]]
+name = "DisplayBitGrid"
+namespace = "/OpenWA"
+size = 0x20
+rust_path = "openwa_game::bitgrid::DisplayBitGrid"

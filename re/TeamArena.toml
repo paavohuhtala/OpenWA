@@ -264,3 +264,9 @@ plate_comment = "Decrements ammo if > 0. arena = GameWorld + 0x4628."
   name = "weapon_id"
   type = "uint"
   storage = "stack:0x4"
+
+[[struct]]
+name = "TeamArena"
+namespace = "/OpenWA"
+size = 0x2C48
+rust_path = "openwa_game::engine::team_arena::TeamArena"

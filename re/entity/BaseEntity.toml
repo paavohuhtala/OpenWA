@@ -188,3 +188,9 @@ custom_storage = true
 [[function]]
 va = 0x00563070
 name = "BaseEntity__sub_563070"
+
+[[struct]]
+name = "BaseEntity"
+namespace = "/OpenWA"
+size = 0x30
+rust_path = "openwa_game::entity::base::BaseEntity"

@@ -29,3 +29,115 @@ calling_convention = "__stdcall"
   [[function.param]]
   name = "prefix_ptr"
   type = "byte *"
+
+[[struct]]
+name = "GameInfo"
+namespace = "/OpenWA"
+size = 0x491
+rust_path = "openwa_game::engine::game_info::GameInfo"
+
+  [[struct.field]]
+  offset = 0x40
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x44
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x48
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x4C
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x50
+  type = "undefined4"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x54
+  type = "undefined1"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x48B
+  type = "char"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x48C
+  type = "byte"
+  size = 0x1
+
+[[struct]]
+name = "GameInfoTeamRecord"
+namespace = "/OpenWA"
+size = 0xBB8
+rust_path = "openwa_game::engine::game_info::GameInfoTeamRecord"
+
+  [[struct.field]]
+  offset = 0x0
+  name = "owner_player_slot"
+  type = "char"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x1
+  name = "team_color_idx"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x2
+  name = "eliminated_flag"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x3
+  name = "turn_order_idx"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x4
+  name = "_unknown_004"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x5
+  name = "wins_count"
+  type = "byte"
+  size = 0x1
+
+  [[struct.field]]
+  offset = 0x6
+  name = "name"
+  type = "char[16]"
+  size = 0x10
+
+  [[struct.field]]
+  offset = 0x16
+  name = "_rest_016"
+  type = "byte[2650]"
+  size = 0xA5A
+
+  [[struct.field]]
+  offset = 0xA70
+  name = "fire_effect_tier"
+  type = "dword"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0xA74
+  name = "_rest_a74"
+  type = "byte[324]"
+  size = 0x144

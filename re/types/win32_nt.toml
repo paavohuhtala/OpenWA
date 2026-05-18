@@ -1,0 +1,39 @@
+# Win32 / NT / PE layouts that aren't covered by Ghidra's built-in archives
+# (i.e. not listed in `external_types` over in ../types.toml). Round-tripped
+# like any other type.
+
+[[struct]]
+name = "CLIENT_ID"
+size = 0x8
+
+  [[struct.field]]
+  offset = 0x0
+  name = "UniqueProcess"
+  type = "void *"
+  size = 0x4
+
+  [[struct.field]]
+  offset = 0x4
+  name = "UniqueThread"
+  type = "void *"
+  size = 0x4
+
+[[union]]
+name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
+size = 0x4
+
+  [[union.field]]
+  offset = 0x0
+  name = "OffsetToData"
+  type = "dword"
+  size = 0x4
+
+  [[union.field]]
+  offset = 0x0
+  name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryStruct"
+  type = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryStruct"
+  size = 0x4
+
+[[typedef]]
+name = "ImageBaseOffset32"
+target = "pointer32"

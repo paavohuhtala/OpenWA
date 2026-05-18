@@ -26,3 +26,14 @@ custom_storage = true
   name = "count"
   type = "int"
   storage = "stack:0x8"
+
+[[struct]]
+name = "RenderQueue"
+namespace = "/OpenWA"
+size = 0x12008
+rust_path = "openwa_game::render::queue::RenderQueue"
+
+[[typedef]]
+name = "SpriteOp"
+target = "uint"
+rust_path = "openwa_game::render::SpriteOp"

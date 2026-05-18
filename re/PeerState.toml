@@ -1,0 +1,5 @@
+[[struct]]
+name = "PeerState"
+namespace = "/OpenWA"
+size = 0x4
+rust_path = "openwa_game::input::controller::PeerState"

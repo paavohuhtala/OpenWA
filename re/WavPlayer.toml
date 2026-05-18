@@ -108,3 +108,9 @@ name = "WavPlayer__InitFanfare"
 [[function]]
 va = 0x006191E0
 name = "WavPlayer__InitThird"
+
+[[struct]]
+name = "WavPlayer"
+namespace = "/OpenWA"
+size = 0x8
+rust_path = "openwa_game::audio::wav_player::WavPlayer"

@@ -192,7 +192,7 @@ unsafe fn iat_call_1(iat_addr: u32, arg: u32) -> u32 {
 /// display out of frontend mode. Body: `GameSession::Run`. Post-launch:
 /// rebuild the framebuffer, re-show + reactivate the dialog, restore audio.
 ///
-/// On the headful-fullscreen ExitProcess path (different DDDisplay singleton
+/// On the headful-fullscreen ExitProcess path (different DisplayGfx singleton
 /// detected after the game), bails via `ExitProcess(1)` faithfully.
 pub unsafe extern "stdcall" fn launch_game_session(
     app: *mut CWinApp,

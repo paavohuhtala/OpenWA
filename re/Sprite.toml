@@ -14,3 +14,9 @@ name = "Sprite__GetInfo"
 [[global]]
 va = 0x0066418C
 name = "Sprite__vtable"
+
+[[struct]]
+name = "Sprite"
+namespace = "/OpenWA"
+size = 0x70
+rust_path = "openwa_game::render::sprite::Sprite"

@@ -673,3 +673,9 @@ name = "GameRuntime__vtable2"
 [[global]]
 va = 0x0066A30C
 name = "GameRuntime__vtable"
+
+[[struct]]
+name = "GameRuntime"
+namespace = "/OpenWA"
+size = 0x6F10
+rust_path = "openwa_game::engine::runtime::GameRuntime"

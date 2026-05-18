@@ -1,0 +1,45 @@
+# MSVC C++ runtime support: type_info placeholder, EH / unwind tables, RTTI
+# descriptors, and a couple of integer-width typedefs that the rest of the
+# catalog refers to by name. Layout lives in Ghidra's archives; these entries
+# just give the type a canonical home in `re/`.
+
+[[struct]]
+name = "type_info"
+size = 0x0
+plate_comment = "PlaceHolder Class Structure"
+
+[[typedef]]
+name = "FuncInfo"
+target = "_s_FuncInfo"
+
+[[typedef]]
+name = "HandlerType"
+target = "_s_HandlerType"
+
+[[typedef]]
+name = "TryBlockMapEntry"
+target = "_s_TryBlockMapEntry"
+
+[[typedef]]
+name = "UnwindMapEntry"
+target = "_s_UnwindMapEntry"
+
+[[typedef]]
+name = "RTTIBaseClassDescriptor"
+target = "_s__RTTIBaseClassDescriptor"
+
+[[typedef]]
+name = "RTTIClassHierarchyDescriptor"
+target = "_s__RTTIClassHierarchyDescriptor"
+
+[[typedef]]
+name = "RTTICompleteObjectLocator"
+target = "_s__RTTICompleteObjectLocator"
+
+[[typedef]]
+name = "__int64"
+target = "longlong"
+
+[[typedef]]
+name = "__uint64"
+target = "ulonglong"

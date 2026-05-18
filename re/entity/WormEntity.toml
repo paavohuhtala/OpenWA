@@ -1222,3 +1222,9 @@ name = "WormEntity__update_herd"
 [[function]]
 va = 0x0051FD90
 name = "WormEntity__analyse_sight"
+
+[[struct]]
+name = "WormEntity"
+namespace = "/OpenWA"
+size = 0xFB0
+rust_path = "openwa_game::entity::worm::WormEntity"

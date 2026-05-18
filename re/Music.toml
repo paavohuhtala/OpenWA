@@ -53,3 +53,9 @@ name = "Music__AdvanceTrack"
 [[function]]
 va = 0x0058BF40
 name = "Music__SetVolume"
+
+[[struct]]
+name = "Music"
+namespace = "/OpenWA"
+size = 0x354
+rust_path = "openwa_game::audio::music::Music"

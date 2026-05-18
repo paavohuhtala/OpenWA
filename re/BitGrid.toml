@@ -139,3 +139,9 @@ name = "BitGrid__Constructor_LandscapeExt"
 [[global]]
 va = 0x006640EC
 name = "BitGrid__vtable"
+
+[[struct]]
+name = "BitGrid"
+namespace = "/OpenWA"
+size = 0x2C
+rust_path = "openwa_game::bitgrid::BitGrid"

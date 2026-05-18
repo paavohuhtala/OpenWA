@@ -1,3 +1,8 @@
 [[function]]
 va = 0x00573D30
 name = "Sound__dtor2_DD_Sound"
+
+[[typedef]]
+name = "SoundId"
+target = "uint"
+rust_path = "openwa_game::audio::SoundId"

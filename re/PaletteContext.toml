@@ -48,3 +48,9 @@ name = "PaletteContext__BlendTowardColor"
 [[function]]
 va = 0x005415A0
 name = "PaletteContext__RotateHues"
+
+[[struct]]
+name = "PaletteContext"
+namespace = "/OpenWA"
+size = 0x70C
+rust_path = "openwa_game::render::palette::PaletteContext"

@@ -49,3 +49,9 @@ custom_storage = true
   name = "name"
   type = "const char *"
   storage = "stack:0x4"
+
+[[struct]]
+name = "GfxDir"
+namespace = "/OpenWA"
+size = 0x19C
+rust_path = "openwa_game::asset::gfx_dir::GfxDir"

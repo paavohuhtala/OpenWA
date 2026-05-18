@@ -57,3 +57,9 @@ custom_storage = true
 [[function]]
 va = 0x00541860
 name = "EntityActivityQueue__FreeSlotById"
+
+[[struct]]
+name = "EntityActivityQueue"
+namespace = "/OpenWA"
+size = 0x300C
+rust_path = "openwa_game::engine::entity_activity_queue::EntityActivityQueue"

@@ -416,14 +416,14 @@ plate_comment = """
 DisplayGfx::DestructorImpl — fastcall on ECX = DisplayGfx*. The actual cleanup body, called from the vtable[0] thunk at 0x569CE0. Wrapped in C++ SEH (sets ExceptionList).
 
 Cleanup steps (in order):
-  1. Rebind vtable to &DDDisplay_vtable (the DisplayBase parent vtable).
+  1. Rebind vtable to &DisplayGfx__vtable (0x66A218 — the DisplayBase parent vtable).
   2. If display_initialized (+0x3540) is non-zero:
      a. DisplayGfx::FreeLayerSpriteTable (0x56A280) — iterate sprite_table[1..0x3FF] at +0x3DD4 and free each LayerSprite + its frame_array.
      b. If tile_bitmap_sets[1] (+0x4DD8) is non-null: TileBitmapSet::Destructor (0x569BC0) on it, then _free the TileBitmapSet itself.
      c. Iterate the CBitmap* vector at +0x3580..+0x358C (bitmap_ptr/end/cap) and for each non-null entry call vtable[6](release) then vtable[0](1) (destructor + free).
      d. Call vtable[3](1) on layer_2 (+0x3DA4), layer_1 (+0x3DA0), layer_0 (+0x3D9C) — three render-context BitGrids.
      e. Iterate the FramePostProcessHook* std::vector at +0x24DF8 (start@+4, end@+8, cap@+0xC) and call vtable[0](1) on each entry.
-     f. Call g_DDDisplayWrapper->vtable[7](1) — backend release.
+     f. Call g_DisplayGfx->vtable[7](1) — backend release.
   3. Free the FramePostProcessHook std::vector data buffer (+0x24DFC) and clear the three vec pointers.
   4. Rebind the embedded BitGrid at +0x3DA8 to &BitGrid__vtable, then if its external_buffer flag (+0x3DAC) is 0, free the data buffer (+0x3DB0).
   5. Free the CBitmap vector data buffer (+0x3580) and clear all three vec pointers.
@@ -1072,6 +1072,14 @@ custom_storage = true
   storage = "stack:0x10"
 
 [[function]]
+va = 0x0056C2E0
+name = "DisplayGfx__sub_56C2E0"
+
+[[function]]
+va = 0x0056C330
+name = "DisplayGfx__sub_56C330"
+
+[[function]]
 va = 0x0056CC40
 name = "DisplayGfx__SetCameraOffset"
 calling_convention = "__thiscall"
@@ -1147,6 +1155,10 @@ Called once per frame from RenderFrame_Maybe (0x56E06C). The shipping game regis
 """
 
 [[function]]
+va = 0x0056CF50
+name = "DisplayGfx__sub_56CF50"
+
+[[function]]
 va = 0x005703E0
 name = "DisplayGfx__InitTeamPaletteDisplayObjects"
 
@@ -1157,6 +1169,19 @@ name = "DisplayGfx__LoadSpriteByName"
 [[function]]
 va = 0x00573C50
 name = "DisplayGfx__GetBitmapSpriteInfo_Maybe"
+
+[[struct]]
+name = "DisplayGfx"
+namespace = "/OpenWA"
+size = 0x24E28
+rust_path = "openwa_game::render::display::gfx::DisplayGfx"
+
+  [[struct.field]]
+  offset = 0x0
+  name = "vtable"
+  type = "void *"
+  size = 0x4
+  comment = "DisplayGfx vtable (0x66A218)."
 
 [[global]]
 va = 0x00664144

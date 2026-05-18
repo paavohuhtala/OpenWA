@@ -42,3 +42,9 @@ This means the canvas is built once and then dirty-redrawn each frame to track h
 
 IMPORTANT: items[i] fields at +0x28 and +0x2C were previously named neighbor_prev/neighbor_next on the assumption they were navigation links. They are NOT — they are transient render state used only by this function. Rename to `is_highlighted_persistent` / `is_highlighted_this_frame`.
 """
+
+[[struct]]
+name = "MenuPanel"
+namespace = "/OpenWA"
+size = 0x3D4
+rust_path = "openwa_game::engine::menu_panel::MenuPanel"

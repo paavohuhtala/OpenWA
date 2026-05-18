@@ -1,0 +1,5 @@
+[[struct]]
+name = "TiledBitmapSource"
+namespace = "/OpenWA"
+size = 0x1C
+rust_path = "openwa_game::render::display::vtable::TiledBitmapSource"

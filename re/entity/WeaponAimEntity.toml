@@ -1,0 +1,5 @@
+[[struct]]
+name = "WeaponAimEntity"
+namespace = "/OpenWA"
+size = 0x328
+rust_path = "openwa_game::entity::overlays::WeaponAimEntity"

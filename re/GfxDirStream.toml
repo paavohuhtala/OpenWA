@@ -1,3 +1,9 @@
 [[function]]
 va = 0x005662C0
 name = "GfxDirStream__GetTotalSize"
+
+[[struct]]
+name = "GfxDirStream"
+namespace = "/OpenWA"
+size = 0x18
+rust_path = "openwa_game::asset::gfx_dir::GfxDirStream"

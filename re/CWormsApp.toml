@@ -210,3 +210,28 @@ custom_storage = true
 [[global]]
 va = 0x00662C90
 name = "CWormsApp__vtable"
+
+[[struct]]
+name = "CWormsApp"
+namespace = "/OpenWA"
+size = 0xA8
+
+  [[struct.field]]
+  offset = 0x0
+  name = "vtable"
+  type = "pointer"
+  size = 0x4
+  comment = "CWormsApp__vtable (0x662C90)"
+
+  [[struct.field]]
+  offset = 0x4
+  name = "_unknown_04"
+  type = "byte[160]"
+  size = 0xA0
+
+  [[struct.field]]
+  offset = 0xA4
+  name = "vtable2"
+  type = "pointer"
+  size = 0x4
+  comment = "Secondary vtable (PTR_LAB_00662d48)"

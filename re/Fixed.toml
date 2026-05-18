@@ -1,3 +1,13 @@
 [[function]]
 va = 0x00534BC0
 name = "Fixed__SmoothMoveTowards"
+
+[[typedef]]
+name = "Fixed"
+target = "int"
+rust_path = "openwa_core::fixed::Fixed"
+
+[[typedef]]
+name = "Fixed64"
+target = "longlong"
+rust_path = "openwa_core::fixed::Fixed64"

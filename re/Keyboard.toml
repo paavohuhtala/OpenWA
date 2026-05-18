@@ -113,3 +113,9 @@ Keyboard::AcquireInput(esi_flag, param_1)
 [[global]]
 va = 0x0066AEC8
 name = "Keyboard__vtable"
+
+[[struct]]
+name = "Keyboard"
+namespace = "/OpenWA"
+size = 0x33C
+rust_path = "openwa_game::input::keyboard::Keyboard"

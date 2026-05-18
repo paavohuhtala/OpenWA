@@ -35,3 +35,9 @@ custom_storage = true
   name = "handle"
   type = "int *"
   storage = "EDI"
+
+[[struct]]
+name = "TeamIndexMap"
+namespace = "/OpenWA"
+size = 0x64
+rust_path = "openwa_game::engine::team_arena::TeamIndexMap"
