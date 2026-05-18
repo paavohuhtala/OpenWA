@@ -36,6 +36,10 @@ static SNAPSHOT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 /// Capture the current `GameInfo` bytes. Called from
 /// [`crate::wa::frontend::launch_game_session`]'s entry.
 ///
+/// Gated behind `OPENWA_GAMEINFO_SNAPSHOT` because the unconditional
+/// per-launch disk dump (~63KB) measurably slows replay-test runs and
+/// the snapshot is only useful when iterating on the custom frontend.
+///
 /// The in-memory snapshot (used by Snapshot-replay launches via [`restore`])
 /// is first-wins: only the first capture per process populates the slot, so
 /// re-launches don't overwrite a clean baseline the user wants to replay.
@@ -45,6 +49,10 @@ static SNAPSHOT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 /// or the WA original. That lets `gameinfo_dumps/launch_entry_{rust,wa}.bin`
 /// stay current across multiple launches in the same process.
 pub fn capture() {
+    if std::env::var("OPENWA_GAMEINFO_SNAPSHOT").is_err() {
+        return;
+    }
+
     if let Ok(mut guard) = SNAPSHOT.lock()
         && guard.is_none()
     {
