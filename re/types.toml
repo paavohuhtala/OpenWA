@@ -102,7 +102,6 @@ external_types = [
   "CWaitCursor",
   "CWinApp",
   "CWinThread",
-  "CWnd",
   "CY",
   "DATE",
   "DECIMAL",
@@ -1565,7 +1564,6 @@ rust_path = "openwa_game::asset::gfx_dir::GfxDirStream"
 
 [[struct]]
 name = "CWnd"
-namespace = "/OpenWA"
 size = 0x4
 rust_path = "openwa_game::wa::mfc::CWnd"
 
