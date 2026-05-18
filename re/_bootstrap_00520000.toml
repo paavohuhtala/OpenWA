@@ -72,18 +72,27 @@ name = "DispatchGlobalSound"
 [[function]]
 va = 0x00528480
 name = "InitLandscapeBorders"
+calling_convention = "__cdecl"
+custom_storage = true
 plate_comment = """
 Apply scheme's "indestructible borders" / cavern flag to the landscape.
 
-Convention: usercall(EAX = this), plain RET. `this` is a CTaskTurnGame
-(internally `GameRuntime`); +0x488 is the GameWorld pointer. Method does
-not access any CGameTask-specific state.
+`this` is a CTaskTurnGame (internally `GameRuntime`); +0x488 is the
+GameWorld pointer. Method does not access any CGameTask-specific state.
 
 If GameInfo+0xD94B (cavern / indestructible-borders scheme byte) is set,
 calls Landscape::init_borders(1,1,1,1, colors) and sets GameWorld.is_cavern (+0x777C) to 1.
 Otherwise, if is_cavern was previously set, calls init_borders(0,0,1,0, colors)
 to tear down borders.
 """
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "runtime"
+  type = "GameRuntime *"
+  storage = "EAX"
 
 [[function]]
 va = 0x0052ACB0

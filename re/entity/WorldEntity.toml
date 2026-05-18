@@ -133,14 +133,42 @@ name = "WorldEntity__vt7"
 [[function]]
 va = 0x005262D0
 name = "WorldEntity__InitAllianceData"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "runtime"
+  type = "GameRuntime *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00528510
 name = "WorldEntity__InitTeamScoring"
+calling_convention = "__fastcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "runtime"
+  type = "GameRuntime *"
 
 [[function]]
 va = 0x00528690
 name = "WorldEntity__InitTurnState"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "runtime"
+  type = "GameRuntime *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00545780

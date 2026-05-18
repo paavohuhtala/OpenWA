@@ -1,6 +1,7 @@
 [[function]]
 va = 0x00541620
 name = "EntityActivityQueue__Init"
+calling_convention = "__fastcall"
 plate_comment = """
 EntityActivityQueue::Init — initialise the most-recent-activity rank table at GameWorld+0x600.
 
@@ -18,6 +19,17 @@ Layout (relative to queue base = world+0x600):
 
 Was previously misnamed SpriteGfxTable__Init.
 """
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "EntityActivityQueue *"
+
+  [[function.param]]
+  name = "capacity"
+  type = "uint"
 
 [[function]]
 va = 0x005416D0

@@ -1463,6 +1463,24 @@ size = 0x300C
 rust_path = "openwa_game::engine::entity_activity_queue::EntityActivityQueue"
 
 [[struct]]
+name = "GameRuntime"
+namespace = "/OpenWA"
+size = 0x6F10
+rust_path = "openwa_game::engine::runtime::GameRuntime"
+
+[[struct]]
+name = "BitGrid"
+namespace = "/OpenWA"
+size = 0x2C
+rust_path = "openwa_game::bitgrid::BitGrid"
+
+[[struct]]
+name = "GfxDir"
+namespace = "/OpenWA"
+size = 0x19C
+rust_path = "openwa_game::asset::gfx_dir::GfxDir"
+
+[[struct]]
 name = "WavPlayer"
 namespace = "/OpenWA"
 size = 0x8

@@ -45,8 +45,6 @@ use crate::wa_alloc::{wa_malloc, wa_malloc_struct_zeroed};
 
 crate::define_addresses! {
     class "BitGrid" {
-        /// BitGrid::init (0x4F6370) — allocates buffer, sets base vtable
-        fn BIT_GRID_INIT = 0x004F6370;
         /// Core sprite blit (0x4F6910) — ESI=dst BitGrid, 9 stack params
         fn/Usercall BLIT_SPRITE_RECT = 0x004F6910;
         /// Clipped line draw on 8bpp BitGrid (0x4F7500)

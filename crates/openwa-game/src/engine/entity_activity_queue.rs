@@ -108,11 +108,3 @@ impl EntityActivityQueue {
         }
     }
 }
-
-crate::define_addresses! {
-    class "EntityActivityQueue" {
-        /// `EntityActivityQueue::Init` (0x00541620) — fastcall(ECX=this,
-        /// EDX=capacity). Was previously misnamed `SpriteGfxTable__Init`.
-        fn/Fastcall ENTITY_ACTIVITY_QUEUE_INIT = 0x00541620;
-    }
-}
