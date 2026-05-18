@@ -7,30 +7,6 @@ va = 0x00599610
 name = "WavActiveChannelsStop_Maybe"
 
 [[function]]
-va = 0x00599670
-name = "WavPlayer_Stop"
-
-[[function]]
-va = 0x005996E0
-name = "WavPlayer_Play"
-
-[[function]]
-va = 0x005997C0
-name = "WavPlayerCheckOrBind_Maybe"
-
-[[function]]
-va = 0x00599930
-name = "WavPlayer_PreparePlay"
-
-[[function]]
-va = 0x005999C0
-name = "WavPlayer_RestartFanfare_Maybe"
-
-[[function]]
-va = 0x00599B40
-name = "WavPlayer_LoadAndPlay"
-
-[[function]]
 va = 0x0059A140
 name = "WavBankLoadAll_Maybe"
 

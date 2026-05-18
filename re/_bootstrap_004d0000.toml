@@ -1,6 +1,14 @@
 [[function]]
 va = 0x004D7500
 name = "PlayFanfare_Default"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "team_type"
+  type = "uint"
 
 [[function]]
 va = 0x004D7630
@@ -13,10 +21,28 @@ name = "StopAllWavPlayers"
 [[function]]
 va = 0x004D78E0
 name = "PlayFanfare_CurrentTeam"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "index"
+  type = "uint"
+  storage = "EAX"
 
 [[function]]
 va = 0x004D7960
 name = "PlayFeSfx"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "sfx_name"
+  type = "const char *"
 
 [[function]]
 va = 0x004DD090

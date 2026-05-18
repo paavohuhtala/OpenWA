@@ -1456,6 +1456,12 @@ namespace = "/OpenWA"
 size = 0x300C
 rust_path = "openwa_game::engine::entity_activity_queue::EntityActivityQueue"
 
+[[struct]]
+name = "WavPlayer"
+namespace = "/OpenWA"
+size = 0x8
+rust_path = "openwa_game::audio::wav_player::WavPlayer"
+
 [[union]]
 name = "IMAGE_RESOURCE_DIRECTORY_ENTRY_DirectoryUnion"
 size = 0x4

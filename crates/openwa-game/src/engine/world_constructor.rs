@@ -155,7 +155,7 @@ pub fn init_constructor_addrs() {
         SPRITE_REGION_CTOR_ADDR = rb(va::SPRITE_REGION_CONSTRUCTOR);
         DD_GAME_CLEAR_SCREENS_ADDR = rb(va::DD_GAME_CLEAR_SCREENS);
 
-        LOAD_SPEECH_BANKS_ADDR = rb(va::DSSOUND_LOAD_ALL_SPEECH_BANKS);
+        LOAD_SPEECH_BANKS_ADDR = rb(crate::generated::addresses::DSSound__LoadAllSpeechBanks);
         LOADING_PROGRESS_TICK_ADDR = rb(va::GAME_RUNTIME_LOADING_PROGRESS_TICK);
         GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
     }

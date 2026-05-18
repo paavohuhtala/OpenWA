@@ -21,7 +21,7 @@ mod replay;
 mod replay_test;
 mod scheme;
 pub(crate) mod sound;
-mod speech;
+pub(crate) mod speech;
 mod sprite;
 mod steam;
 mod string_resource;

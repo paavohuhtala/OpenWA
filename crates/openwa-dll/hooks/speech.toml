@@ -1,0 +1,33 @@
+# MinHook entries for the Speech / fanfare / FE SFX / WavPlayer subsystem.
+
+[[hook]]
+wa_function = "WavPlayer__Stop"
+rust_impl = "crate::replacements::speech::wav_player_stop_impl"
+
+[[hook]]
+wa_function = "WavPlayer__Play"
+rust_impl = "crate::replacements::speech::wav_player_play_impl"
+
+[[hook]]
+wa_function = "WavPlayer__LoadAndPlay"
+rust_impl = "crate::replacements::speech::wav_player_load_and_play_impl"
+
+[[hook]]
+wa_function = "PlayFanfare_Default"
+rust_impl = "crate::replacements::speech::hook_play_fanfare_default"
+
+[[hook]]
+wa_function = "PlayFanfare_CurrentTeam"
+rust_impl = "crate::replacements::speech::play_fanfare_current_team_impl"
+
+[[hook]]
+wa_function = "PlayFeSfx"
+rust_impl = "crate::replacements::speech::hook_play_fe_sfx"
+
+[[hook]]
+wa_function = "DSSound__LoadSpeechBank"
+rust_impl = "crate::replacements::speech::load_speech_bank_impl"
+
+[[hook]]
+wa_function = "DSSound__LoadAllSpeechBanks"
+rust_impl = "crate::replacements::speech::load_all_speech_banks_impl"

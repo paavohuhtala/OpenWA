@@ -1,16 +1,4 @@
 [[function]]
-va = 0x005714B0
-name = "DSSound_LoadEffectWAVs"
-
-[[function]]
-va = 0x00571660
-name = "DSSound_LoadSpeechBank"
-
-[[function]]
-va = 0x00571A70
-name = "DSSound_LoadAllSpeechBanks"
-
-[[function]]
 va = 0x00575590
 name = "VectorNormalize_Simple"
 

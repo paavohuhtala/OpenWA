@@ -1,4 +1,51 @@
 [[function]]
+va = 0x005714B0
+name = "DSSound__LoadEffectWAVs"
+
+[[function]]
+va = 0x00571660
+name = "DSSound__LoadSpeechBank"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "ddgw"
+  type = "void *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "team_index"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "speech_base_path"
+  type = "const char *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "speech_dir"
+  type = "const char *"
+  storage = "stack:0xC"
+
+[[function]]
+va = 0x00571A70
+name = "DSSound__LoadAllSpeechBanks"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "ddgw"
+  type = "void *"
+  storage = "ESI"
+
+[[function]]
 va = 0x00573D50
 name = "DSSound__Constructor"
 

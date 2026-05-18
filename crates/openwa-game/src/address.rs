@@ -329,12 +329,6 @@ pub mod va {
             ctor/Usercall CONSTRUCT_DS_SOUND = 0x00573D50;
             /// DSSound init buffers — usercall(EAX=dssound), plain RET
             fn/Usercall DSSOUND_INIT_BUFFERS = 0x00573E50;
-            /// Loads all SFX WAVs
-            fn/Stdcall DSSOUND_LOAD_EFFECT_WAVS = 0x005714B0;
-            /// Loads all speech banks
-            fn/Usercall DSSOUND_LOAD_ALL_SPEECH_BANKS = 0x00571A70;
-            /// Loads one speech bank
-            fn/Usercall DSSOUND_LOAD_SPEECH_BANK = 0x00571660;
         }
 
         class "Keyboard" {
@@ -935,12 +929,6 @@ pub mod va {
     crate::define_addresses! {
         /// Speech line table in .rdata
         data SPEECH_LINE_TABLE = 0x006AF770;
-        /// WAV Player: load and play
-        fn/Usercall WAV_PLAYER_LOAD_AND_PLAY = 0x00599B40;
-        /// WAV Player: play
-        fn/Usercall WAV_PLAYER_PLAY = 0x005996E0;
-        /// WAV Player: stop
-        fn/Usercall WAV_PLAYER_STOP = 0x00599670;
         /// FeSfx WavPlayer global instance
         global FESFX_WAV_PLAYER = 0x006AC888;
         /// Fanfare WavPlayer global instance
@@ -949,14 +937,8 @@ pub mod va {
         global WA_DATA_PATH = 0x0088E282;
         /// Team config fanfare name lookup
         fn/Usercall GET_TEAM_CONFIG_NAME = 0x004A62A0;
-        /// Builds fanfare path, plays via WavPlayer
-        fn/Stdcall PLAY_FANFARE_DEFAULT = 0x004D7500;
         /// Loads fanfare WAV with fallback
         fn/Thiscall PLAY_FANFARE = 0x004D7630;
-        /// Gets current team, calls PlayFanfare
-        fn/Usercall PLAY_FANFARE_CURRENT_TEAM = 0x004D78E0;
-        /// Builds fesfx path, plays via WavPlayer
-        fn/Stdcall PLAY_FE_SFX = 0x004D7960;
     }
 
     // =========================================================================
@@ -1054,7 +1036,6 @@ pub mod va {
         fn WAV_PLAYER_PREPARE_PLAY = 0x00599930;
         /// Stdcall(1 arg=ring_buffer_addr=0x88DF98), RET 0x4.
         fn STOP_ALL_WAV_PLAYERS_2 = 0x004E31E0;
-        // (`WAV_PLAYER_PLAY` is already declared in the audio block above.)
         fn FRONTEND_ON_MULTIPLAYER = 0x0044E850;
         fn FRONTEND_ON_NETWORK = 0x0044EC10;
         fn FRONTEND_ON_MINIMIZE = 0x00486A10;

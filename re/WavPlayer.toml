@@ -1,0 +1,110 @@
+[[global]]
+va = 0x0079D654
+name = "G_WAV_DIRECT_SOUND"
+comment = "IDirectSound* for the WavPlayer subsystem (separate from DSSound). Null before DirectSound init."
+
+[[global]]
+va = 0x00697704
+name = "G_WAV_MASTER_VOLUME"
+comment = "Master volume for WavPlayer playback (0-100)."
+
+[[global]]
+va = 0x008AC8A0
+name = "G_WAV_RESULT_SUCCESS"
+comment = "Success sentinel: a result pointer equal to this address means \"no error\"."
+
+[[function]]
+va = 0x00599670
+name = "WavPlayer__Stop"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint *"
+
+  [[function.param]]
+  name = "player"
+  type = "WavPlayer *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "result"
+  type = "uint *"
+  storage = "EDI"
+
+[[function]]
+va = 0x005996E0
+name = "WavPlayer__Play"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint *"
+
+  [[function.param]]
+  name = "result"
+  type = "uint *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "player"
+  type = "WavPlayer *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "flags"
+  type = "uint"
+  storage = "stack:0x8"
+
+[[function]]
+va = 0x005997C0
+name = "WavPlayer__CheckOrBind_Maybe"
+
+[[function]]
+va = 0x00599930
+name = "WavPlayer__PreparePlay"
+
+[[function]]
+va = 0x005999C0
+name = "WavPlayer__RestartFanfare_Maybe"
+
+[[function]]
+va = 0x00599B40
+name = "WavPlayer__LoadAndPlay"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint *"
+
+  [[function.param]]
+  name = "result"
+  type = "uint *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "player"
+  type = "WavPlayer *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "path"
+  type = "const char *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "param3"
+  type = "int"
+  storage = "stack:0xC"
+
+[[function]]
+va = 0x006191A0
+name = "WavPlayer__InitFESFX"
+
+[[function]]
+va = 0x006191C0
+name = "WavPlayer__InitFanfare"
+
+[[function]]
+va = 0x006191E0
+name = "WavPlayer__InitThird"

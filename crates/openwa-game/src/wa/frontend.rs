@@ -425,7 +425,7 @@ pub unsafe extern "stdcall" fn launch_game_session(
                 &raw mut audio_state_local as u32,
                 wav_handle,
                 1,
-                rb(va::WAV_PLAYER_PLAY),
+                rb(crate::generated::addresses::WavPlayer__Play),
             );
         }
 

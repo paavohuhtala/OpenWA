@@ -18,21 +18,8 @@ use windows::Win32::Media::Audio::DirectSound::{
 };
 use windows::Win32::Media::Audio::{WAVE_FORMAT_PCM, WAVEFORMATEX};
 
+use crate::generated::addresses::{G_WAV_DIRECT_SOUND, G_WAV_MASTER_VOLUME, G_WAV_RESULT_SUCCESS};
 use crate::rebase::rb;
-
-// ============================================================
-// Address constants
-// ============================================================
-
-crate::define_addresses! {
-    /// IDirectSound* for the WavPlayer subsystem (separate from DSSound).
-    /// Null before DirectSound init.
-    global G_WAV_DIRECT_SOUND = 0x0079D654;
-    /// Master volume for WavPlayer playback (0-100).
-    global G_WAV_MASTER_VOLUME = 0x00697704;
-    /// Success sentinel: a result pointer equal to this address means "no error".
-    global G_WAV_RESULT_SUCCESS = 0x008AC8A0;
-}
 
 /// Volume-to-dB attenuation table (65 entries of i16, indices 0-64).
 /// Copied from WA.exe .rdata at 0x697680.
