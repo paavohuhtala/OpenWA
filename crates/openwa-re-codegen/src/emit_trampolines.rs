@@ -216,8 +216,7 @@ fn emit_default_storage(
 }
 
 /// Usercall hook: trampoline reads params from the WA caller's frame into
-/// cdecl arg order, then forwards to the impl. Output mirrors the hand-written
-/// `usercall_trampoline!` arms in `crates/openwa-dll/src/hook.rs`.
+/// cdecl arg order, then forwards to the impl.
 fn emit_custom_storage(
     out: &mut String,
     hook: &HookEntry,
@@ -270,8 +269,7 @@ fn emit_custom_storage(
     let wa = &hook.wa_function;
 
     // Impl signature ordering: reg params (in declaration order), then stack
-    // params (in declaration / sorted-by-offset order). Mirrors the
-    // hand-written `usercall_trampoline!` convention.
+    // params (in declaration / sorted-by-offset order).
     let impl_param_order: Vec<usize> = reg_params
         .iter()
         .map(|(i, _)| *i)
@@ -786,8 +784,7 @@ mod tests {
         // ECX appears as both a param-input register and a preserve target.
         // The trampoline pushes ECX twice (once for restore-after-call, once
         // as the cdecl call arg) — the register's live value survives both
-        // pushes, and the trailing `pop ecx` restores it. Mirrors the
-        // hand-written `usercall_trampoline!(preserve_ecx)` variant.
+        // pushes, and the trailing `pop ecx` restores it.
         let cat = cat_with(vec![fn_with(
             0x00500000,
             "Foo__bar",

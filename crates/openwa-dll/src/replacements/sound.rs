@@ -123,26 +123,6 @@ pub(crate) unsafe extern "cdecl" fn play_worm_sound_cdecl(
 }
 
 // ── StopWormSound (0x515180): usercall(ESI=worm), plain RET ──
-// Migrated to generated/hooks::install_WormEntity__stop_fire_sound. The
-// hand-written shim is retained behind cfg(test) for byte-equivalence
-// verification; delete once the generated emitter has settled.
-
-#[cfg(test)]
-hook::usercall_trampoline!(
-    fn trampoline_stop_worm_sound;
-    impl_fn = stop_worm_sound_cdecl;
-    reg = esi
-);
-
-/// Address-getter exposing the hand-written trampoline at `pub(crate)`
-/// scope so the byte-equivalence test in `generated/mod.rs` can diff it
-/// against the generated `tramp_WormEntity__stop_fire_sound`. The macro
-/// itself emits a non-`pub` function, hence the wrapper. Will be deleted
-/// once the generated version takes over at the install site.
-#[cfg(test)]
-pub(crate) fn trampoline_stop_worm_sound_for_tests() -> *const u8 {
-    trampoline_stop_worm_sound as *const u8
-}
 
 pub(crate) unsafe extern "cdecl" fn stop_worm_sound_cdecl(worm: *mut WormEntity) {
     unsafe {

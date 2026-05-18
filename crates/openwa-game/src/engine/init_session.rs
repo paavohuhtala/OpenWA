@@ -285,7 +285,7 @@ pub unsafe fn init_session(gi: *mut GameInfo, type_label: Option<&CStr>) {
 
 // ─── Hook-trampoline cdecl shims ───────────────────────────────────────────
 //
-// The `usercall_trampoline!` macro forwards the captured register value to a
+// The codegen-emitted trampoline forwards the captured register value to a
 // cdecl function. These shims re-derive `*mut GameInfo` from `prefix_ptr`
 // and dispatch into the regular Rust impls. Public so the DLL hook layer
 // can name them.

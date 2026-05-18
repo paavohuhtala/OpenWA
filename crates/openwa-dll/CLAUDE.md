@@ -31,7 +31,7 @@ Reach for these only when the codegen shape doesn't fit (e.g. vtable slot replac
 1. **Passthrough hook** (logging only): Call original via trampoline, log result.
 2. **Full replacement**: Reimplement the function in Rust.
 
-For `__usercall` functions, use a naked trampoline to capture register params before calling the Rust impl. **ECX preservation**: The standard `reg = ecx` trampoline variants do NOT preserve ECX across the cdecl impl call. MSVC-generated callers often loop calling thiscall functions without re-setting ECX between iterations (relying on the original function preserving it). Use the `preserve_ecx` variant for thiscall hooks where callers may rely on ECX being preserved: `usercall_trampoline!(fn name; impl_fn = path; reg = ecx; stack_params = N; ret_bytes = "0xN"; preserve_ecx)`.
+For `__usercall` functions the codegen path handles register/stack capture automatically — set `custom_storage = true` in `re/` and (if the WA caller relies on a register staying intact across the cdecl call) `preserve_registers = ["ecx"]` in the hook entry. Hand-written naked-asm trampolines are no longer needed for usercall capture; reach for one only if the shape doesn't fit the codegen at all.
 
 3. **Vtable method replacement**: Use `vtable_replace!` to patch vtable slots at runtime. Write the replacement as `unsafe extern "thiscall" fn`. Save the original via `[ORIG_STATIC]` syntax if you need to call through. See `replacements/entity/cloud.rs`.
 4. **Trap hook** (`install_trap!`): For functions whose only caller is now ported Rust. Panics if called unexpectedly.
@@ -54,7 +54,7 @@ All hooks use `queue_enable_hook` + single `apply_queued()` call for batched Min
 
 ## Key Files
 
-- `src/hook.rs` — MinHook helpers: `install()`, `install_trap!`, `usercall_trampoline!` macro, `queue_enable_hook` + `apply_queued()`
+- `src/hook.rs` — MinHook helpers: `install()`, `install_trap!`, `queue_enable_hook` + `apply_queued()`
 - `src/lib.rs` — DLL entry point (`DllMain`), startup checks, `install_all()` call
 - `src/replacements/mod.rs` — `install_all()` orchestration, infrastructure vs gameplay split
 - `src/replacements/*.rs` — Per-subsystem hook shims (one file per WA subsystem)

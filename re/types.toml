@@ -1534,12 +1534,6 @@ target = "uint"
 rust_path = "openwa_game::render::SpriteOp"
 
 [[struct]]
-name = "GameRuntime"
-namespace = "/OpenWA"
-size = 0x6F10
-rust_path = "openwa_game::engine::runtime::GameRuntime"
-
-[[struct]]
 name = "MenuPanel"
 namespace = "/OpenWA"
 size = 0x3D4
@@ -1562,12 +1556,6 @@ name = "PaletteContext"
 namespace = "/OpenWA"
 size = 0x70C
 rust_path = "openwa_game::render::palette::PaletteContext"
-
-[[struct]]
-name = "GfxDir"
-namespace = "/OpenWA"
-size = 0x19C
-rust_path = "openwa_game::asset::gfx_dir::GfxDir"
 
 [[struct]]
 name = "GfxDirStream"
