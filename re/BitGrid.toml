@@ -13,16 +13,31 @@ name = "BitGrid__PutPixel"
 [[function]]
 va = 0x004F6370
 name = "BitGrid__Init"
-calling_convention = "__fastcall"
+calling_convention = "__stdcall"
 custom_storage = true
 
   [function.signature]
-  returns = "void"
+  returns = "BitGrid *"
+
+  [[function.param]]
+  name = "bit_grid"
+  type = "BitGrid *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "cells_per_unit"
+  type = "uint"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "height"
+  type = "uint"
+  storage = "EDI"
 
   [[function.param]]
   name = "width"
-  type = "int"
-  storage = "ECX"
+  type = "uint"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x004F6590

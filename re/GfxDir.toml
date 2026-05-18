@@ -1,10 +1,35 @@
 [[function]]
 va = 0x005663E0
 name = "GfxDir__LoadDir"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "handler"
+  type = "void *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00566520
 name = "GfxDir__FindEntry"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "name"
+  type = "char *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "gfx_dir"
+  type = "GfxDir *"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x005666D0

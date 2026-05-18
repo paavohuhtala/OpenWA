@@ -1,3 +1,18 @@
 [[function]]
 va = 0x00541060
 name = "RingBuffer__Init"
+calling_convention = "__cdecl"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "struct_ptr"
+  type = "void *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "capacity"
+  type = "uint"
+  storage = "EAX"

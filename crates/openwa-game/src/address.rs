@@ -28,7 +28,6 @@ pub mod va {
     // =========================================================================
 
     // Re-exported from entity modules
-    pub use crate::engine::entity_activity_queue::ENTITY_ACTIVITY_QUEUE_INIT;
     pub use crate::entity::base::{
         AIRSTRIKE_ENTITY_CTOR, ARROW_ENTITY_CTOR, BASE_ENTITY_CONSTRUCTOR, BASE_ENTITY_VT0_INIT,
         BASE_ENTITY_VT1_FREE, BASE_ENTITY_VT2_HANDLE_MESSAGE, BASE_ENTITY_VT3, BASE_ENTITY_VT5,
@@ -78,8 +77,8 @@ pub mod va {
         STREAMING_AUDIO_RESET, STREAMING_AUDIO_STOP, STREAMING_AUDIO_TIMER_CALLBACK,
     };
     pub use crate::bitgrid::{
-        BIT_GRID_BASE_VTABLE, BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BIT_GRID_INIT,
-        BLIT_SPRITE_RECT, BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable,
+        BIT_GRID_BASE_VTABLE, BIT_GRID_COLLISION_VTABLE, BIT_GRID_DISPLAY_VTABLE, BLIT_SPRITE_RECT,
+        BitGridBaseVtable, BitGridCollisionVtable, BitGridDisplayVtable,
         DISPLAY_BIT_GRID_SET_EXTERNAL_BUFFER, DRAW_LINE_CLIPPED, DRAW_LINE_TWO_COLOR,
     };
     pub use crate::engine::fire_effect::{FIRE_EFFECT_VTABLE, FireEffectVtable};
@@ -267,10 +266,6 @@ pub mod va {
             ctor/Stdcall CONSTRUCT_GAME_WORLD = 0x0056E220;
             /// GameWorld::InitGameState — stdcall(this=GameRuntime*), RET 0x4
             fn/Stdcall GAME_WORLD_INIT_GAME_STATE = 0x00526500;
-            /// GameWorld__InitFields
-            fn GAME_WORLD_INIT_FIELDS = 0x00526120;
-            /// GameWorld__InitRenderIndices — usercall(ESI=world), plain RET
-            fn/Usercall GAME_WORLD_INIT_RENDER_INDICES = 0x00526080;
             /// GameWorld__InitVersionFlags — stdcall(runtime)
             fn/Stdcall GAME_WORLD_INIT_VERSION_FLAGS = 0x00525BE0;
             /// GameWorld__LoadFonts — loads .fnt font resources into the display.
@@ -285,10 +280,6 @@ pub mod va {
             fn/Stdcall GAME_WORLD_INIT_FEATURE_FLAGS = 0x00524700;
             /// GameWorld__InitDisplayFinal
             fn GAME_WORLD_INIT_DISPLAY_FINAL = 0x0056A830;
-            /// GameWorld__IsSuperWeapon
-            fn/Usercall IS_SUPER_WEAPON = 0x00565960;
-            /// GameWorld__CheckWeaponAvail
-            fn/Fastcall CHECK_WEAPON_AVAIL = 0x0053FFC0;
         }
 
         class "Landscape" {
@@ -375,10 +366,6 @@ pub mod va {
             vtable GFX_DIR_VTABLE = 0x0066B280;
             /// GfxHandler load sprites
             fn GFX_DIR_LOAD_SPRITES = 0x00570B50;
-            /// GfxDir load directory
-            fn GFX_DIR_LOAD_DIR = 0x005663E0;
-            /// GfxDir find entry
-            fn GFX_DIR_FIND_ENTRY = 0x00566520;
             /// GfxDir load image
             fn GFX_DIR_LOAD_IMAGE = 0x005666D0;
         }
@@ -795,16 +782,6 @@ pub mod va {
         fn OPENGL_INIT = 0x0059F000;
         /// IMG__LoadFromDir: look up + decode IMG resource from a .dir archive
         fn IMG_LOAD_FROM_DIR = 0x004F6300;
-        /// RingBuffer__Init
-        fn/Usercall RING_BUFFER_INIT = 0x00541060;
-        /// WorldEntity__InitTeamScoring
-        fn/Fastcall INIT_TEAM_SCORING = 0x00528510;
-        /// WorldEntity__InitAllianceData
-        fn/Usercall INIT_ALLIANCE_DATA = 0x005262D0;
-        /// WorldEntity__InitTurnState
-        fn/Usercall INIT_TURN_STATE = 0x00528690;
-        /// InitLandscapeBorders — applies the scheme cavern flag to the landscape.
-        fn/Usercall INIT_LANDSCAPE_BORDERS = 0x00528480;
         /// GameWorld__InitTeamsFromSetup
         fn/Stdcall INIT_TEAMS_FROM_SETUP = 0x005220B0;
         /// TeamManager constructor
@@ -823,8 +800,6 @@ pub mod va {
         fn/Stdcall SPRITE_REGION_CONSTRUCTOR = 0x0057DB20;
         /// `DD_Game__clear_screens` (per WA.txt). Usercall with `EAX = GameRuntime*`.
         fn DD_GAME_CLEAR_SCREENS = 0x00570A90;
-        /// `GameWorld__InitDisplayLayerColors`. Usercall with `ESI = wrapper`.
-        fn GAME_WORLD_INIT_DISPLAY_LAYER_COLORS = 0x00570E20;
         /// IMG_Decode
         fn/Stdcall IMG_DECODE = 0x004F5F80;
         /// `WormEntity::DrawAttachedRope` (0x00500720). Draws the segmented

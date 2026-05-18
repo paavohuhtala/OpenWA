@@ -5,3 +5,23 @@ name = "IMG__DecodeCached"
 [[function]]
 va = 0x004F6300
 name = "IMG__LoadFromDir"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "gfx_dir"
+  type = "GfxDir *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "name"
+  type = "char *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "output"
+  type = "void *"
+  storage = "stack:0x4"

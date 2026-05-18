@@ -1,0 +1,62 @@
+# MinHook entries for the GameWorld constructor sub-function subsystem.
+
+[[hook]]
+wa_function = "GameWorld__InitFields"
+rust_impl = "crate::replacements::world_init::impl_init_fields"
+
+[[hook]]
+wa_function = "GameWorld__InitRenderIndices"
+rust_impl = "crate::replacements::world_init::impl_init_render_indices"
+
+[[hook]]
+wa_function = "BitGrid__Init"
+rust_impl = "crate::replacements::world_init::impl_bitgrid_init"
+
+[[hook]]
+wa_function = "IMG__LoadFromDir"
+rust_impl = "crate::replacements::world_init::impl_img_load_from_dir"
+
+[[hook]]
+wa_function = "GameWorld__InitDisplayLayerColors"
+rust_impl = "crate::replacements::world_init::impl_display_layer_init"
+
+[[hook]]
+wa_function = "GfxDir__FindEntry"
+rust_impl = "crate::replacements::world_init::impl_find_entry"
+
+[[hook]]
+wa_function = "GfxDir__LoadDir"
+rust_impl = "crate::replacements::world_init::impl_load_dir"
+
+[[hook]]
+wa_function = "EntityActivityQueue__Init"
+rust_impl = "crate::replacements::world_init::impl_entity_activity_queue_init"
+
+[[hook]]
+wa_function = "RingBuffer__Init"
+rust_impl = "crate::replacements::world_init::impl_ring_buffer_init"
+
+[[hook]]
+wa_function = "WorldEntity__InitTeamScoring"
+rust_impl = "crate::replacements::world_init::impl_init_team_scoring"
+
+[[hook]]
+wa_function = "WorldEntity__InitAllianceData"
+rust_impl = "crate::replacements::world_init::impl_init_alliance_data"
+
+[[hook]]
+wa_function = "WorldEntity__InitTurnState"
+rust_impl = "crate::replacements::world_init::impl_init_turn_state"
+
+[[hook]]
+wa_function = "GameWorld__CheckWeaponAvail"
+rust_impl = "crate::replacements::world_init::impl_check_weapon_avail"
+
+[[hook]]
+wa_function = "InitLandscapeBorders"
+rust_impl = "crate::replacements::world_init::impl_init_landscape_borders"
+
+[[hook]]
+wa_function = "Weapon__is_super_weapon"
+rust_impl = "crate::replacements::world_init::impl_is_super_weapon"
+preserve_registers = ["ecx"]

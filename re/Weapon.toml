@@ -9,6 +9,21 @@ name = "Weapon__is_fire"
 [[function]]
 va = 0x00565960
 name = "Weapon__is_super_weapon"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "weapon_id"
+  type = "uint"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "select_worm_is_super_weapon"
+  type = "uint"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x005659D0

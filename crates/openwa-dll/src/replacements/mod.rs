@@ -29,7 +29,7 @@ pub(crate) mod team;
 mod trace_desync;
 pub(crate) mod weapon;
 mod weapon_release;
-mod world_init;
+pub(crate) mod world_init;
 
 /// Write gameplay milestone report and clean up. Called from DLL_PROCESS_DETACH.
 pub fn write_gameplay_report() {

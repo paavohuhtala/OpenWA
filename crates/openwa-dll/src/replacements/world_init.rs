@@ -1,20 +1,15 @@
 //! Rust replacements for GameWorld constructor sub-functions.
 //!
 //! Each function is hooked individually so it works regardless of whether the
-//! GameWorld constructor itself is Rust or the original WA code.
-//!
-//! ## Ported functions
-//!
-//! - `GameWorld__InitFields` (0x526120): usercall(EDI=world), plain RET → EAX=world
-//! - `GameWorld__InitRenderIndices` (0x526080): usercall(ESI=base), plain RET → EAX=base
-//! - `BitGrid__Init` (0x4F6370): usercall(ESI,ECX,EDI) + 1 stack, RET 0x4
-//! - `IMG__LoadFromDir` (0x4F6300): usercall(ECX,EAX) + 1 stack, RET 0x4
-//! - `GameWorld__InitDisplayLayerColors` (0x570E20): usercall(ESI=wrapper), plain RET
+//! GameWorld constructor itself is Rust or the original WA code. Hook
+//! installation is driven by `crates/openwa-dll/hooks/world_init.toml` joined
+//! against `re/**/*.toml`; the codegen emits typed signature guards, naked
+//! trampolines (for `custom_storage`), and `install_*` helpers in
+//! `crate::generated::hooks`.
 
-use crate::hook;
-use core::ffi::c_char;
+use core::ffi::{c_char, c_void};
+
 use openwa_core::weapon::WeaponId;
-use openwa_game::address::va;
 use openwa_game::asset::gfx_dir::{
     GfxDir, gfx_dir_find_entry, gfx_dir_load_dir, img_load_from_dir,
 };
@@ -29,335 +24,152 @@ use openwa_game::engine::{
 use openwa_game::game::{check_weapon_avail, is_super_weapon};
 use openwa_game::render::landscape::init_landscape_borders;
 
-// ─── GameWorld__InitFields (0x526120) ──────────────────────────────────────────
+// ─── GameWorld__InitFields (0x526120): usercall(EDI=world), plain RET → EAX=world ──
 
-hook::usercall_trampoline!(
-    fn init_fields_trampoline;
-    impl_fn = impl_init_fields;
-    reg = edi
-);
-
-extern "cdecl" fn impl_init_fields(world: *mut GameWorld) -> *mut GameWorld {
+pub(crate) unsafe extern "cdecl" fn impl_init_fields(world: *mut GameWorld) -> *mut GameWorld {
     unsafe { game_world_init_fields(world) }
-    world // Original: MOV EAX, EDI; RET
+    world
 }
 
-// ─── GameWorld__InitRenderIndices (0x526080) ───────────────────────────────────
+// ─── GameWorld__InitRenderIndices (0x526080): usercall(ESI=base), plain RET → EAX=base ──
 
-hook::usercall_trampoline!(
-    fn init_render_indices_trampoline;
-    impl_fn = impl_init_render_indices;
-    reg = esi
-);
-
-extern "cdecl" fn impl_init_render_indices(base: u32) -> u32 {
-    // ESI = world + 0x72D8; recover the GameWorld pointer
+pub(crate) unsafe extern "cdecl" fn impl_init_render_indices(base: u32) -> u32 {
+    // ESI = world + 0x72D8; recover the GameWorld pointer.
     let world = (base - 0x72D8) as *mut GameWorld;
     unsafe { game_world_init_render_indices(world) }
-    base // Original: MOV EAX, ESI; RET
+    base
 }
 
-// ─── BitGrid__Init (0x4F6370) ──────────────────────────────────────
+// ─── BitGrid__Init (0x4F6370): usercall(ESI=grid, ECX=cells, EDI=height) + stack(width), RET 0x4 ──
 
-extern "cdecl" fn impl_bitgrid_init(
+pub(crate) unsafe extern "cdecl" fn impl_bitgrid_init(
     bit_grid: *mut BitGrid,
     cells_per_unit: u32,
     height: u32,
     width: u32,
 ) -> *mut BitGrid {
     unsafe { BitGrid::init(bit_grid, cells_per_unit, width, height) }
-    bit_grid // Original: MOV EAX, ESI; RET 0x4
+    bit_grid
 }
 
-#[unsafe(naked)]
-unsafe extern "C" fn bitgrid_init_trampoline() {
-    core::arch::naked_asm!(
-        "push edx",
-        "push [esp+8]",       // width (stack param)
-        "push edi",           // height
-        "push ecx",           // param1
-        "push esi",           // object
-        "call {impl_fn}",
-        "add esp, 16",
-        "pop edx",
-        "ret 0x4",
-        impl_fn = sym impl_bitgrid_init,
-    );
-}
+// ─── GameWorld__InitDisplayLayerColors (0x570E20): usercall(ESI=runtime), plain RET ──
 
-// ─── GameWorld__InitDisplayLayerColors (0x570E20) ───────────────────────────
-
-hook::usercall_trampoline!(
-    fn display_layer_init_trampoline;
-    impl_fn = impl_display_layer_init;
-    reg = esi
-);
-
-extern "cdecl" fn impl_display_layer_init(runtime: *mut GameRuntime) -> *mut GameRuntime {
+pub(crate) unsafe extern "cdecl" fn impl_display_layer_init(
+    runtime: *mut GameRuntime,
+) -> *mut GameRuntime {
     unsafe { display_layer_color_init(runtime) }
     runtime
 }
 
-// ─── IMG__LoadFromDir (0x4F6300) ───────────────────────────────────
+// ─── IMG__LoadFromDir (0x4F6300): usercall(ECX=gfx_dir, EAX=name) + stack(output), RET 0x4 ──
 
-extern "cdecl" fn impl_img_load_from_dir(
+pub(crate) unsafe extern "cdecl" fn impl_img_load_from_dir(
     gfx_dir: *mut GfxDir,
-    name: *const c_char,
-    output: *mut u8,
+    name: *mut c_char,
+    output: *mut c_void,
 ) -> u32 {
     // The trampoline catches an opaque stack pointer; the underlying
     // WA caller always passes a `PaletteContext*` (verified at all known
     // call sites — `set_active_layer`'s return value).
     let output = output as *mut openwa_game::render::palette::PaletteContext;
-    let result = unsafe { img_load_from_dir(gfx_dir, name, output) };
-    result as u32
+    unsafe { img_load_from_dir(gfx_dir, name as *const c_char, output) as u32 }
 }
 
-hook::usercall_trampoline!(
-    fn img_load_from_dir_trampoline;
-    impl_fn = impl_img_load_from_dir;
-    regs = [ecx, eax];
-    stack_params = 1; ret_bytes = "0x4"
-);
+// ─── GfxDir__FindEntry (0x566520): usercall(EAX=name) + stack(gfx_dir), RET 0x4 ──
 
-// ─── GfxDir__FindEntry (0x566520) ────────────────────────────────────────────
-//
-// Convention: usercall(EAX=name) + 1 stack(gfx_dir), RET 0x4.
-
-hook::usercall_trampoline!(
-    fn find_entry_trampoline;
-    impl_fn = impl_find_entry;
-    reg = eax;
-    stack_params = 1; ret_bytes = "0x4"
-);
-
-extern "cdecl" fn impl_find_entry(name: *const c_char, gfx_dir: *mut GfxDir) -> u32 {
-    unsafe { gfx_dir_find_entry(name, gfx_dir) as u32 }
+pub(crate) unsafe extern "cdecl" fn impl_find_entry(
+    name: *mut c_char,
+    gfx_dir: *mut GfxDir,
+) -> u32 {
+    unsafe { gfx_dir_find_entry(name as *const c_char, gfx_dir) as u32 }
 }
 
-// ─── GfxHandler__LoadDir (0x5663E0) ──────────────────────────────────────────
-//
-// Convention: usercall(EAX=handler), plain RET. Returns 1/0.
+// ─── GfxDir__LoadDir (0x5663E0): usercall(EAX=handler), plain RET. Returns 1/0. ──
 
-hook::usercall_trampoline!(
-    fn load_dir_trampoline;
-    impl_fn = impl_load_dir;
-    reg = eax
-);
-
-extern "cdecl" fn impl_load_dir(handler: u32) -> u32 {
+pub(crate) unsafe extern "cdecl" fn impl_load_dir(handler: *mut c_void) -> u32 {
     unsafe { gfx_dir_load_dir(handler as *mut u8) as u32 }
+}
+
+// ─── EntityActivityQueue__Init (0x541620): fastcall(ECX=this, EDX=capacity), plain RET ──
+
+pub(crate) unsafe extern "fastcall" fn impl_entity_activity_queue_init(
+    this: *mut EntityActivityQueue,
+    capacity: u32,
+) {
+    unsafe { EntityActivityQueue::init(this, capacity) }
+}
+
+// ─── RingBuffer__Init (0x541060): usercall(EAX=capacity, ESI=struct_ptr), plain RET ──
+
+pub(crate) unsafe extern "cdecl" fn impl_ring_buffer_init(struct_ptr: *mut c_void, capacity: u32) {
+    unsafe { ring_buffer_init(struct_ptr as *mut u8, capacity) }
+}
+
+// ─── WorldEntity__InitTeamScoring (0x528510): fastcall(ECX=runtime), plain RET ──
+
+pub(crate) unsafe extern "fastcall" fn impl_init_team_scoring(runtime: *mut GameRuntime) {
+    unsafe { init_team_scoring(runtime) }
+}
+
+// ─── WorldEntity__InitAllianceData (0x5262D0): usercall(EAX=runtime), plain RET ──
+
+pub(crate) unsafe extern "cdecl" fn impl_init_alliance_data(runtime: *mut GameRuntime) {
+    unsafe { init_alliance_data(runtime) }
+}
+
+// ─── WorldEntity__InitTurnState (0x528690): usercall(EAX=runtime), plain RET ──
+
+pub(crate) unsafe extern "cdecl" fn impl_init_turn_state(runtime: *mut GameRuntime) {
+    unsafe { init_turn_state(runtime) }
+}
+
+// ─── GameWorld__CheckWeaponAvail (0x53FFC0): usercall(ECX=world, ESI=weapon_id), plain RET ──
+
+pub(crate) unsafe extern "cdecl" fn impl_check_weapon_avail(
+    world: *mut GameWorld,
+    weapon_id: u32,
+) -> i32 {
+    unsafe { check_weapon_avail(world, WeaponId(weapon_id)) }
+}
+
+// ─── InitLandscapeBorders (0x528480): usercall(EAX=runtime), plain RET ──
+
+pub(crate) unsafe extern "cdecl" fn impl_init_landscape_borders(runtime: *mut GameRuntime) {
+    unsafe { init_landscape_borders(runtime) }
+}
+
+// ─── Weapon__is_super_weapon (0x565960): usercall(EAX=weapon_id) + stack(select_worm), RET 0x4 ──
+//
+// Preserves ECX across the cdecl impl call (callers can rely on it staying
+// intact even though the ABI says caller-saved).
+
+pub(crate) unsafe extern "cdecl" fn impl_is_super_weapon(
+    weapon_id: u32,
+    select_worm_is_super_weapon: u32,
+) -> u32 {
+    is_super_weapon(WeaponId(weapon_id), select_worm_is_super_weapon != 0) as u32
 }
 
 // ─── Hook installation ──────────────────────────────────────────────────────
 
 pub fn install() -> Result<(), String> {
     unsafe {
-        hook::install(
-            "GameWorld__InitFields",
-            va::GAME_WORLD_INIT_FIELDS,
-            init_fields_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "GameWorld__InitRenderIndices",
-            va::GAME_WORLD_INIT_RENDER_INDICES,
-            init_render_indices_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "BitGrid__Init",
-            va::BIT_GRID_INIT,
-            bitgrid_init_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "IMG__LoadFromDir",
-            va::IMG_LOAD_FROM_DIR,
-            img_load_from_dir_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "GameWorld__InitDisplayLayerColors",
-            va::GAME_WORLD_INIT_DISPLAY_LAYER_COLORS,
-            display_layer_init_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "GfxDir__FindEntry",
-            va::GFX_DIR_FIND_ENTRY,
-            find_entry_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "GfxHandler__LoadDir",
-            va::GFX_DIR_LOAD_DIR,
-            load_dir_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "EntityActivityQueue__Init",
-            va::ENTITY_ACTIVITY_QUEUE_INIT,
-            entity_activity_queue_init_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "RingBuffer__Init",
-            va::RING_BUFFER_INIT,
-            ring_buffer_init_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "WorldEntity__InitTeamScoring",
-            va::INIT_TEAM_SCORING,
-            init_team_scoring_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "WorldEntity__InitAllianceData",
-            va::INIT_ALLIANCE_DATA,
-            init_alliance_data_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "WorldEntity__InitTurnState",
-            va::INIT_TURN_STATE,
-            init_turn_state_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "GameWorld__CheckWeaponAvail",
-            va::CHECK_WEAPON_AVAIL,
-            check_weapon_avail_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "InitLandscapeBorders",
-            va::INIT_LANDSCAPE_BORDERS,
-            init_landscape_borders_trampoline as *const (),
-        )?;
-
-        hook::install(
-            "GameWorld__IsSuperWeapon",
-            va::IS_SUPER_WEAPON,
-            is_super_weapon_trampoline as *const (),
-        )?;
+        crate::generated::hooks::install_GameWorld__InitFields()?;
+        crate::generated::hooks::install_GameWorld__InitRenderIndices()?;
+        crate::generated::hooks::install_BitGrid__Init()?;
+        crate::generated::hooks::install_IMG__LoadFromDir()?;
+        crate::generated::hooks::install_GameWorld__InitDisplayLayerColors()?;
+        crate::generated::hooks::install_GfxDir__FindEntry()?;
+        crate::generated::hooks::install_GfxDir__LoadDir()?;
+        crate::generated::hooks::install_EntityActivityQueue__Init()?;
+        crate::generated::hooks::install_RingBuffer__Init()?;
+        crate::generated::hooks::install_WorldEntity__InitTeamScoring()?;
+        crate::generated::hooks::install_WorldEntity__InitAllianceData()?;
+        crate::generated::hooks::install_WorldEntity__InitTurnState()?;
+        crate::generated::hooks::install_GameWorld__CheckWeaponAvail()?;
+        crate::generated::hooks::install_InitLandscapeBorders()?;
+        crate::generated::hooks::install_Weapon__is_super_weapon()?;
     }
 
     Ok(())
-}
-
-// ─── EntityActivityQueue__Init (0x541620) ───────────────────────────────────
-// Convention: fastcall(ECX=this, EDX=capacity), plain RET. Was misnamed
-// `SpriteGfxTable__Init` prior to identification of the queue's actual role.
-
-unsafe extern "fastcall" fn entity_activity_queue_init_trampoline(
-    this: *mut EntityActivityQueue,
-    capacity: u32,
-) {
-    unsafe {
-        EntityActivityQueue::init(this, capacity);
-    }
-}
-
-// ─── RingBuffer__Init (0x541060) ────────────────────────────────────────────
-// Convention: usercall(EAX=capacity, ESI=struct_ptr), plain RET.
-
-extern "cdecl" fn impl_ring_buffer_init(struct_ptr: u32, capacity: u32) {
-    unsafe { ring_buffer_init(struct_ptr as *mut u8, capacity) }
-}
-
-hook::usercall_trampoline!(
-    fn ring_buffer_init_trampoline;
-    impl_fn = impl_ring_buffer_init;
-    regs = [esi, eax]
-);
-
-// ─── WorldEntity__InitTeamScoring (0x528510) ──────────────────────────────────
-// Convention: fastcall(ECX=wrapper), plain RET.
-
-unsafe extern "fastcall" fn init_team_scoring_trampoline(runtime: *mut GameRuntime, _edx: u32) {
-    unsafe {
-        init_team_scoring(runtime);
-    }
-}
-
-// ─── WorldEntity__InitAllianceData (0x5262D0) ─────────────────────────────────
-// Convention: usercall(EAX=wrapper), plain RET.
-
-extern "cdecl" fn impl_init_alliance_data(runtime: *mut GameRuntime) {
-    unsafe { init_alliance_data(runtime) }
-}
-
-hook::usercall_trampoline!(
-    fn init_alliance_data_trampoline;
-    impl_fn = impl_init_alliance_data;
-    reg = eax
-);
-
-// ─── WorldEntity__InitTurnState (0x528690) ────────────────────────────────────
-// Convention: usercall(EAX=wrapper), plain RET.
-
-extern "cdecl" fn impl_init_turn_state(runtime: *mut GameRuntime) {
-    unsafe { init_turn_state(runtime) }
-}
-
-hook::usercall_trampoline!(
-    fn init_turn_state_trampoline;
-    impl_fn = impl_init_turn_state;
-    reg = eax
-);
-
-// ─── GameWorld__CheckWeaponAvail (0x53FFC0) ────────────────────────────────────
-// Convention: fastcall(ECX=world) + unaff_ESI=weapon_index, plain RET.
-// Returns i32 in EAX.
-
-extern "cdecl" fn impl_check_weapon_avail(world: *mut GameWorld, weapon_id: WeaponId) -> i32 {
-    unsafe { check_weapon_avail(world, weapon_id) }
-}
-
-hook::usercall_trampoline!(
-    fn check_weapon_avail_trampoline;
-    impl_fn = impl_check_weapon_avail;
-    regs = [ecx, esi]
-);
-
-// ─── InitLandscapeBorders (0x528480) ────────────────────────────────────────
-// Convention: usercall(EAX=wrapper), plain RET.
-
-extern "cdecl" fn impl_init_landscape_borders(runtime: *mut GameRuntime) {
-    unsafe { init_landscape_borders(runtime) }
-}
-
-hook::usercall_trampoline!(
-    fn init_landscape_borders_trampoline;
-    impl_fn = impl_init_landscape_borders;
-    reg = eax
-);
-
-// ─── GameWorld__IsSuperWeapon (0x565960) ───────────────────────────────────────
-// Convention: usercall(EAX=weapon_index) + 1 stack param (param_1: u8), plain RET.
-// Returns u8 in AL.
-
-extern "cdecl" fn impl_is_super_weapon(
-    weapon_id: WeaponId,
-    select_worm_is_super_weapon: u32,
-) -> u32 {
-    is_super_weapon(weapon_id, select_worm_is_super_weapon != 0) as u32
-}
-
-#[unsafe(naked)]
-unsafe extern "C" fn is_super_weapon_trampoline() {
-    core::arch::naked_asm!(
-        "push ecx",
-        "push edx",
-        "push [esp+12]",  // stack param_1 (shifted by push ecx + push edx)
-        "push eax",        // weapon_index (EAX)
-        "call {impl_fn}",
-        "add esp, 8",
-        "pop edx",
-        "pop ecx",
-        "ret 0x4",         // callee cleans 1 stack param
-        impl_fn = sym impl_is_super_weapon,
-    );
 }
