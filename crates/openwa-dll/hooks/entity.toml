@@ -1,0 +1,9 @@
+# MinHook entries for entity-related usercall hooks.
+
+[[hook]]
+wa_function = "WorldEntity__TryMovePosition"
+rust_impl = "crate::replacements::entity::try_move_position::try_move_position_impl"
+
+[[hook]]
+wa_function = "WormEntity__CanIdleSound"
+rust_impl = "openwa_game::entity::worm::worm_can_idle_sound_impl"
