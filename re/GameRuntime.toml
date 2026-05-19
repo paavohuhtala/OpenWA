@@ -248,6 +248,21 @@ Internal flow: calls three sub-predicates (FUN_0052d830 / FUN_0052d920 / FUN_005
 [[function]]
 va = 0x0052E880
 name = "GameRuntime__PeerInputQueueScan"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "byte"
+
+  [[function.param]]
+  name = "this"
+  type = "GameRuntime *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "peer_idx"
+  type = "uint"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x0052F770
@@ -261,19 +276,57 @@ name = "GameRuntime__ShouldInterpolate_OfflineTail"
 [[function]]
 va = 0x00530F80
 name = "GameRuntime__DispatchInputMsg"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "buf"
+  type = "byte *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "runtime"
+  type = "GameRuntime *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "msg_type"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "size"
+  type = "uint"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x005336E0
 name = "GameRuntime__DrawAwayOverlay"
+calling_convention = "__stdcall"
+custom_storage = true
 plate_comment = """
 Headful-only "GAME AWAY" / "GAME OVER" overlay drawer. Called by `GameRender_Maybe` (0x00533DC0) inside the post-RQ-dispatch viewport-frame block when the active gameplay state requires the modal overlay.
 
 Loads localization strings (GAME_AWAY at id 0x6D8, alternate at 0x6D9) via `WA__LoadStringResource` against the active LocalizationData_Primary/Secondary. Draws via `BitGrid::BlitSpriteRect` (5 calls) + `FUN_004F66E0/004F67F0/004F68A0` (clipped fill helpers) + `display.draw_scaled_sprite` (slot 20). Final `set_clip_rect` + `set_camera_offset` + `draw_line_clipped` (slot 14) call gated on `runtime._field_414 != 0 || _field_3fc == 0x10000` (HUD layout active OR turn-timer fully slewn).
 
-usercall: EDI = GameRuntime*, EAX = some animation parameter (the y-anchor passed in from `GameRender_Maybe`'s viewport-frame setup). Plain RET.
-
 To port: needs LocalizationData typing, sprite/font ID enums, and the BitGrid::BlitSpriteRect typed wrapper. Bigger than it looks — leave bridged for now.
 """
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "GameRuntime *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "top_y"
+  type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x005344B0
@@ -532,10 +585,14 @@ va = 0x0053DF00
 name = "GameRuntime__ProcessNetworkFrame"
 calling_convention = "__stdcall"
 custom_storage = true
-plate_comment = "usercall: ESI = GameRuntime* this. 4 stdcall stack params, RET 0x10."
 
   [function.signature]
   returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "GameRuntime *"
+  storage = "ESI"
 
   [[function.param]]
   name = "time_lo"

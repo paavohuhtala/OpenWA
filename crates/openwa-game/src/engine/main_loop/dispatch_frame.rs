@@ -30,84 +30,23 @@ use crate::rebase::rb;
 use crate::render::display::gfx::DisplayGfx;
 
 // ─── Runtime addresses ─────────────────────────────────────────────────────
-//
-// All sub-functions use `usercall(EAX=this)` or `usercall(ESI=this)` where
-// `this` is `*mut GameRuntime`. The bridges below set the appropriate
-// register, then `JMP`/`CALL` the target. `RET imm16` on each target cleans
-// the remaining stdcall params.
 
-static mut PEER_INPUT_QUEUE_SCAN_ADDR: u32 = 0;
 static mut SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR: u32 = 0;
-static mut PROCESS_NETWORK_FRAME_ADDR: u32 = 0;
-static mut HUD_DRAW_TEAM_LABELS_ADDR: u32 = 0;
 
 /// Initialize all bridge addresses. Must be called once at DLL load.
 pub unsafe fn init_dispatch_addrs() {
     unsafe {
-        PEER_INPUT_QUEUE_SCAN_ADDR = rb(va::GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN);
         SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR = rb(va::GAME_RUNTIME_SHOULD_INTERPOLATE_OFFLINE_TAIL);
-        PROCESS_NETWORK_FRAME_ADDR = rb(va::GAME_RUNTIME_PROCESS_NETWORK_FRAME);
-        HUD_DRAW_TEAM_LABELS_ADDR = rb(va::HUD_DRAW_TEAM_LABELS_MAYBE);
         crate::wa::localized_string_cache::init_addrs();
         crate::wa::sprintf_rotating::init_addrs();
-        super::esc_menu::init_addrs();
         super::render_frame::init_addrs();
         super::step_frame::init_step_frame_addrs();
         crate::engine::log_sink::init_log_sink_addrs();
-        crate::engine::net_session::init_addrs();
         crate::bitgrid::bitmap::init_addrs();
     }
 }
 
 // ─── Bridge helpers ────────────────────────────────────────────────────────
-
-/// Bridge for usercall(EAX=this), no stack params, plain RET.
-macro_rules! bridge_eax_this {
-    ($name:ident, $addr:expr_2021, $ret:ty) => {
-        #[unsafe(naked)]
-        unsafe extern "stdcall" fn $name(_this: *mut GameRuntime) -> $ret {
-            core::arch::naked_asm!(
-                "popl %ecx",
-                "popl %eax",
-                "pushl %ecx",
-                "jmpl *({fn})",
-                fn = sym $addr,
-                options(att_syntax),
-            );
-        }
-    };
-}
-
-/// Bridge for usercall(EAX=this) + N stdcall stack params.
-macro_rules! bridge_eax_this_stdcall {
-    ($name:ident, $addr:expr_2021, ($($param:ty),+) -> $ret:ty) => {
-        #[unsafe(naked)]
-        unsafe extern "stdcall" fn $name(_this: *mut GameRuntime, $(_: $param),+) -> $ret {
-            core::arch::naked_asm!(
-                "popl %ecx",
-                "popl %eax",
-                "pushl %ecx",
-                "jmpl *({fn})",
-                fn = sym $addr,
-                options(att_syntax),
-            );
-        }
-    };
-}
-
-// Bridge for `GameRuntime__PeerInputQueueScan` (0x0052E880).
-// Usercall EAX=this + 1 stdcall stack param (peer_idx), RET 0x4. Returns
-// nonzero in AL if any non-trivial message type is pending in the per-peer
-// input queue.
-//
-// Still bridged — its own callee `NetSession__PeerInputQueuePop`
-// (0x0053E300) would require further bridging, and this whole code path is
-// network-only, so headless replay tests don't exercise it.
-bridge_eax_this_stdcall!(
-    bridge_peer_input_queue_scan,
-    PEER_INPUT_QUEUE_SCAN_ADDR,
-    (u32) -> u8
-);
 
 /// Bridge for `GameRuntime__ShouldInterpolate_OfflineTail` (0x0052F9C0).
 /// Plain stdcall(runtime), RET 0x4. Tail callee of the offline
@@ -121,37 +60,6 @@ unsafe fn bridge_should_interpolate_offline_tail(runtime: *mut GameRuntime) -> u
             core::mem::transmute(SHOULD_INTERPOLATE_OFFLINE_TAIL_ADDR as usize);
         func(runtime)
     }
-}
-
-// ESI=this: ESI is LLVM-reserved on x86, so we can't pass it as an asm
-// operand. Naked bridges save/restore ESI manually and re-push params from
-// the incoming stack instead of routing through a Rust-side array (which
-// LLVM otherwise optimizes into garbage in release builds).
-
-bridge_eax_this!(bridge_hud_draw_team_labels, HUD_DRAW_TEAM_LABELS_ADDR, ());
-
-/// Bridge for GameRuntime__ProcessNetworkFrame (0x53DF00).
-/// Usercall: ESI=this, 4 stdcall params, RET 0x10.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_process_network_frame(
-    _this: *mut GameRuntime,
-    _p1: u32,
-    _p2: u32,
-    _p3: u32,
-    _p4: u32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+8]",
-        "push dword ptr [esp+0x18]",
-        "push dword ptr [esp+0x18]",
-        "push dword ptr [esp+0x18]",
-        "push dword ptr [esp+0x18]",
-        "call [{addr}]",
-        "pop esi",
-        "ret 20",
-        addr = sym PROCESS_NETWORK_FRAME_ADDR,
-    );
 }
 
 // ─── Public bridge wrappers ────────────────────────────────────────────────
@@ -472,7 +380,7 @@ unsafe fn should_interpolate_online(runtime: *mut GameRuntime) -> bool {
         }
 
         let peer_idx = arena.last_active_alliance as u32;
-        bridge_peer_input_queue_scan(runtime, peer_idx) == 0
+        wa_calls::GameRuntime::PeerInputQueueScan(runtime, peer_idx) == 0
     }
 }
 
@@ -750,7 +658,7 @@ unsafe fn frame_tail_update(runtime: *mut GameRuntime) {
             // `frames % 150`. Reproduce that with i32 arithmetic.
             let modulo_zero = (frames as i32) % 0x96 == 0;
             if modulo_zero || (*runtime).game_mode_flag != 0 {
-                bridge_hud_draw_team_labels(runtime);
+                wa_calls::Hud::DrawTeamLabels_Maybe(runtime);
                 (*runtime).game_mode_flag = 0;
             }
         }
@@ -1192,7 +1100,7 @@ pub unsafe fn dispatch_frame(runtime: *mut GameRuntime, time: u64, freq: u64) {
         let loop_elapsed = now.wrapping_sub((*runtime).last_frame_time);
 
         if !(*world).net_session.is_null() {
-            bridge_process_network_frame(
+            wa_calls::GameRuntime::ProcessNetworkFrame(
                 runtime,
                 time as u32,
                 (time >> 32) as u32,

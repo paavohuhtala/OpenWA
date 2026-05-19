@@ -146,19 +146,6 @@ pub mod va {
             fn/Usercall GAME_RUNTIME_CALC_TIMING_RATIO = 0x0052ABF0;
             /// GameRuntime__InitFrameDelay (usercall EAX=this, no stack params, plain RET)
             fn/Usercall GAME_RUNTIME_INIT_FRAME_DELAY = 0x0052CAF0;
-            /// `Hud__DrawTeamLabels_Maybe` (0x005332B0). Usercall EAX=this,
-            /// no stack params, plain RET. Big HUD-label drawing routine
-            /// (DrawText into `display_gfx_c`); called from
-            /// `frame_tail_update` once every 150 frames or when latched.
-            fn/Usercall HUD_DRAW_TEAM_LABELS_MAYBE = 0x005332B0;
-            /// `TeamIndexMap__RemoveHandle` (0x00526000). Usercall
-            /// Helper called from the online `ShouldInterpolate` path
-            /// (GameRuntime__PeerInputQueueScan). Scans the per-peer input-message queue for any
-            /// "gameplay-relevant" message type. Usercall EAX=this +
-            /// 1 stdcall stack param (peer_idx), RET 0x4. Still bridged;
-            /// its own callee (`NetSession__PeerInputQueuePop` input-queue-pop helper) is
-            /// also online-only and would require additional bridging.
-            fn/Usercall GAME_RUNTIME_PEER_INPUT_QUEUE_SCAN = 0x0052E880;
             /// Tail callee of `ShouldInterpolate_OfflineCheck` (GameRuntime__ShouldInterpolate_OfflineTail).
             /// Stdcall(runtime), RET 0x4. Large (~205 instructions, 51 basic
             /// blocks); still bridged as a plain stdcall call from the
@@ -206,8 +193,6 @@ pub mod va {
             /// the center of any item whose `kind == 0` (last one wins).
             /// Ported as `engine::menu_panel::center_cursor_on_first_kind_zero`.
             fn/Usercall MENU_PANEL_CENTER_CURSOR_ON_KIND_ZERO = 0x00540780;
-            /// GameRuntime__ProcessNetworkFrame (usercall EAX=this, 4 stack params, RET 0x10)
-            fn/Usercall GAME_RUNTIME_PROCESS_NETWORK_FRAME = 0x0053DF00;
             /// GameRuntime__IsReplayMode (usercall EAX=this, no stack params, plain RET)
             fn/Usercall GAME_RUNTIME_IS_REPLAY_MODE = 0x00537060;
             /// GameRuntime__PollInput — stdcall(runtime), plain RET. Polls keyboard/input each step.
@@ -239,9 +224,6 @@ pub mod va {
             /// BufferObject__ClassifyInputMsg — thiscall(ECX=render_buffer_a).
             /// Returns packed u64 (EDX:EAX): EAX=keep-going flag, EDX=msg subtype.
             fn/Thiscall BUFFER_OBJECT_CLASSIFY_INPUT_MSG = 0x00541100;
-            /// GameRuntime__DispatchInputMsg — usercall(EAX=local_buf) +
-            /// stdcall(wrapper, msg_type, payload_size), RET 0xC.
-            fn/Stdcall GAME_RUNTIME_DISPATCH_INPUT_MSG = 0x00530F80;
         }
 
         class "GameWorld" {
@@ -680,19 +662,11 @@ pub mod va {
         /// usercall(ECX = GameRuntime*), no stack args, plain RET.
         /// Ported in `engine::main_loop::render_frame::game_render`.
         fn/Thiscall GAME_RENDER = 0x00533DC0;
-        /// `GameRuntime__DrawAwayOverlay` — headful "GAME AWAY"/
-        /// "GAME OVER" overlay. usercall(EDI = runtime, [stack]=top_y).
-        /// RET 0x4. Bridged from render_frame.
-        fn/Usercall GAME_RUNTIME_DRAW_AWAY_OVERLAY = 0x005336E0;
         /// `ClipContext::ClampCameraToBounds` — per-frame "keep camera
         /// within scrollable area" clamp. usercall(EAX=viewport_w,
         /// ECX=max_y, stack=ctx,vh,min_x,min_y,max_x). RET 0x14.
         /// Ported in `render::queue_dispatch::clamp_camera_to_bounds`.
         fn/Usercall CLIP_CONTEXT_CLAMP_CAMERA_TO_BOUNDS = 0x00542F10;
-        /// `MenuPanel::Render` — per-frame incremental redraw of a panel's
-        /// canvas; returns `panel.display_a` (DisplayBitGrid*) for caller to
-        /// blit. usercall(EDI = MenuPanel*).
-        fn/Usercall MENU_PANEL_RENDER = 0x00540B00;
         /// `GameRuntime__RenderWaitingForPeersTextbox` (0x00534F20) —
         /// usercall(EAX=runtime), plain RET. Renders the network "PLEASE
         /// WAIT" textbox during the pre-round window when `game_state == 1`,

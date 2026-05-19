@@ -37,7 +37,7 @@ use crate::engine::game_info::GameInfo;
 use crate::engine::game_session::get_game_session;
 use crate::engine::game_state;
 use crate::engine::log_sink::LogOutput;
-use crate::engine::net_session::{NetSession, bridge_send_block};
+use crate::engine::net_session::NetSession;
 use crate::engine::runtime::GameRuntime;
 use crate::engine::world::GameWorld;
 use crate::entity::WorldRootEntity;
@@ -53,7 +53,6 @@ use crate::wa::string_resource::{StringRes, res, wa_load_string};
 static mut POLL_INPUT_ADDR: u32 = 0;
 static mut CLEAR_WORM_BUFFERS_ADDR: u32 = 0;
 static mut ADVANCE_WORM_FRAME_ADDR: u32 = 0;
-static mut DISPATCH_INPUT_MSG_ADDR: u32 = 0;
 
 /// Initialize bridge addresses. Called once at DLL load.
 pub unsafe fn init_step_frame_addrs() {
@@ -61,7 +60,6 @@ pub unsafe fn init_step_frame_addrs() {
         POLL_INPUT_ADDR = rb(va::GAME_RUNTIME_POLL_INPUT);
         CLEAR_WORM_BUFFERS_ADDR = rb(va::GAME_RUNTIME_CLEAR_WORM_BUFFERS);
         ADVANCE_WORM_FRAME_ADDR = rb(va::GAME_RUNTIME_ADVANCE_WORM_FRAME);
-        DISPATCH_INPUT_MSG_ADDR = rb(va::GAME_RUNTIME_DISPATCH_INPUT_MSG);
     }
 }
 
@@ -84,14 +82,12 @@ unsafe extern "stdcall" fn bridge_poll_input(runtime: *mut GameRuntime) {
 /// `runtime.ring_buffer_a` (a [`BufferObject`]) to empty, allocates a
 /// 12-byte slot in it carrying `[msg_type=0x0D, starting_team_index, 1]`,
 /// forwards the buffer through `net_session.submit_message_buffer`, calls
-/// the still-bridged [`bridge_send_block`] to flush it on the wire, and
+/// the still-bridged `GameNet::send_block` to flush it on the wire, and
 /// finally resets `net_session._field_1c` to 100.
 ///
 /// The `starting_team_index` byte read from `game_info+0xD9DC` is
 /// **sign-extended** (`MOVSX` in the original) before being written into
 /// the message body — preserving the WA quirk that the field is signed.
-///
-/// [`bridge_send_block`]: crate::engine::net_session::bridge_send_block
 pub(super) unsafe fn begin_network_game_end(runtime: *mut GameRuntime) {
     unsafe {
         let world = (*runtime).world;
@@ -123,7 +119,7 @@ pub(super) unsafe fn begin_network_game_end(runtime: *mut GameRuntime) {
         }
 
         ((*(*net).vtable).submit_message_buffer)(net, buffer);
-        bridge_send_block(net);
+        crate::generated::wa_calls::GameNet::send_block(net);
         (*net)._field_1c = 100;
     }
 }
@@ -257,27 +253,6 @@ unsafe extern "stdcall" fn bridge_advance_worm_frame(entity: *mut u8) {
             core::mem::transmute(ADVANCE_WORM_FRAME_ADDR as usize);
         func(entity);
     }
-}
-
-// ─── End-of-round log bridges ──────────────────────────────────────────────
-
-/// `GameRuntime__DispatchInputMsg` (0x00530F80). Usercall(EAX=local_buf) +
-/// stdcall(wrapper, msg_type, payload_size), RET 0xC.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_dispatch_input_msg(
-    _buf: *const u8,
-    _runtime: *mut GameRuntime,
-    _msg_type: u32,
-    _size: u32,
-) {
-    core::arch::naked_asm!(
-        "popl %ecx",
-        "popl %eax",
-        "pushl %ecx",
-        "jmpl *({fn})",
-        fn = sym DISPATCH_INPUT_MSG_ADDR,
-        options(att_syntax),
-    );
 }
 
 #[inline(always)]
@@ -700,7 +675,12 @@ unsafe fn input_queue_drain(runtime: *mut GameRuntime) {
 
             BufferObject::classify_input_msg_raw(render_buf as *mut BufferObject);
 
-            bridge_dispatch_input_msg(local_buf.as_ptr(), runtime, msg_type, payload_size);
+            crate::generated::wa_calls::GameRuntime::DispatchInputMsg(
+                local_buf.as_mut_ptr(),
+                runtime,
+                msg_type,
+                payload_size,
+            );
             if msg_type == 2 {
                 let world = (*runtime).world;
                 (*world).frame_counter = (*world).frame_counter.wrapping_add(1);

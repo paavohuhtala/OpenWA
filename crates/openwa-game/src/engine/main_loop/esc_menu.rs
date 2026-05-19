@@ -21,7 +21,6 @@ use core::ffi::c_char;
 
 use openwa_core::fixed::Fixed;
 
-use crate::address::va;
 use crate::audio::known_sound_id::KnownSoundId;
 use crate::audio::sound_id::SoundId;
 use crate::audio::sound_ops::dispatch_global_sound;
@@ -40,42 +39,11 @@ use crate::entity::WorldRootEntity;
 use crate::game::message::TurnEndMaybeMessage;
 use crate::input::keyboard::KeyboardAction;
 use crate::input::mouse::MouseInput;
-use crate::rebase::rb;
 use crate::render::display::font::TextMeasurement;
 use crate::render::display::gfx::DisplayGfx;
 use crate::render::display::vtable::{draw_text_on_bitmap, measure_text};
 use crate::render::sprite::sprite_op::SpriteOp;
 use crate::wa::string_resource::res;
-
-// ─── Bridged WA addresses ──────────────────────────────────────────────────
-
-static mut MENU_PANEL_RENDER_ADDR: u32 = 0;
-
-/// Initialize the ESC-menu bridge addresses. Called from
-/// `dispatch_frame::init_dispatch_addrs` at DLL load.
-pub unsafe fn init_addrs() {
-    unsafe {
-        MENU_PANEL_RENDER_ADDR = rb(va::MENU_PANEL_RENDER);
-    }
-}
-
-// ─── Bridges (still WA-side) ───────────────────────────────────────────────
-
-/// Bridge for `MenuPanel::Render` (0x00540B00). Usercall(EDI = panel),
-/// plain RET, returns the panel's [`DisplayBitGrid`] canvas in EAX.
-/// Saves/restores EDI per the C callee-save ABI; the WA target itself
-/// preserves it.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_menu_panel_render(_panel: *mut MenuPanel) -> *mut DisplayBitGrid {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "call dword ptr [{addr}]",
-        "pop edi",
-        "ret 4",
-        addr = sym MENU_PANEL_RENDER_ADDR,
-    );
-}
 
 // ─── Rust-ported helpers (formerly bridged) ────────────────────────────────
 
@@ -1286,7 +1254,7 @@ const CURSOR_OFFSET_IN_PANEL: i32 = 10;
 /// Two independent gates animated separately:
 ///
 /// 1. **Confirm dialog** — fires when [`GameRuntime::confirm_anim`] is
-///    non-zero. Calls [`bridge_menu_panel_render`] on `menu_panel_b` to
+///    non-zero. Calls [`crate::generated::wa_calls::MenuPanel::Render`] on `menu_panel_b` to
 ///    redraw its canvas, then `display.draw_scaled_sprite` to blit the
 ///    canvas to screen at `(x_anchor, y_pos)`. Y position eases the dialog
 ///    down from above as `confirm_anim` slews `0 → 1.0`. When
@@ -1335,7 +1303,7 @@ pub unsafe fn render_overlay(runtime: *mut GameRuntime) {
             let slide_down = confirm_anim * (confirm_h + 8);
             let y_pos = center_delta + slide_down + PANEL_BASE_Y;
 
-            let canvas = bridge_menu_panel_render(panel_b);
+            let canvas = crate::generated::wa_calls::MenuPanel::Render(panel_b);
 
             DisplayGfx::draw_scaled_sprite_raw(
                 display,
@@ -1371,7 +1339,7 @@ pub unsafe fn render_overlay(runtime: *mut GameRuntime) {
             let panel_a = (*runtime).menu_panel_a;
             let menu_w = (*runtime).menu_panel_width;
 
-            let canvas = bridge_menu_panel_render(panel_a);
+            let canvas = crate::generated::wa_calls::MenuPanel::Render(panel_a);
 
             DisplayGfx::draw_scaled_sprite_raw(
                 display,
