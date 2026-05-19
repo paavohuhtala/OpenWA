@@ -5,15 +5,10 @@ use openwa_core::vec2::Vec2;
 
 use crate::entity::BaseEntity;
 use crate::entity::missile::{MissileEntity, MissileType};
+use crate::entity::worm::WormEntity;
 use crate::game::create_explosion::create_explosion;
-use crate::rebase::rb;
+use crate::generated::wa_calls;
 use core::ffi::c_void;
-
-const VA_PLAY_IMPACT_SOUND: u32 = 0x004FF020;
-const VA_HOMING_TARGET_CHECK: u32 = 0x005018F0;
-const VA_CGAME_TASK_VT8: u32 = 0x004FFED0;
-const VA_IMPACT_SPECIAL_FX: u32 = 0x00509BA0;
-pub(crate) const VA_EXPLOSION_DAMAGE_JITTER: u32 = 0x00547CB0;
 
 #[inline]
 unsafe fn field_u32_mut(this: *mut MissileEntity, byte_offset: usize) -> *mut u32 {
@@ -67,11 +62,10 @@ pub unsafe extern "thiscall" fn missile_on_contact(
         if missile_type == MissileType::Animal {
             let pos_x = (*this).base.pos.x;
             let pos_y_plus_one = (*this).base.pos.y.wrapping_add(Fixed::ONE);
-            let target_hit = homing_target_check(
-                this as *mut c_void,
+            let target_hit = wa_calls::MissileEntity::HomingTargetCheck(
                 pos_x,
                 pos_y_plus_one,
-                rb(VA_HOMING_TARGET_CHECK),
+                this as *mut c_void,
             );
             if target_hit == 0 {
                 (*this).base.speed_x = Fixed::ZERO;
@@ -119,15 +113,14 @@ pub unsafe extern "thiscall" fn missile_on_contact(
         let impact_mag_scaled = (((post_abs_sum as u64) * 0x66666667u64) >> 33) as u32;
 
         if is_std_or_cluster && (*this).impact_sound_id != 0 {
-            play_impact_sound(
-                this as *mut c_void,
+            wa_calls::WormEntity::PlayImpactSound(
+                this as *mut WormEntity,
                 (*this).impact_sound_id,
-                impact_mag_scaled,
-                rb(VA_PLAY_IMPACT_SOUND),
+                Fixed(impact_mag_scaled as i32),
             );
         }
 
-        cgameentity_on_contact_base(this, other, self_side_flags, rb(VA_CGAME_TASK_VT8));
+        wa_calls::WorldEntity::vt8(this as *mut c_void, other as *mut c_void, self_side_flags);
 
         if is_std_or_cluster
             && (ricochet_side_mask & self_side_bit) != 0
@@ -136,20 +129,19 @@ pub unsafe extern "thiscall" fn missile_on_contact(
             let pos_x = (*this).base.pos.x;
             let pos_y = (*this).base.pos.y;
             if (*this).fire_particle_trigger == 0x40 {
-                impact_special_fx(this as *mut c_void, pos_x, pos_y, rb(VA_IMPACT_SPECIAL_FX));
+                wa_calls::MissileEntity::ImpactSpecialFx(this as *mut c_void, pos_x, pos_y);
             }
-            let damage = explosion_damage_jitter(
-                (*this).explosion_damage,
+            let damage = wa_calls::GameTask::calc_damage(
+                (*this).explosion_damage as i32,
                 this as *mut c_void,
-                (*this).explosion_damage_pct,
-                rb(VA_EXPLOSION_DAMAGE_JITTER),
+                (*this).explosion_damage_pct as i32,
             );
             create_explosion(
                 pos_x,
                 pos_y,
                 this as *mut BaseEntity,
                 (*this).explosion_id,
-                damage,
+                damage as u32,
                 0,
                 (*this).spawn_params.owner_id,
             );
@@ -173,112 +165,4 @@ unsafe fn terminator_bailout_stash(this: *mut MissileEntity, speed_x: Fixed, spe
         MissileEntity::set_terminate_flag_raw(this, 1);
         (*this).terminate_stash_speed = Vec2::new(speed_x, speed_y);
     }
-}
-
-// ─── WA bridges ────────────────────────────────────────────────────────────
-
-/// `PlayImpactSound` (0x004FF020) — `__usercall(EDI = this,
-/// [stack] = sound_id, [stack] = mag)`. Reads emitter at `[EDI+0xE0]` and
-/// world at `[EDI+0x2C]`.
-#[unsafe(naked)]
-unsafe extern "C" fn play_impact_sound(_this: *mut c_void, _sound_id: u32, _mag: u32, _addr: u32) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push edi",
-        "mov edi, [esp+12]",
-        "mov ebx, [esp+24]",
-        "push [esp+20]",
-        "push [esp+20]",
-        "call ebx",
-        "pop edi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// `WorldEntity::vt8` (0x004FFED0) — thiscall(this, other, side_flags).
-#[unsafe(naked)]
-unsafe extern "C" fn cgameentity_on_contact_base(
-    _this: *mut MissileEntity,
-    _other: *mut BaseEntity,
-    _side_flags: u32,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "mov ecx, [esp+8]",
-        "mov ebx, [esp+20]",
-        "push [esp+16]",
-        "push [esp+16]",
-        "call ebx",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// `MissileEntity::HomingTargetCheck` (0x005018F0) — `__usercall(ECX = pos_x,
-/// EAX = pos_y + 1.0, [stack] = this)`. Returns EAX.
-#[unsafe(naked)]
-unsafe extern "C" fn homing_target_check(
-    _this: *mut c_void,
-    _pos_x: Fixed,
-    _pos_y_plus_one: Fixed,
-    _addr: u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "push ebx",
-        "mov ecx, [esp+12]",
-        "mov eax, [esp+16]",
-        "mov ebx, [esp+20]",
-        "push [esp+8]",
-        "call ebx",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// `MissileEntity::ImpactSpecialFx` (0x00509BA0) — `__usercall(EDI = this,
-/// [stack] = pos_x, [stack] = pos_y)`.
-#[unsafe(naked)]
-unsafe extern "C" fn impact_special_fx(
-    _this: *mut c_void,
-    _pos_x: Fixed,
-    _pos_y: Fixed,
-    _addr: u32,
-) {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push edi",
-        "mov edi, [esp+12]",
-        "mov ebx, [esp+24]",
-        "push [esp+20]",
-        "push [esp+20]",
-        "call ebx",
-        "pop edi",
-        "pop ebx",
-        "ret",
-    );
-}
-
-/// `GameTask::calc_damage` (0x00547CB0) — `__usercall(ESI = base_damage,
-/// [stack] = this, [stack] = pct)`, RET 0x8.
-#[unsafe(naked)]
-pub(crate) unsafe extern "C" fn explosion_damage_jitter(
-    _base_damage: u32,
-    _this: *mut c_void,
-    _pct: u32,
-    _addr: u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "push ebx",
-        "push esi",
-        "mov esi, [esp+12]",
-        "mov ebx, [esp+24]",
-        "push [esp+20]",
-        "push [esp+20]",
-        "call ebx",
-        "pop esi",
-        "pop ebx",
-        "ret",
-    );
 }

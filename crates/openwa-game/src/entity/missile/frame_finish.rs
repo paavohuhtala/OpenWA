@@ -215,12 +215,11 @@ unsafe fn detonate(this: *mut MissileEntity, pos_x: Fixed, pos_y: Fixed) {
         //  Homing missile subtype).
         let base_damage = (*this)._render_data_01_05[2];
         let damage_pct = (*this)._render_data_01_05[3];
-        let damage = crate::game::missile_contact::explosion_damage_jitter(
-            base_damage,
+        let damage = crate::generated::wa_calls::GameTask::calc_damage(
+            base_damage as i32,
             this as *mut core::ffi::c_void,
-            damage_pct,
-            rb(crate::game::missile_contact::VA_EXPLOSION_DAMAGE_JITTER),
-        );
+            damage_pct as i32,
+        ) as u32;
 
         if damage != 0 {
             // Pos-Y offset = signed `(rd0 * rd2) / 200` promoted to Fixed.

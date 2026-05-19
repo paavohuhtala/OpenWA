@@ -15,15 +15,15 @@
 //!    not in scope for this slice. Bridged via
 //!    [`WorldEntity::construct_raw`].
 //!  * `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
-//!    [stack]=slot). Reused via `super::handle_message::bridge_reset_rank`.
+//!    [stack]=slot). Called via [`wa_calls::EntityActivityQueue::ResetRank`].
 
 use super::OilDrumEntity;
-use super::handle_message::bridge_reset_rank;
 use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::game::class_type::ClassType;
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 use openwa_core::fixed::Fixed;
 
@@ -59,7 +59,7 @@ pub unsafe fn oil_drum_constructor(
         let queue: *mut EntityActivityQueue = &raw mut (*world).entity_activity_queue;
         let slot = EntityActivityQueue::acquire(queue);
         (*this).activity_rank_slot = slot;
-        bridge_reset_rank(queue, slot);
+        wa_calls::EntityActivityQueue::ResetRank(queue, slot);
 
         // Initial placement: probe `(x, y)`; commit on accept. WA writes
         // `bucket_mask = 2` first so the trial collision gets a known mask.

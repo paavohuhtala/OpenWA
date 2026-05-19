@@ -125,6 +125,22 @@ name = "WorldEntity__vt7"
 [[function]]
 va = 0x004FFED0
 name = "WorldEntity__vt8"
+calling_convention = "__thiscall"
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+
+  [[function.param]]
+  name = "other"
+  type = "void *"
+
+  [[function.param]]
+  name = "side_flags"
+  type = "uint"
 
 [[function]]
 va = 0x00501E20

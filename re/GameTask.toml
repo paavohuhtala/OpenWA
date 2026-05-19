@@ -138,6 +138,26 @@ name = "GameTask__sub_546F10"
 [[function]]
 va = 0x005471B0
 name = "GameTask__create_bubble_0"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "stack:0x0"
+
+  [[function.param]]
+  name = "parent"
+  type = "void *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "descriptor"
+  type = "const uint *"
+  storage = "EDI"
 
 [[function]]
 va = 0x00547230
@@ -207,6 +227,26 @@ name = "GameTask__create_smoke"
 [[function]]
 va = 0x00547CB0
 name = "GameTask__calc_damage"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "base_damage"
+  type = "int"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "stack:0x0"
+
+  [[function.param]]
+  name = "pct"
+  type = "int"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x00547D80

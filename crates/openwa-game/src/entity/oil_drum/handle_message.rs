@@ -20,17 +20,19 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use super::{OilDrumEntity, OilDrumEntityVtable};
 use crate::audio::{SoundId, sound_ops::play_sound_local};
-use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
 use crate::entity::base::BaseEntity;
 use crate::entity::fire::{FireEntity, FireEntityInit, fire_entity_construct};
 use crate::entity::game_entity::WorldEntity;
 use crate::entity::shared_data::SharedDataTable;
+use crate::entity::worm::WormEntity;
 use crate::game::create_explosion::create_explosion;
 use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::{EntityMessage, ExplosionMessage, SpecialImpactMessage};
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 use crate::wa_alloc::{wa_free, wa_malloc};
+use core::ffi::c_void;
 use openwa_core::fixed::Fixed;
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
@@ -49,20 +51,9 @@ pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 //
 // `StepRopePhysics_Maybe` (0x005003D0) — usercall(stdcall this on stack,
 // AL = mode), RET 0x4. Same function MineEntity / WormEntity case 0x03
-// invokes. AL=0 runs the full step.
+// invokes. AL=0 runs the full step. EXOTIC — sub-register input keeps
+// this bridge hand-rolled (codegen can't bind AL).
 static mut OIL_STEP_ROPE_PHYSICS_ADDR: u32 = 0;
-// Tail companion at 0x00500630 — usercall(EAX = this), no stack args.
-static mut OIL_ROPE_PHYSICS_TAIL_ADDR: u32 = 0;
-
-// Tick-body bridges:
-// `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
-// [stack]=slot), RET 0x4.
-static mut OIL_RESET_RANK_ADDR: u32 = 0;
-// `GameTask::create_bubble_0` (0x005471B0) — usercall(EDI = descriptor,
-// [stack] = parent, this), RET 0x8. EDI is callee-saved; the trampoline
-// saves it across the call. The descriptor (7 dwords) is read by
-// `SeaBubbleEntity::Constructor` (chained inside).
-static mut OIL_CREATE_BUBBLE_ADDR: u32 = 0;
 
 // Lifecycle bridges:
 // `EntityActivityQueue::FreeSlotById` (0x00541860) — usercall(EAX=queue,
@@ -75,9 +66,6 @@ static mut OIL_CGAMETASK_DESTRUCTOR_ADDR: u32 = 0;
 pub unsafe fn init_addrs() {
     unsafe {
         OIL_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
-        OIL_ROPE_PHYSICS_TAIL_ADDR = rb(0x00500630);
-        OIL_RESET_RANK_ADDR = rb(0x00541790);
-        OIL_CREATE_BUBBLE_ADDR = rb(0x005471B0);
         OIL_FREE_ACTIVITY_SLOT_ADDR = rb(0x00541860);
         OIL_CGAMETASK_DESTRUCTOR_ADDR = rb(0x004FEF30);
     }
@@ -98,62 +86,13 @@ unsafe extern "stdcall" fn bridge_step_rope_physics(_this: *mut OilDrumEntity) {
     );
 }
 
-/// `__usercall(EAX = this)`, no stack args, plain RET. Tail companion to
-/// `bridge_step_rope_physics` in case 0x03.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_rope_physics_tail(_this: *mut OilDrumEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym OIL_ROPE_PHYSICS_TAIL_ADDR,
-    );
-}
-
-/// `EntityActivityQueue::ResetRank` (0x00541790) —
-/// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4.
-#[unsafe(naked)]
-pub(super) unsafe extern "stdcall" fn bridge_reset_rank(
-    _queue: *mut EntityActivityQueue,
-    _slot: i32,
-) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 8",
-        addr = sym OIL_RESET_RANK_ADDR,
-    );
-}
-
-/// `GameTask::create_bubble_0` (0x005471B0) — `__usercall(EDI = descriptor,
-/// [stack] = parent, this)`, RET 0x8. EDI is callee-saved; the trampoline
-/// saves it across the call.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_create_bubble(
-    _this: *mut OilDrumEntity,
-    _parent: *mut u8,
-    _descriptor: *const u32,
-) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+16]", // descriptor
-        "push dword ptr [esp+12]",     // parent
-        "push dword ptr [esp+12]",     // this
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop edi",
-        "ret 12",
-        addr = sym OIL_CREATE_BUBBLE_ADDR,
-    );
-}
-
 /// `EntityActivityQueue::FreeSlotById` (0x00541860) —
 /// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4.
 #[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_free_activity_slot(_queue: *mut EntityActivityQueue, _slot: i32) {
+unsafe extern "stdcall" fn bridge_free_activity_slot(
+    _queue: *mut crate::engine::EntityActivityQueue,
+    _slot: i32,
+) {
     core::arch::naked_asm!(
         "mov eax, dword ptr [esp+4]",
         "push dword ptr [esp+8]",
@@ -325,7 +264,7 @@ unsafe fn msg_frame_finish_tick(
         // set_active timer.
         if WorldEntity::is_moving_raw(this as *const WorldEntity) {
             let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
-            bridge_reset_rank(queue, (*this).activity_rank_slot);
+            wa_calls::EntityActivityQueue::ResetRank(queue, (*this).activity_rank_slot);
             GameWorld::record_landing_event_raw(world, 0xC, pos_x, pos_y);
             set_world_activity_timer(world, 0xC);
         }
@@ -344,9 +283,13 @@ unsafe fn msg_frame_finish_tick(
 
                 let parent = SharedDataTable::from_entity(this)
                     .filter_clouds()
-                    .unwrap_or(core::ptr::null_mut()) as *mut u8;
+                    .unwrap_or(core::ptr::null_mut()) as *mut c_void;
                 let descriptor: [u32; 7] = [0, pos_x.0 as u32, pos_y.0 as u32, 0, 0, 0, kind];
-                bridge_create_bubble(this, parent, descriptor.as_ptr());
+                wa_calls::GameTask::create_bubble_0(
+                    this as *mut c_void,
+                    parent,
+                    descriptor.as_ptr(),
+                );
             }
 
             if (*this).triggered == 0 {
@@ -386,7 +329,7 @@ unsafe fn msg_render(
     unsafe {
         bridge_step_rope_physics(this);
         super::render::oil_drum_render(this);
-        bridge_rope_physics_tail(this);
+        wa_calls::WormEntity::RestoreKamikazeState_Maybe(this as *mut WormEntity);
         world_entity_handle_message(
             this as *mut WorldEntity,
             sender,
