@@ -1673,13 +1673,7 @@ pub unsafe fn load_sprite(
     id: u32,
     flag: u32,
     gfx_dir: *mut GfxDir,
-    _name: *const c_char,
-    load_sprite_from_vfs: unsafe extern "cdecl" fn(
-        sprite: *mut Sprite,
-        gfx_dir: *mut GfxDir,
-        name: *const c_char,
-        layer_ctx: *mut PaletteContext,
-    ) -> i32,
+    name: *const c_char,
 ) -> i32 {
     unsafe {
         if id & SPRITE_LOAD_ALREADY_DONE != 0 {
@@ -1708,7 +1702,9 @@ pub unsafe fn load_sprite(
         }
         construct_sprite(sprite, base.sprite_cache);
 
-        let result = load_sprite_from_vfs(sprite, gfx_dir, _name, layer_ctx);
+        let result = crate::generated::wa_calls::DisplayGfx::LoadSpriteFromVfs(
+            gfx_dir, name, sprite, layer_ctx,
+        );
         if result == 0 {
             if !sprite.is_null() {
                 let dtor = (*(*sprite).vtable).destructor;

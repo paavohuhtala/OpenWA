@@ -23,7 +23,32 @@ custom_storage = true
 
 [[function]]
 va = 0x004FAAF0
-name = "LoadSpriteFromVfs"
+name = "DisplayGfx__LoadSpriteFromVfs"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "gfx_dir"
+  type = "GfxDir *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "name"
+  type = "const char *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "sprite"
+  type = "Sprite *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "layer_ctx"
+  type = "PaletteContext *"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x004FAB80

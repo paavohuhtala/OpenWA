@@ -339,7 +339,18 @@ pub unsafe fn set_text(
                 (*this).bitgrid_copy = copy;
             }
             let copy = (*this).bitgrid_copy;
-            bitmap::blit_sprite_rect_raw(0, 0, *out_w, *out_h, primary, 0, 0, 0, 0, copy);
+            bitmap::blit_sprite_rect_raw(
+                0,
+                0,
+                *out_w,
+                *out_h,
+                primary,
+                0,
+                0,
+                core::ptr::null(),
+                0,
+                copy,
+            );
             bitmap::dither(copy, *out_w, *out_h, (*this).lcg_state, alpha);
             (*this).lcg_state = wa_lcg((*this).lcg_state);
             copy

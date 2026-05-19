@@ -592,14 +592,12 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
                     ("stippled_mode1_par1", 16, 16, sw, sh, 0, 0, 1, 1, 77),
                 ];
 
-                let blit_stippled_addr = rb(0x0056AEF0);
-
                 for &(suffix, dx, dy, w, h, sx, sy, mode, parity, bg) in test_cases {
                     core::ptr::write_bytes(dst_data, bg, dst_size);
                     *parity_ptr = parity;
 
-                    wa_blit_stippled(
-                        fake_ptr,
+                    openwa_game::generated::wa_calls::DisplayGfx::BlitStippled(
+                        fake_ptr as *mut core::ffi::c_void,
                         dx,
                         dy,
                         w,
@@ -608,7 +606,6 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
                         sy,
                         mode,
                         h,
-                        blit_stippled_addr,
                     );
 
                     save_grid(dst, suffix);
@@ -727,43 +724,6 @@ pub unsafe fn capture_stippled_tiled_snapshots() {
             "[BitGrid] STIPPLED/TILED SNAPSHOT: Saved {count} snapshots to {dir}/"
         ));
     }
-}
-
-/// Call WA's DisplayGfx__BlitStippled (0x56AEF0).
-///
-/// Usercall: EAX = height, 8 stdcall params (RET 0x20).
-/// `target` is the rebased runtime address.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_blit_stippled(
-    _this: *mut u8,
-    _dst_x: u32,
-    _dst_y: i32,
-    _width: i32,
-    _sprite: *mut openwa_game::bitgrid::DisplayBitGrid,
-    _src_x: i32,
-    _src_y: i32,
-    _stipple_mode: u32,
-    _height: i32,
-    _target: u32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "push edi",
-        "mov eax, [esp + 44]", // height (param 9, offset: 8 + 9*4 = 44 from original ESP, +8 for our pushes)
-        "mov edi, [esp + 48]", // target (param 10)
-        "push dword ptr [esp + 40]", // stipple_mode
-        "push dword ptr [esp + 40]", // src_y
-        "push dword ptr [esp + 40]", // src_x
-        "push dword ptr [esp + 40]", // sprite
-        "push dword ptr [esp + 40]", // width
-        "push dword ptr [esp + 40]", // dst_y
-        "push dword ptr [esp + 40]", // dst_x
-        "push dword ptr [esp + 40]", // this
-        "call edi",            // RET 0x20 cleans 8 params (32 bytes)
-        "pop edi",
-        "pop esi",
-        "ret",
-    );
 }
 
 /// Decoded indexed image (no WA dependencies).

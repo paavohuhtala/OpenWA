@@ -609,6 +609,56 @@ name = "DisplayGfx__BlitWithColorTable"
 [[function]]
 va = 0x0056AEF0
 name = "DisplayGfx__BlitStippled"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "dst_x"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "dst_y"
+  type = "int"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "width"
+  type = "int"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "sprite"
+  type = "DisplayBitGrid *"
+  storage = "stack:0x14"
+
+  [[function.param]]
+  name = "src_x"
+  type = "int"
+  storage = "stack:0x18"
+
+  [[function.param]]
+  name = "src_y"
+  type = "int"
+  storage = "stack:0x1C"
+
+  [[function.param]]
+  name = "stipple_mode"
+  type = "uint"
+  storage = "stack:0x20"
+
+  [[function.param]]
+  name = "height"
+  type = "int"
+  storage = "EAX"
 
 [[function]]
 va = 0x0056AFB0

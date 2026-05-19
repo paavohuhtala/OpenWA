@@ -17,6 +17,36 @@ name = "BitmapImage__checksum"
 [[function]]
 va = 0x004F64C0
 name = "BitmapImage__sub_4F64C0"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "bmp"
+  type = "DisplayBitGrid *"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "w"
+  type = "int"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "h"
+  type = "int"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "lcg"
+  type = "uint"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "alpha"
+  type = "Fixed"
+  storage = "stack:0xC"
 
 [[function]]
 va = 0x004F65C0
