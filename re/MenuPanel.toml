@@ -18,6 +18,8 @@ name = "MenuPanel__HitTestCursor"
 [[function]]
 va = 0x00540B00
 name = "MenuPanel__Render"
+calling_convention = "__stdcall"
+custom_storage = true
 plate_comment = """
 MenuPanel::Render — per-frame incremental redraw of the panel canvas.
 
@@ -42,6 +44,14 @@ This means the canvas is built once and then dirty-redrawn each frame to track h
 
 IMPORTANT: items[i] fields at +0x28 and +0x2C were previously named neighbor_prev/neighbor_next on the assumption they were navigation links. They are NOT — they are transient render state used only by this function. Rename to `is_highlighted_persistent` / `is_highlighted_this_frame`.
 """
+
+  [function.signature]
+  returns = "DisplayBitGrid *"
+
+  [[function.param]]
+  name = "panel"
+  type = "MenuPanel *"
+  storage = "EDI"
 
 [[struct]]
 name = "MenuPanel"

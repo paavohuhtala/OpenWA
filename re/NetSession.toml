@@ -5,3 +5,9 @@ name = "NetSession__PeerInputQueuePop"
 [[function]]
 va = 0x0053E720
 name = "NetSession__MaxActivePeerScore"
+
+[[struct]]
+name = "NetSession"
+namespace = "/OpenWA"
+size = 0x20
+rust_path = "openwa_game::engine::net_session::NetSession"

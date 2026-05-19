@@ -6,40 +6,6 @@
 
 use crate::FieldRegistry;
 use crate::engine::buffer_object::BufferObject;
-use crate::rebase::rb;
-
-crate::define_addresses! {
-    /// `GameNet::send_block` (0x0053E380). Usercall(EAX=this), plain RET.
-    /// Flushes the outgoing buffer at `NetSession+0x20` to the wire.
-    /// Bridged because the implementation is large (~91 instructions of
-    /// transport-specific framing) and only one call site needs it from
-    /// Rust today.
-    fn/Usercall GAME_NET_SEND_BLOCK = 0x0053E380;
-}
-
-static mut GAME_NET_SEND_BLOCK_ADDR: u32 = 0;
-
-/// Initialize bridged-function addresses for this module. Called once at
-/// DLL load from `dispatch_frame::init_dispatch_addrs`.
-pub unsafe fn init_addrs() {
-    unsafe {
-        GAME_NET_SEND_BLOCK_ADDR = rb(GAME_NET_SEND_BLOCK);
-    }
-}
-
-/// Bridge for `GameNet::send_block` (0x0053E380). Usercall(EAX=this),
-/// plain RET. Tail-call shape: pop ret-addr + the `this` arg, push
-/// ret-addr back, jmp to target.
-#[unsafe(naked)]
-pub unsafe extern "stdcall" fn bridge_send_block(_this: *mut NetSession) {
-    core::arch::naked_asm!(
-        "pop ecx",
-        "pop eax",
-        "push ecx",
-        "jmp dword ptr [{addr}]",
-        addr = sym GAME_NET_SEND_BLOCK_ADDR,
-    );
-}
 
 /// Partial vtable for `NetSession`. Observed slots are the per-peer query
 /// API used during end-of-round peer synchronisation.

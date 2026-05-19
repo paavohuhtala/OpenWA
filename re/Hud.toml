@@ -1,3 +1,13 @@
 [[function]]
 va = 0x005332B0
 name = "Hud__DrawTeamLabels_Maybe"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "runtime"
+  type = "GameRuntime *"
+  storage = "EAX"

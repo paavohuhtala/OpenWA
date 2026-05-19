@@ -24,14 +24,12 @@ use crate::wa::string_resource::{StringRes, res};
 
 // ─── Bridged WA helpers ────────────────────────────────────────────────────
 
-static mut DRAW_AWAY_OVERLAY_ADDR: u32 = 0;
 static mut DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR: u32 = 0;
 
 /// Initialize the bridge addresses. Called from
 /// `dispatch_frame::init_dispatch_addrs` at DLL load.
 pub unsafe fn init_addrs() {
     unsafe {
-        DRAW_AWAY_OVERLAY_ADDR = rb(va::GAME_RUNTIME_DRAW_AWAY_OVERLAY);
         DISPATCH_FRAME_POST_PROCESS_HOOKS_ADDR =
             rb(va::DISPLAY_GFX_DISPATCH_FRAME_POST_PROCESS_HOOKS);
     }
@@ -67,23 +65,6 @@ pub unsafe fn render_frame(runtime: *mut GameRuntime) {
             DisplayGfx::flush_render_raw(display);
         }
     }
-}
-
-/// Bridge for `GameRuntime__DrawAwayOverlay` (0x005336E0). Usercall:
-/// `EDI = runtime`, `[stack] = top_y`, RET 0x4. Headful "GAME AWAY" /
-/// "GAME OVER" overlay drawer; too many WA-side dependencies to port
-/// incidentally.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_draw_away_overlay(_runtime: *mut GameRuntime, _top_y: i32) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+8]",
-        "push dword ptr [esp+16]",
-        "call dword ptr [{addr}]",
-        "pop edi",
-        "ret 8",
-        addr = sym DRAW_AWAY_OVERLAY_ADDR,
-    );
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -450,7 +431,7 @@ unsafe fn draw_viewport_frame(
                 Fixed::from_int(bar_height),
             );
 
-            bridge_draw_away_overlay(runtime, bar_height);
+            crate::generated::wa_calls::GameRuntime::DrawAwayOverlay(runtime, bar_height);
 
             // Re-center camera onto the playfield (post-HUD).
             DisplayGfx::set_camera_offset_raw(
