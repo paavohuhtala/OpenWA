@@ -121,8 +121,6 @@ pub mod va {
             vtable GAME_RUNTIME_VTABLE = 0x0066A30C;
             /// GameRuntime constructor
             ctor/Stdcall CONSTRUCT_GAME_RUNTIME = 0x0056DEF0;
-            /// GameRuntime::InitReplay — usercall(EAX=game_info, ESI=this), plain RET
-            fn/Usercall GAME_RUNTIME_INIT_REPLAY = 0x0056F860;
             /// GameRuntime__LoadingProgressTick
             fn/Stdcall GAME_RUNTIME_LOADING_PROGRESS_TICK = 0x005717A0;
             /// GameRuntime__LoadSpeechWAV
@@ -347,8 +345,6 @@ pub mod va {
         class "GfxHandler" {
             /// GfxHandler vtable
             vtable GFX_DIR_VTABLE = 0x0066B280;
-            /// GfxHandler load sprites
-            fn GFX_DIR_LOAD_SPRITES = 0x00570B50;
             /// GfxDir load image
             fn GFX_DIR_LOAD_IMAGE = 0x005666D0;
             /// GfxDir load directory
@@ -616,10 +612,6 @@ pub mod va {
         /// `palette.log` with the foreground process name (Toolhelp32). Bridged
         /// from `GameSession::WindowProc` WM_PALETTECHANGED handler.
         fn/Cdecl PALETTE_LOG_CHANGE = 0x00598B50;
-        /// Palette__RealizeFromSystem — diffs the system palette against the
-        /// game's reference and re-realises with `_memcpy`. Bridged from
-        /// `GameSession::WindowProc` WM_PALETTECHANGED + Shift+Pause handlers.
-        fn/Cdecl PALETTE_REALIZE_FROM_SYSTEM = 0x005A1110;
         /// Screenshot__SavePng — writes the current backbuffer as a PNG to
         /// `User\Capture\screenNNNN.png`. Bridged from `GameSession::WindowProc`
         /// VK_PAUSE (no-modifier) handler. Returns nonzero on success.
@@ -646,9 +638,6 @@ pub mod va {
         fn/Stdcall STREAMING_AUDIO_CTOR = 0x0058BC10;
         /// DDNetGameWrapper constructor
         fn/Stdcall DDNETGAME_WRAPPER_CTOR = 0x0056D1F0;
-        /// `LocalizedStringCache__Constructor` — usercall(ESI=this, EAX=wa_version_threshold).
-        /// See [`crate::wa::localized_string_cache::LocalizedStringCache`].
-        fn/Usercall LOCALIZED_STRING_CACHE_CTOR = 0x0053E950;
         /// `LocalizedStringCache__Resolve` — stdcall(cache, token) -> *const c_char.
         /// Resolves a localized template string from the gfx-dir's string
         /// table, applies WA's escape-code post-processor, and caches the
@@ -1427,11 +1416,6 @@ pub mod va {
         fn/Cdecl CRT_FERROR = 0x005D5126;
         /// IAT slot for `putc` — dereference to get the live import pointer.
         global CRT_PUTC_IAT = 0x006492D4;
-        /// Codepage__BuildLut — usercall(EAX=codepage) → returns a
-        /// 256-byte translation-table pointer in EAX. Different codepages
-        /// are cached at different globals (0x7A0ED0/D4/…). Called from
-        /// the end-of-round log recoder after `GetACP()`.
-        fn/Usercall CODEPAGE_BUILD_LUT = 0x00592280;
         /// Cached codepage LUT pointer. Lazily initialised on first use
         /// (zero → call `Codepage__BuildLut`, store result here).
         global G_CODEPAGE_LUT = 0x007A0ED8;

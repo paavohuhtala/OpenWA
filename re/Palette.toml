@@ -5,3 +5,18 @@ name = "Palette__LogChange"
 [[function]]
 va = 0x005A1110
 name = "Palette__RealizeFromSystem"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "palette_buf"
+  type = "byte *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "out_counter"
+  type = "uint *"
+  storage = "stack:0x4"

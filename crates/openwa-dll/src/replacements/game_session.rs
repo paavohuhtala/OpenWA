@@ -11,7 +11,7 @@ use openwa_game::engine::GameInfo;
 use openwa_game::engine::game_session_run::{on_headless_pre_loop, run_game_session};
 use openwa_game::engine::init_constructor_addrs;
 use openwa_game::engine::pump_messages::pump_messages;
-use openwa_game::engine::window_proc::{engine_wnd_proc, init_window_proc_addrs};
+use openwa_game::engine::window_proc::engine_wnd_proc;
 
 // ─── GameSession::Run hook ──────────────────────────────────────────────────
 //
@@ -63,7 +63,6 @@ pub fn install() -> Result<(), String> {
         // WNDPROC. Windows dispatches it via the WNDPROC slot installed
         // by `CREW2App__sub_4ECD40` (which still runs in WA); MinHook on the
         // entry redirects the dispatch into the Rust impl.
-        init_window_proc_addrs();
         hook::install(
             "GameSession::WindowProc",
             va::GAME_SESSION_WINDOW_PROC,

@@ -157,7 +157,6 @@ pub fn init_constructor_addrs() {
 
         LOAD_SPEECH_BANKS_ADDR = rb(crate::generated::addresses::DSSound__LoadAllSpeechBanks);
         LOADING_PROGRESS_TICK_ADDR = rb(va::GAME_RUNTIME_LOADING_PROGRESS_TICK);
-        GFX_LOAD_SPRITES_ADDR = rb(va::GFX_DIR_LOAD_SPRITES);
     }
 }
 
@@ -173,35 +172,6 @@ unsafe fn wa_init_version_flags(runtime: *mut GameRuntime) {
         f(runtime);
     }
 }
-
-/// GfxHandler__LoadSprites (0x570B50): usercall(ESI=layer_ctx) + stdcall(4 params).
-///
-/// ESI must hold the display layer context (from DisplayGfx::set_active_layer).
-/// The function uses ESI for LoadSpriteFromVfs and IMG__LoadFromDir
-/// when param4 (gfx_dir) is non-null.
-#[unsafe(naked)]
-unsafe extern "C" fn wa_load_sprites(
-    _runtime: *mut GameRuntime,
-    _sprite_data: *mut u8,
-    _display_flags: u32,
-    _param4: u32,
-    _layer_ctx: *mut crate::render::palette::PaletteContext, // → ESI
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, [esp+24]",  // layer_ctx (5th param: 4 saved + 4 ret + 4*4 params + 4 = 24)
-        "push [esp+20]",      // param4
-        "push [esp+20]",      // display_flags
-        "push [esp+20]",      // sprite_data
-        "push [esp+20]",      // wrapper
-        "call [{addr}]",
-        "pop esi",
-        "ret",
-        addr = sym GFX_LOAD_SPRITES_ADDR,
-    );
-}
-
-static mut GFX_LOAD_SPRITES_ADDR: u32 = 0;
 
 /// Port of DSSound_LoadEffectWAVs (0x5714B0).
 ///
@@ -579,7 +549,7 @@ unsafe fn init_graphics_and_resources(
                 release(res, 1);
             } else {
                 // Resource creation failed — fallback with param4=0
-                wa_load_sprites(
+                crate::generated::wa_calls::GfxHandler::LoadSprites(
                     runtime,
                     (*world).gfx_sprite_data.as_mut_ptr(),
                     (*game_info).display_flags,
@@ -589,7 +559,7 @@ unsafe fn init_graphics_and_resources(
             }
         } else {
             // gfx_mode==0 (headless): fallback LoadSprites with param4=primary_gfx_dir
-            wa_load_sprites(
+            crate::generated::wa_calls::GfxHandler::LoadSprites(
                 runtime,
                 (*world).gfx_sprite_data.as_mut_ptr(),
                 (*game_info).display_flags,
@@ -608,7 +578,7 @@ unsafe fn init_graphics_and_resources(
             (*palette_ctx).dirty = 0;
             (*world).secondary_palette_ctx = palette_ctx;
             // param4=0 so the ESI-dependent block is skipped; layer_ctx doesn't matter
-            wa_load_sprites(
+            crate::generated::wa_calls::GfxHandler::LoadSprites(
                 runtime,
                 (*world).gfx_sprite_data.as_mut_ptr(),
                 (*game_info).display_flags,

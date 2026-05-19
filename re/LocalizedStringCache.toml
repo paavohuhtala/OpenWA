@@ -1,6 +1,21 @@
 [[function]]
 va = 0x0053E950
 name = "LocalizedStringCache__Constructor"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "LocalizedStringCache *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "wa_version_threshold"
+  type = "uint"
+  storage = "EAX"
 
 [[function]]
 va = 0x0053E9D0
@@ -13,3 +28,9 @@ name = "LocalizedStringCache__Resolve"
 [[function]]
 va = 0x0053EC70
 name = "LocalizedStringCache__ResolveSplitArray"
+
+[[struct]]
+name = "LocalizedStringCache"
+namespace = "/OpenWA"
+size = 0x30
+rust_path = "openwa_game::wa::localized_string_cache::LocalizedStringCache"
