@@ -1,6 +1,26 @@
 [[function]]
 va = 0x005018F0
 name = "MissileEntity__HomingTargetCheck"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "pos_x"
+  type = "Fixed"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "pos_y"
+  type = "Fixed"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "stack:0x0"
 
 [[function]]
 va = 0x00507D10
@@ -78,6 +98,26 @@ Generic tail (all types reach via JNZ flow):
 [[function]]
 va = 0x00509BA0
 name = "MissileEntity__ImpactSpecialFx"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "EDI"
+
+  [[function.param]]
+  name = "pos_x"
+  type = "Fixed"
+  storage = "stack:0x0"
+
+  [[function.param]]
+  name = "pos_y"
+  type = "Fixed"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x00509D70
