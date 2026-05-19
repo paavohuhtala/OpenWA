@@ -41,7 +41,6 @@ pub unsafe fn init_dispatch_addrs() {
         crate::wa::sprintf_rotating::init_addrs();
         super::render_frame::init_addrs();
         super::step_frame::init_step_frame_addrs();
-        crate::bitgrid::bitmap::init_addrs();
     }
 }
 

@@ -13,8 +13,6 @@ use openwa_game::render::display::DisplayBase;
 use openwa_game::render::display::DisplayGfx;
 use openwa_game::render::display::destructor as display_destructor;
 use openwa_game::render::display::vtable::{self as display_vtable_impl, DisplayGfxVtable};
-use openwa_game::render::palette::PaletteContext;
-use openwa_game::render::sprite::Sprite;
 use openwa_game::vtable::patch_vtable;
 use openwa_game::vtable_replace;
 use openwa_game::wa_alloc::wa_free;
@@ -94,40 +92,8 @@ unsafe extern "thiscall" fn load_sprite(
     gfx_dir: *mut GfxDir,
     name: *const c_char,
 ) -> i32 {
-    unsafe {
-        display_vtable_impl::load_sprite(
-            this,
-            layer,
-            id,
-            flag,
-            gfx_dir,
-            name,
-            wa_load_sprite_from_vfs,
-        )
-    }
+    unsafe { display_vtable_impl::load_sprite(this, layer, id, flag, gfx_dir, name) }
 }
-
-// LoadSpriteFromVfs (0x4FAAF0) — naked bridge
-#[unsafe(naked)]
-unsafe extern "cdecl" fn wa_load_sprite_from_vfs(
-    _sprite: *mut Sprite,
-    _gfx_dir: *mut GfxDir,
-    _name: *const c_char,
-    _layer_ctx: *mut PaletteContext,
-) -> i32 {
-    core::arch::naked_asm!(
-        // cdecl: +4=sprite, +8=gfx, +12=name, +16=layer_ctx
-        "mov ecx, [esp+8]",         // gfx → ECX
-        "mov eax, [esp+12]",        // name → EAX
-        "push dword ptr [esp+16]",  // layer_ctx
-        "push dword ptr [esp+8]",   // sprite (shifted +4 by push)
-        "call [{ADDR}]",            // RET 0x8 cleans 2 stack params
-        "ret",
-        ADDR = sym LOAD_SPRITE_FROM_VFS_ADDR,
-    );
-}
-
-static mut LOAD_SPRITE_FROM_VFS_ADDR: u32 = 0;
 
 // LoadSpriteByLayer (slot 34)
 unsafe extern "thiscall" fn load_sprite_by_layer(
@@ -184,8 +150,6 @@ pub fn install() -> Result<(), String> {
         patch_vtable(headless, VTABLE_SLOTS, |vt| {
             *vt = headless_destructor as *const () as u32;
         })?;
-
-        LOAD_SPRITE_FROM_VFS_ADDR = rb(va::LOAD_SPRITE_FROM_VFS);
 
         vtable_replace!(DisplayGfxVtable, va::DISPLAY_GFX_VTABLE, {
             destructor                 => display_destructor::display_gfx_destructor,

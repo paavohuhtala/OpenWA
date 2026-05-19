@@ -10,26 +10,8 @@
 
 use openwa_core::fixed::Fixed;
 
-use crate::bitgrid::{BLIT_SPRITE_RECT, DisplayBitGrid};
-use crate::rebase::rb;
-
-crate::define_addresses! {
-    /// `BitmapImage::sub_4F64C0` — usercall(ECX=bmp, EAX=w, stack=[h, lcg, alpha]),
-    /// RET 0xC. Dither / scale-down pass written by the bitgrid-copy path.
-    fn/Usercall BITMAP_IMAGE_DITHER = 0x004F64C0;
-}
-
-static mut DITHER_ADDR: u32 = 0;
-static mut BLIT_SPRITE_RECT_ADDR: u32 = 0;
-
-/// Initialize bridge target addresses. Called from
-/// `dispatch_frame::init_dispatch_addrs` at DLL load.
-pub unsafe fn init_addrs() {
-    unsafe {
-        DITHER_ADDR = rb(BITMAP_IMAGE_DITHER);
-        BLIT_SPRITE_RECT_ADDR = rb(BLIT_SPRITE_RECT);
-    }
-}
+use crate::bitgrid::DisplayBitGrid;
+use crate::generated::wa_calls;
 
 /// Memset-clear the entire data buffer of a `DisplayBitGrid`.
 ///
@@ -65,26 +47,11 @@ pub unsafe fn fill(bmp: *mut DisplayBitGrid, max_w: i32, max_h: i32, color: u8) 
 /// Dither / scale-down pass. Not reached from Rust today (current
 /// callers always pass `Fixed::ONE`); kept for hookability of WA-side
 /// callers.
-#[unsafe(naked)]
-pub unsafe extern "stdcall" fn dither(
-    _bmp: *mut DisplayBitGrid,
-    _w: i32,
-    _h: i32,
-    _lcg: u32,
-    _alpha: Fixed,
-) {
-    core::arch::naked_asm!(
-        "push ecx",
-        "mov ecx, dword ptr [esp+0x8]",     // bmp -> ECX
-        "mov eax, dword ptr [esp+0xC]",     // w   -> EAX
-        "push dword ptr [esp+0x18]",        // alpha
-        "push dword ptr [esp+0x18]",        // lcg
-        "push dword ptr [esp+0x18]",        // h
-        "call dword ptr [{addr}]",
-        "pop ecx",
-        "ret 0x14",
-        addr = sym DITHER_ADDR,
-    );
+#[inline]
+pub unsafe fn dither(bmp: *mut DisplayBitGrid, w: i32, h: i32, lcg: u32, alpha: Fixed) {
+    unsafe {
+        wa_calls::BitmapImage::sub_4F64C0(bmp, w, h, lcg, alpha);
+    }
 }
 
 /// Bridge for WA's `BitGrid::BlitSpriteRect` (0x004F6910) — usercall:
@@ -95,35 +62,32 @@ pub unsafe extern "stdcall" fn dither(
 /// wrappers): this one matches WA's raw register convention and is
 /// invoked by the textbox dither path which holds raw `DisplayBitGrid`
 /// pointers.
-#[unsafe(naked)]
-pub unsafe extern "stdcall" fn blit_sprite_rect_raw(
-    _arg1: i32,
-    _arg2: i32,
-    _w: i32,
-    _h: i32,
-    _src: *mut DisplayBitGrid,
-    _arg6: i32,
-    _arg7: i32,
-    _arg8: i32,
-    _arg9: i32,
-    _dst: *mut DisplayBitGrid,
+#[inline]
+#[allow(clippy::too_many_arguments)]
+pub unsafe fn blit_sprite_rect_raw(
+    dst_x: i32,
+    dst_y: i32,
+    w: i32,
+    h: i32,
+    src: *mut DisplayBitGrid,
+    src_x: i32,
+    src_y: i32,
+    color_table: *const u8,
+    flags: u32,
+    dst: *mut DisplayBitGrid,
 ) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+0x2C]",    // dst (last arg) -> ESI
-        // Forward 9 stack params verbatim (deepest = arg9 pushed first).
-        "push dword ptr [esp+0x28]",        // arg9
-        "push dword ptr [esp+0x28]",        // arg8
-        "push dword ptr [esp+0x28]",        // arg7
-        "push dword ptr [esp+0x28]",        // arg6
-        "push dword ptr [esp+0x28]",        // src
-        "push dword ptr [esp+0x28]",        // h
-        "push dword ptr [esp+0x28]",        // w
-        "push dword ptr [esp+0x28]",        // arg2
-        "push dword ptr [esp+0x28]",        // arg1
-        "call dword ptr [{addr}]",
-        "pop esi",
-        "ret 0x28",
-        addr = sym BLIT_SPRITE_RECT_ADDR,
-    );
+    unsafe {
+        wa_calls::BitGrid::BlitSpriteRect(
+            dst,
+            dst_x,
+            dst_y,
+            w,
+            h,
+            src,
+            src_x,
+            src_y,
+            color_table,
+            flags,
+        );
+    }
 }
