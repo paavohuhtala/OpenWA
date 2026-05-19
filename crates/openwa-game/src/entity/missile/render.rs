@@ -11,7 +11,7 @@ use super::{MissileEntity, MissileType};
 use crate::engine::game_info::GameInfo;
 use crate::engine::world::{GameWorld, Vec2WorldExt};
 use crate::entity::base::BaseEntity;
-use crate::rebase::rb;
+use crate::generated::wa_calls;
 use crate::render::message::RenderMessage;
 use crate::render::sprite::sprite_id::KnownSpriteId;
 use crate::render::sprite::sprite_op::{SpriteFlags, SpriteOp};
@@ -19,15 +19,7 @@ use crate::render::textbox::set_text as set_textbox_text;
 use openwa_core::fixed::Fixed;
 use openwa_core::vec2::Vec2;
 
-// ─── Bridges ───────────────────────────────────────────────────────────────
-
-static mut FIXA2TAN16_ADDR: u32 = 0;
-
-pub unsafe fn init_addrs() {
-    unsafe {
-        FIXA2TAN16_ADDR = rb(0x00575730);
-    }
-}
+pub unsafe fn init_addrs() {}
 
 const INDICATOR_INSET: Fixed = Fixed::from_raw(0x00300000);
 const TEXTBOX_VELOCITY_SCALE: i32 = 32;
@@ -101,24 +93,6 @@ fn drown(sprite: SpriteOp) -> SpriteOp {
         Err(raw) => SpriteOp::from_index(raw as u16),
     };
     SpriteOp(mapped.0 | flags.bits())
-}
-
-/// `Math::fixa2tan16` (0x00575730) — `__usercall(ESI = y, EDI = x)`. Both
-/// regs callee-saved per ABI.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_fixa2tan16(_y: i32, _x: i32) -> u32 {
-    core::arch::naked_asm!(
-        "push esi",
-        "push edi",
-        "mov esi, dword ptr [esp+12]",
-        "mov edi, dword ptr [esp+16]",
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop edi",
-        "pop esi",
-        "ret 8",
-        addr = sym FIXA2TAN16_ADDR,
-    );
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -371,7 +345,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                 (*this).animation_phase = Fixed(new_phase);
             }
             2 if speed_x.to_raw() != 0 || speed_y.to_raw() != 0 => {
-                let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
+                let angle = wa_calls::Math::fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
                 (*this).animation_phase = Fixed(angle as i32);
             }
             3 => {
@@ -403,7 +377,7 @@ pub unsafe fn missile_render(this: *mut MissileEntity) {
                     _ => (*this)._render_data_1e,
                 });
             }
-            let angle = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
+            let angle = wa_calls::Math::fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
             let doubled = Fixed(angle.wrapping_mul(2) as i32);
             (*this).animation_phase = doubled;
             anim_value = doubled.clamp(Fixed::ZERO, Fixed::from_raw(0xFFFF));
@@ -453,7 +427,7 @@ pub unsafe fn render_indicator(this: *mut MissileEntity) {
         let angle = if speed_x.to_raw() == 0 && speed_y.to_raw() == 0 {
             Fixed::ZERO
         } else {
-            let tan = bridge_fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
+            let tan = wa_calls::Math::fixa2tan16(speed_x.to_raw(), -speed_y.to_raw());
             Fixed::from_raw((0x8000_i32).wrapping_sub(tan as i32))
         };
 

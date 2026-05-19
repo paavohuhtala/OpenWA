@@ -190,6 +190,26 @@ name = "MissileEntity__render"
 [[function]]
 va = 0x005096A0
 name = "MissileEntity__create_clusters"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "missile"
+  type = "MissileEntity *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "pos_x"
+  type = "Fixed"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "pos_y"
+  type = "Fixed"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x00509AC0
@@ -198,10 +218,28 @@ name = "MissileEntity__detonate"
 [[function]]
 va = 0x00509EB0
 name = "MissileEntity__apply_direct_homing"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "missile"
+  type = "MissileEntity *"
+  storage = "ESI"
 
 [[function]]
 va = 0x0050A020
 name = "MissileEntity__apply_pigeon_homing"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "missile"
+  type = "MissileEntity *"
 
 [[function]]
 va = 0x0050A330
@@ -210,6 +248,14 @@ name = "MissileEntity__do_jump"
 [[function]]
 va = 0x0050A430
 name = "MissileEntity__handle_digger"
+calling_convention = "__stdcall"
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "missile"
+  type = "MissileEntity *"
 
 [[function]]
 va = 0x0050A7E0
@@ -218,6 +264,16 @@ name = "MissileEntity__handle_animal"
 [[function]]
 va = 0x0050A900
 name = "MissileEntity__handle_walking_animal"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "missile"
+  type = "MissileEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x0050ABA0
@@ -226,6 +282,16 @@ name = "MissileEntity__handle_homing"
 [[function]]
 va = 0x0050AC60
 name = "MissileEntity__handle_flying_animal"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "missile"
+  type = "MissileEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x0050AF40
@@ -238,7 +304,33 @@ name = "MissileEntity__finish_super_animal"
 [[function]]
 va = 0x0050B110
 name = "MissileEntity__check_for_alarmed_worm"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "missile"
+  type = "MissileEntity *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "sound_id"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "threshold"
+  type = "int"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x0050B240
 name = "MissileEntity__update_effect"
+
+[[struct]]
+name = "MissileEntity"
+namespace = "/OpenWA"
+size = 0x40C
+rust_path = "openwa_game::entity::missile::MissileEntity"
