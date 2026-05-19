@@ -13,7 +13,6 @@ pub fn install() -> Result<(), String> {
 
     unsafe { mine::handle_message::init_addrs() };
     unsafe { mine::render::init_addrs() };
-    unsafe { mine::constructor::init_addrs() };
 
     vtable_replace!(MineEntityVtable, va::MINE_ENTITY_VTABLE, {
         handle_message [mine::handle_message::ORIGINAL_HANDLE_MESSAGE]

@@ -9,13 +9,13 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use super::{MineEntity, MineEntityVtable};
 use crate::audio::KnownSoundId;
 use crate::audio::{SoundId, sound_ops::play_sound_local};
-use crate::engine::EntityActivityQueue;
 use crate::engine::world::GameWorld;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::game::create_explosion::create_explosion;
 use crate::game::game_entity_message::{alliance_blocks_damage, world_entity_handle_message};
 use crate::game::message::{EntityMessage, ExplosionMessage, SpecialImpactMessage};
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 use crate::render::textbox::Textbox;
 use crate::wa_alloc::wa_free;
@@ -38,31 +38,9 @@ pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 // `StepRopePhysics_Maybe` (0x005003D0) — usercall(stdcall this on stack,
 // AL = mode), RET 0x4. Same function `WormEntity::HandleMessage` case 0x3
 // calls; the name is misleading — it operates on any WorldEntity subclass.
-// AL=0 runs the full step.
+// AL=0 runs the full step. AL sub-register input is not supported by the
+// codegen, so this stays hand-rolled.
 static mut MINE_STEP_ROPE_PHYSICS_ADDR: u32 = 0;
-// 0x00500630 — usercall(EAX = this), no stack args, plain RET. Tail
-// companion to `StepRopePhysics_Maybe`. Was previously guessed as
-// "RestoreKamikazeState" — that name was wrong.
-static mut MINE_ROPE_PHYSICS_TAIL_ADDR: u32 = 0;
-
-// Tick-body bridges (slice m2 + m3):
-// `GameTask::ensure_recording` (0x00546B20) — usercall(EAX=this), plain RET.
-static mut MINE_ENSURE_RECORDING_ADDR: u32 = 0;
-// `GameTask::create_bubble_1` (0x005472C0) — usercall(EAX=pos_x, ECX=pos_y,
-// ESI=this), 2 stack args (zero, kind), plain RET.
-static mut MINE_CREATE_BUBBLE_ADDR: u32 = 0;
-// `RandomBag::draw` (0x00541CC0) — thiscall(ECX=bag, [stack]=rng_value, out_ptr), RET 0x8.
-static mut RANDOM_BAG_DRAW_ADDR: u32 = 0;
-// `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue, [stack]=slot), RET 0x4.
-static mut MINE_RESET_RANK_ADDR: u32 = 0;
-// `GameTask::create_smoke_0` (0x00547490) — stdcall(this), RET 0x4. Reads
-// EDI as a pointer to a 7-u32 spawn descriptor (preserved across the call
-// and consumed by `SmokeEntity::Constructor`).
-static mut MINE_CREATE_SMOKE_ADDR: u32 = 0;
-
-// Lifecycle bridges (slice m6a):
-// `EntityActivityQueue::FreeSlotById` (0x00541860) — usercall(EAX=queue, [stack]=slot), RET 0x4.
-static mut MINE_FREE_ACTIVITY_SLOT_ADDR: u32 = 0;
 // `WorldEntity::Destructor` (0x004FEF30) — thiscall(this), plain RET. Used
 // by `MineEntity::Destructor_1` as the parent destructor chain. Larger /
 // SEH-protected — kept bridged for now, port deferred.
@@ -71,20 +49,14 @@ static mut MINE_CGAMETASK_DESTRUCTOR_ADDR: u32 = 0;
 pub unsafe fn init_addrs() {
     unsafe {
         MINE_STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
-        MINE_ROPE_PHYSICS_TAIL_ADDR = rb(0x00500630);
-        MINE_ENSURE_RECORDING_ADDR = rb(0x00546B20);
-        MINE_CREATE_BUBBLE_ADDR = rb(0x005472C0);
-        RANDOM_BAG_DRAW_ADDR = rb(0x00541CC0);
-        MINE_RESET_RANK_ADDR = rb(0x00541790);
-        MINE_CREATE_SMOKE_ADDR = rb(0x00547490);
-        MINE_FREE_ACTIVITY_SLOT_ADDR = rb(0x00541860);
         MINE_CGAMETASK_DESTRUCTOR_ADDR = rb(0x004FEF30);
     }
 }
 
 /// `__usercall(stdcall this on stack, AL = mode)`, RET 0x4. Bridge zeroes
 /// AL explicitly before the call, matching WA's `XOR AL,AL` at the case-0x3
-/// call site.
+/// call site. AL sub-register input isn't expressible in the codegen yet,
+/// so this remains hand-rolled.
 #[unsafe(naked)]
 unsafe extern "stdcall" fn bridge_step_rope_physics(_this: *mut MineEntity) {
     core::arch::naked_asm!(
@@ -97,51 +69,6 @@ unsafe extern "stdcall" fn bridge_step_rope_physics(_this: *mut MineEntity) {
     );
 }
 
-/// `__usercall(EAX = this)`, no stack args, plain RET. Tail companion to
-/// `bridge_step_rope_physics` in case 0x3.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_rope_physics_tail(_this: *mut MineEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym MINE_ROPE_PHYSICS_TAIL_ADDR,
-    );
-}
-
-/// `GameTask::create_smoke_0` (0x00547490) — `__usercall(EDI = descriptor,
-/// [stack] = this)`, RET 0x4. EDI is callee-saved, so the trampoline
-/// saves it across the call. The descriptor is read by
-/// `SmokeEntity::Constructor` (chained inside `create_smoke_0`).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_create_smoke(_this: *mut MineEntity, _descriptor: *const u32) {
-    core::arch::naked_asm!(
-        "push edi",
-        "mov edi, dword ptr [esp+12]", // descriptor
-        "push dword ptr [esp+8]",      // this (callee cleans via RET 4)
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop edi",
-        "ret 8",
-        addr = sym MINE_CREATE_SMOKE_ADDR,
-    );
-}
-
-/// `EntityActivityQueue::FreeSlotById` (0x00541860) —
-/// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_free_activity_slot(_queue: *mut EntityActivityQueue, _slot: i32) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 8",
-        addr = sym MINE_FREE_ACTIVITY_SLOT_ADDR,
-    );
-}
-
 /// `WorldEntity::Destructor` (0x004FEF30) — `__thiscall(this)`, plain RET.
 /// Parent-class destructor chain. Kept bridged: it does its own SEH +
 /// children-list walk and is best ported in a dedicated WorldEntity slice.
@@ -150,78 +77,6 @@ unsafe fn bridge_cgametask_destructor(this: *mut MineEntity) {
     type Fn = unsafe extern "thiscall" fn(*mut MineEntity);
     let f: Fn = unsafe { core::mem::transmute(MINE_CGAMETASK_DESTRUCTOR_ADDR as usize) };
     unsafe { f(this) }
-}
-
-/// `GameTask::ensure_recording` (0x00546B20) —
-/// `__usercall(EAX = this)`, plain RET. Returns 0 or 1 in EAX.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_ensure_recording(_this: *mut MineEntity) -> u32 {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym MINE_ENSURE_RECORDING_ADDR,
-    );
-}
-
-/// `GameTask::create_bubble_1` (0x005472C0) —
-/// `__usercall(EAX = pos_x, ECX = pos_y, ESI = this)`, 2 stack args
-/// (`zero`, `kind`), plain RET. ESI is callee-saved.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_create_bubble(
-    _this: *mut MineEntity,
-    _pos_x: Fixed,
-    _pos_y: Fixed,
-    _kind: u32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",  // this
-        "mov eax, dword ptr [esp+12]", // pos_x
-        "mov ecx, dword ptr [esp+16]", // pos_y
-        "push dword ptr [esp+20]",     // kind (re-push so callee sees it as stack arg)
-        "push 0",                      // unknown leading zero arg
-        "mov edx, dword ptr [{addr}]",
-        "call edx",
-        "pop esi",
-        "ret 16",
-        addr = sym MINE_CREATE_BUBBLE_ADDR,
-    );
-}
-
-/// `RandomBag::draw` (0x00541CC0) — `__thiscall(ECX = bag,
-/// [stack] = rng_value, out_ptr)`, RET 0x8. Picks an entry from the bag's
-/// 100-element shuffle pool, writes it to `*out` and to the bag's drawn
-/// history.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_random_bag_draw(_bag: *mut u8, _rng_value: u32, _out: *mut u32) {
-    core::arch::naked_asm!(
-        "mov ecx, dword ptr [esp+4]",  // bag
-        "push dword ptr [esp+12]",     // out
-        "push dword ptr [esp+12]",     // rng_value
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "ret 12",
-        addr = sym RANDOM_BAG_DRAW_ADDR,
-    );
-}
-
-/// `EntityActivityQueue::ResetRank` (0x00541790) —
-/// `__usercall(EAX = queue, [stack] = slot)`, RET 0x4.
-#[unsafe(naked)]
-pub(super) unsafe extern "stdcall" fn bridge_reset_rank(
-    _queue: *mut EntityActivityQueue,
-    _slot: i32,
-) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 8",
-        addr = sym MINE_RESET_RANK_ADDR,
-    );
 }
 
 /// Pure-Rust port of `MineEntity::Destructor_1` (0x00506AB0). Mirrors the
@@ -243,7 +98,7 @@ unsafe fn destructor_1(this: *mut MineEntity) {
 
         // Release the EntityActivityQueue rank slot.
         let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
-        bridge_free_activity_slot(queue, (*this).activity_rank_slot as i32);
+        wa_calls::EntityActivityQueue::FreeSlotById(queue, (*this).activity_rank_slot as i32);
 
         if (*world).is_headful != 0 {
             Textbox::destroy((*this).textbox_handle);
@@ -385,7 +240,7 @@ unsafe fn emit_dud_smoke(this: *mut MineEntity, pos_x: Fixed, pos_y: Fixed) {
             descriptor[4] = (r2 & 0xFFFF).wrapping_sub(0x8000);
             // Magic-number divide by 200 (matches WA: `MUL 0x51EB851F; SHR EDX, 6`).
             descriptor[6] = ((r3 & 0xFFFF) / 200).wrapping_add(0x20C);
-            bridge_create_smoke(this, descriptor.as_ptr());
+            wa_calls::GameTask::create_smoke_0(this as *mut WorldEntity, descriptor.as_mut_ptr());
         }
     }
 }
@@ -466,7 +321,9 @@ unsafe fn msg_render(this: *mut MineEntity, sender: *mut BaseEntity, size: u32, 
         );
         bridge_step_rope_physics(this);
         super::render::mine_render(this);
-        bridge_rope_physics_tail(this);
+        wa_calls::WormEntity::RestoreKamikazeState_Maybe(
+            this as *mut crate::entity::worm::WormEntity,
+        );
     }
 }
 
@@ -733,7 +590,7 @@ unsafe fn msg_frame_finish_tick(
                 let trigger_range = (*this).trigger_range as i32;
                 let target = scan_for_trigger(this, trigger_range);
                 if !target.is_null() {
-                    let _ = bridge_ensure_recording(this);
+                    let _ = wa_calls::GameTask::ensure_recording(this as *mut WorldEntity);
                     let _ = play_sound_local(
                         this as *mut WorldEntity,
                         SoundId(0x58),
@@ -810,8 +667,8 @@ unsafe fn msg_frame_finish_tick(
                     // `world+0x360C` is a [`RandomBag`]-shaped struct that
                     // sits inside [`GameWorld::_unknown_360c`]; not yet
                     // surfaced as a typed field.
-                    let bag = (world as *mut u8).add(0x360C);
-                    bridge_random_bag_draw(bag, rng, &mut bag_value);
+                    let bag = (world as *mut u8).add(0x360C) as *mut core::ffi::c_void;
+                    wa_calls::RandomBag::draw(bag, rng, &raw mut bag_value);
 
                     // Dud branch all-of guards (any miss → real detonate):
                     //   _field_108 == 0      (something else already steered toward boom)
@@ -887,7 +744,7 @@ unsafe fn msg_frame_finish_tick(
             || (*this).arm_delay != 0;
         if any_active {
             let queue = core::ptr::addr_of_mut!((*world).entity_activity_queue);
-            bridge_reset_rank(queue, (*this).activity_rank_slot as i32);
+            wa_calls::EntityActivityQueue::ResetRank(queue, (*this).activity_rank_slot as i32);
 
             // RecordLandingEvent: idx = 10 if underwater, else 5.
             let idx = if (*this).base._field_b0 != 0 { 10 } else { 5 };
@@ -909,7 +766,13 @@ unsafe fn msg_frame_finish_tick(
                 (*this).bubble_phase = Fixed((*this).bubble_phase.to_raw().wrapping_sub(0x10000));
                 let rng = (*world).advance_effect_rng();
                 let kind = ((rng >> 16) & 3).wrapping_add(1);
-                bridge_create_bubble(this, pos_x, pos_y, kind);
+                wa_calls::GameTask::create_bubble_1(
+                    pos_x,
+                    pos_y,
+                    this as *mut WorldEntity,
+                    0,
+                    kind,
+                );
             }
             if (*this)._field_10c == 0 {
                 (*this).base.bucket_mask = 0x400000;

@@ -25,6 +25,36 @@ name = "GameCollisionTask__walk"
 [[function]]
 va = 0x00500230
 name = "GameCollisionTask__gradient"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "WorldEntity *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "x"
+  type = "int"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "y"
+  type = "int"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "kind"
+  type = "int"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "out_grad"
+  type = "int *"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x005009C0

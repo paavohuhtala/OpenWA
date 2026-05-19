@@ -1,6 +1,21 @@
 [[function]]
 va = 0x00507C40
 name = "FramePostProcessHookVec__push_back_one"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "vec"
+  type = "void *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "value_ptr"
+  type = "uint *"
+  storage = "stack:0x4"
 
 [[function]]
 va = 0x0056CEC0
