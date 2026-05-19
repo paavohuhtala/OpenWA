@@ -1,6 +1,36 @@
 [[function]]
 va = 0x00570B50
 name = "GfxHandler__LoadSprites"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "runtime"
+  type = "GameRuntime *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "sprite_data"
+  type = "byte *"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "display_flags"
+  type = "uint"
+  storage = "stack:0xc"
+
+  [[function.param]]
+  name = "gfx_dir"
+  type = "uint"
+  storage = "stack:0x10"
+
+  [[function.param]]
+  name = "layer_ctx"
+  type = "PaletteContext *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00571AF0

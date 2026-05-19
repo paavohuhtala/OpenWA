@@ -23,28 +23,6 @@ use windows_sys::Win32::Globalization::GetACP;
 use crate::address::va;
 use crate::rebase::rb;
 
-// Resolved at DLL load by `init_log_sink_addrs`.
-static mut CODEPAGE_BUILD_LUT_ADDR: u32 = 0;
-
-pub unsafe fn init_log_sink_addrs() {
-    unsafe {
-        CODEPAGE_BUILD_LUT_ADDR = rb(va::CODEPAGE_BUILD_LUT);
-    }
-}
-
-/// `Codepage__BuildLut` (0x00592280). Usercall(EAX=codepage) → LUT pointer.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_codepage_build_lut(_acp: u32) -> *const u8 {
-    core::arch::naked_asm!(
-        "popl %ecx",
-        "popl %eax",
-        "pushl %ecx",
-        "jmpl *({fn})",
-        fn = sym CODEPAGE_BUILD_LUT_ADDR,
-        options(att_syntax),
-    );
-}
-
 #[inline(always)]
 unsafe fn codepage_recode_on() -> bool {
     unsafe { *(rb(va::G_CODEPAGE_RECODE_FLAG) as *const u8) != 0 }
@@ -55,7 +33,7 @@ unsafe fn codepage_lut() -> *const u8 {
         let slot = rb(va::G_CODEPAGE_LUT) as *mut u32;
         if *slot == 0 {
             let acp = GetACP();
-            *slot = bridge_codepage_build_lut(acp) as u32;
+            *slot = crate::generated::wa_calls::Codepage::BuildLut(acp) as u32;
         }
         *slot as *const u8
     }

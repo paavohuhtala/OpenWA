@@ -282,7 +282,7 @@ pub struct GameWorld {
     pub _field_7300: u32,
     /// 0x7304: Unknown (zeroed by InitTurnState).
     pub _field_7304: u32,
-    /// 0x7308: Sprite/gfx dimension data (passed to GFX_DIR_LOAD_SPRITES).
+    /// 0x7308: Sprite/gfx dimension data (passed to GfxHandler__LoadSprites).
     pub gfx_sprite_data: [u8; 0x730C - 0x7308],
     /// 0x730C-0x7337: GfxDir color table (11 entries).
     /// Populated from colours.img pixel row: `color_table[i] = get_pixel(sprite, i, 0)`.

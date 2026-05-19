@@ -99,41 +99,6 @@ unsafe fn palette_log_change(hwnd: HWND) {
     }
 }
 
-/// Bridge for `Palette::RealizeFromSystem` (0x005A1110),
-/// `__usercall(EDI=palette_buf, [ESP+4]=*out_counter), RET 0x4` — stdcall
-/// for the stack arg, with EDI as an implicit register parameter. Compares
-/// the live system palette (1024 bytes from `palette_buf`) against the
-/// cached reference at `DAT_008ac8c8`; if it differs, increments a
-/// "changed" counter and copies it in. Always writes
-/// `*out_counter = DAT_008ac8c4` before returning.
-///
-/// Naked trampoline: load EDI from the first arg, push the second arg,
-/// call the WA-side entry. The callee's `RET 0x4` already pops the
-/// pushed `out_counter`, so we don't add to ESP afterward — only restore
-/// EDI and return.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn call_palette_realize_from_system(
-    _palette_buf: *mut u8,
-    _out_counter: *mut u32,
-) {
-    core::arch::naked_asm!(
-        // [esp+0]=ret, [esp+4]=palette_buf, [esp+8]=out_counter
-        "pushl %edi",                  // save caller's EDI
-        // After push: [esp+0]=saved_edi, [esp+4]=ret, [esp+8]=palette_buf, [esp+c]=out_counter
-        "movl 8(%esp), %edi",          // EDI = palette_buf
-        "movl 0xc(%esp), %eax",        // EAX = out_counter
-        "pushl %eax",                  // push out_counter as stack arg
-        "calll *({addr})",             // callee RET 0x4 cleans the pushed arg
-        "popl %edi",                   // restore EDI
-        "retl",                        // cdecl: outer caller cleans 2 args
-        addr = sym PALETTE_REALIZE_FROM_SYSTEM_ADDR,
-        options(att_syntax),
-    );
-}
-
-/// Resolved at install time (set in `init_window_proc_addrs`).
-static mut PALETTE_REALIZE_FROM_SYSTEM_ADDR: u32 = 0;
-
 /// Offset within `DisplayGfx` of the 1024-byte cached system-palette buffer
 /// passed to `Palette::RealizeFromSystem` via EDI. Verified at the two
 /// `WindowProc` call sites (`0x0057284E` Shift+Pause; `0x00572B8C`
@@ -150,7 +115,10 @@ unsafe fn palette_realize_from_system(session: *mut GameSession, out_counter: *m
         if display.is_null() {
             return;
         }
-        call_palette_realize_from_system(display.add(DISPLAY_PALETTE_BUF_OFFSET), out_counter);
+        crate::generated::wa_calls::Palette::RealizeFromSystem(
+            display.add(DISPLAY_PALETTE_BUF_OFFSET),
+            out_counter,
+        );
     }
 }
 
@@ -609,15 +577,6 @@ pub unsafe extern "system" fn engine_wnd_proc(
             }
             _ => DefWindowProcA(hwnd, msg, wparam, lparam),
         }
-    }
-}
-
-/// Install-time initializer: caches the rebased address of
-/// `Palette::RealizeFromSystem` so the naked trampoline can `CALL` it via
-/// a static rather than going through `rb()` at every call.
-pub unsafe fn init_window_proc_addrs() {
-    unsafe {
-        PALETTE_REALIZE_FROM_SYSTEM_ADDR = rb(va::PALETTE_REALIZE_FROM_SYSTEM);
     }
 }
 

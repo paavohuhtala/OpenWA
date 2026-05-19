@@ -23,10 +23,8 @@ use windows_sys::Win32::Foundation::HWND;
 
 // ─── Bridge-state statics ─────────────────────────────────────────────────────
 
-static mut LOCALIZED_STRING_CACHE_CTOR_ADDR: u32 = 0;
 static mut STREAM_CTOR_ADDR: u32 = 0;
 static mut DISPLAY_GFX_INIT_ADDR: u32 = 0;
-static mut INIT_REPLAY_ADDR: u32 = 0;
 
 /// Implicit ECX (height) for `call_display_gfx_init` — set per call.
 static mut DISPLAY_GFX_INIT_ECX: u32 = 0;
@@ -35,25 +33,6 @@ static mut STREAM_CTOR_SAVED_RET: u32 = 0;
 static mut STREAM_CTOR_SAVED_ESI: u32 = 0;
 
 // ─── Bridges ─────────────────────────────────────────────────────────────────
-
-/// `LocalizedStringCache__Constructor` (0x0053E950):
-/// `usercall(ESI=this, EAX=wa_version_threshold)`, plain RET.
-#[unsafe(naked)]
-unsafe extern "cdecl" fn call_localized_string_cache_ctor(
-    _this: *mut LocalizedStringCache,
-    _wa_version_threshold: u32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "pushl %esi",
-        "movl 8(%esp), %esi",
-        "movl 0xc(%esp), %eax",
-        "calll *({fn})",
-        "popl %esi",
-        "retl",
-        fn = sym LOCALIZED_STRING_CACHE_CTOR_ADDR,
-        options(att_syntax),
-    );
-}
 
 /// `Music__Constructor`: `usercall(ESI=this)` + 2 stack params, `RET 0x8`.
 /// Saves bridge_ret to a static across the call because ECX is the only
@@ -100,22 +79,6 @@ unsafe extern "stdcall" fn call_display_gfx_init(
         "jmpl *({fn})",
         ecx_val = sym DISPLAY_GFX_INIT_ECX,
         fn = sym DISPLAY_GFX_INIT_ADDR,
-        options(att_syntax),
-    );
-}
-
-/// `GameRuntime__InitReplay` (0x0056F860): `usercall(EAX=game_info, ESI=this)`,
-/// plain RET.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn call_init_replay(_game_info: *mut GameInfo, _this: *mut GameRuntime) {
-    core::arch::naked_asm!(
-        "pushl %esi",
-        "movl 8(%esp), %eax",
-        "movl 0xC(%esp), %esi",
-        "calll *({fn})",
-        "popl %esi",
-        "retl $8",
-        fn = sym INIT_REPLAY_ADDR,
         options(att_syntax),
     );
 }
@@ -193,7 +156,7 @@ pub unsafe fn construct_runtime(
         (*this).sound = sound;
         (*this).display = display;
 
-        call_init_replay(game_info, this);
+        crate::generated::wa_calls::GameRuntime::InitReplay(game_info, this);
 
         let session = get_game_session();
         let localized_string_cache = (*session).localized_string_cache;
@@ -274,7 +237,10 @@ pub unsafe fn init_hardware(
         }
 
         let localized_string_cache = wa_malloc_struct_zeroed::<LocalizedStringCache>();
-        call_localized_string_cache_ctor(localized_string_cache, game_version);
+        crate::generated::wa_calls::LocalizedStringCache::Constructor(
+            localized_string_cache,
+            game_version,
+        );
         (*session).localized_string_cache = localized_string_cache;
 
         let headless = gi.headless_mode != 0;
@@ -446,10 +412,8 @@ pub unsafe fn init_hardware(
 
 pub fn init_addrs() {
     unsafe {
-        LOCALIZED_STRING_CACHE_CTOR_ADDR = rb(va::LOCALIZED_STRING_CACHE_CTOR);
         STREAM_CTOR_ADDR = rb(va::STREAMING_AUDIO_CTOR);
         DISPLAY_GFX_INIT_ADDR = rb(va::DISPLAY_GFX_INIT);
-        INIT_REPLAY_ADDR = rb(va::GAME_RUNTIME_INIT_REPLAY);
         crate::input::controller::init_addrs();
     }
 }

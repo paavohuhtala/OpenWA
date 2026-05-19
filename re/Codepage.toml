@@ -1,3 +1,13 @@
 [[function]]
 va = 0x00592280
 name = "Codepage__BuildLut"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "byte *"
+
+  [[function.param]]
+  name = "acp"
+  type = "uint"
+  storage = "EAX"

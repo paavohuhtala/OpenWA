@@ -706,6 +706,21 @@ name = "GameRuntime__RenderFrame"
 [[function]]
 va = 0x0056F860
 name = "GameRuntime__InitReplay"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "game_info"
+  type = "GameInfo *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "this"
+  type = "GameRuntime *"
+  storage = "ESI"
 
 [[function]]
 va = 0x00570E80
