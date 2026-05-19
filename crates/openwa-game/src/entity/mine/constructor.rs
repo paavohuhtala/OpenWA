@@ -14,13 +14,15 @@
 //!    that this slice doesn't touch. Bridged via
 //!    [`WorldEntity::construct_raw`].
 //!  * `EntityActivityQueue::ResetRank` (0x00541790) — usercall(EAX=queue,
-//!    [stack]=slot). Reused via `super::handle_message::bridge_reset_rank`.
+//!    [stack]=slot). Called via [`wa_calls::EntityActivityQueue::ResetRank`].
 //!  * `GameCollisionTask::gradient` (0x00500230) — usercall(EAX=this,
-//!    [stack]=x,y,kind,*out_grad), RET 0x10.
-//!  * `Math::fixa1tan16` (0x00575840) — usercall(EAX=arg).
+//!    [stack]=x,y,kind,*out_grad), RET 0x10. Called via
+//!    [`wa_calls::GameCollisionTask::gradient`].
+//!  * `Math::fixa1tan16` (0x00575840) — usercall(EAX=arg). Called via
+//!    [`wa_calls::Math::fixa1tan16`].
 //!  * `FramePostProcessHookVec::push_back_one` (0x00507C40) —
 //!    usercall(ESI=vec, [stack]=&value). Used to grow the projectile-play
-//!    log slot.
+//!    log slot. Called via [`wa_calls::FramePostProcessHookVec::push_back_one`].
 //!  * `DisplayGfx::ConstructTextbox` (0x004FAF00, thiscall) — wrapped as
 //!    [`Textbox::construct`]; used by the Rust port of
 //!    `MineEntity::ConstructPointers` to allocate the countdown textbox.
@@ -29,9 +31,6 @@
 //!    `MineEntity::InsertIntoMineList` to spit out a smoke puff when the
 //!    LRU mine gets evicted to make room.
 
-use core::sync::atomic::{AtomicU32, Ordering};
-
-use super::handle_message::bridge_reset_rank;
 use super::{MineEntity, MineEntityVtable};
 use crate::engine::EntityActivityQueue;
 use crate::engine::game_info::GameInfo;
@@ -40,6 +39,7 @@ use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::game::class_type::ClassType;
 use crate::game::weapon::{WeaponFireParams, WeaponReleaseContext};
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 use crate::render::textbox::Textbox;
 use openwa_core::fixed::Fixed;
@@ -55,89 +55,6 @@ crate::define_addresses! {
         /// [`insert_into_mine_list`]; address kept for registry lookups.
         fn/Usercall MINE_INSERT_INTO_LIST = 0x00506B70;
     }
-    /// `FramePostProcessHookVec::push_back_one` (0x00507C40, was
-    /// `FUN_00507c40`) — `__usercall(ESI = vec, [stack] = &value)`, RET
-    /// 0x4. Appends a single dword to the std::vector at `ESI` (begin/end
-    /// at +0x4/+0x8, capacity_end at +0xC); on grow, delegates to
-    /// `FramePostProcessHookVec::InsertOne_Maybe`.
-    fn/Usercall FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE = 0x00507C40;
-    /// `Math::fixa1tan16` (0x00575840) — `__usercall(EAX = gradient)`,
-    /// plain RET. Returns Fixed16 atan of the gradient (slope ratio).
-    fn/Usercall MATH_FIXA1TAN16 = 0x00575840;
-    /// `GameCollisionTask::gradient` (0x00500230) —
-    /// `__usercall(EAX = this, [stack] = x, y, kind, *out_grad)`, RET 0x10.
-    /// Probes terrain slope at `(x, y)`; returns 1 + writes `*out_grad`
-    /// when the entity is grounded, 0 otherwise.
-    fn/Usercall GAME_COLLISION_TASK_GRADIENT = 0x00500230;
-}
-
-// Saved bridge addresses, populated by [`init_addrs`].
-static FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR: AtomicU32 = AtomicU32::new(0);
-static MATH_FIXA1TAN16_ADDR: AtomicU32 = AtomicU32::new(0);
-static GAME_COLLISION_TASK_GRADIENT_ADDR: AtomicU32 = AtomicU32::new(0);
-
-pub unsafe fn init_addrs() {
-    FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR.store(
-        rb(FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE),
-        Ordering::Relaxed,
-    );
-    MATH_FIXA1TAN16_ADDR.store(rb(MATH_FIXA1TAN16), Ordering::Relaxed);
-    GAME_COLLISION_TASK_GRADIENT_ADDR.store(rb(GAME_COLLISION_TASK_GRADIENT), Ordering::Relaxed);
-}
-
-/// `GameCollisionTask::gradient` (0x00500230) — `__usercall(EAX = this,
-/// [stack] = x, y, kind, *out_grad)`, RET 0x10. Returns 1 (and writes
-/// `*out_grad`) when the entity sits on terrain steep enough to estimate
-/// a slope; returns 0 otherwise.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_gradient(
-    _this: *mut MineEntity,
-    _x: i32,
-    _y: i32,
-    _kind: i32,
-    _out_grad: *mut i32,
-) -> u32 {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",   // this
-        "push dword ptr [esp+20]",      // out_grad
-        "push dword ptr [esp+20]",      // kind
-        "push dword ptr [esp+20]",      // y
-        "push dword ptr [esp+20]",      // x
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 20",
-        addr = sym GAME_COLLISION_TASK_GRADIENT_ADDR,
-    );
-}
-
-/// `Math::fixa1tan16` (0x00575840) — `__usercall(EAX = gradient)`, plain
-/// RET. Returns the Fixed16 atan of the supplied gradient.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_fixa1tan16(_gradient: i32) -> i32 {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym MATH_FIXA1TAN16_ADDR,
-    );
-}
-
-/// `FramePostProcessHookVec::push_back_one` (0x00507C40) —
-/// `__usercall(ESI = vec, [stack] = &value)`, RET 0x4. ESI is callee-saved,
-/// so the trampoline saves it across the call.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_vec_push_back_one(_vec: *mut u8, _value_ptr: *const u32) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",   // vec
-        "push dword ptr [esp+12]",      // &value
-        "mov eax, dword ptr [{addr}]",
-        "call eax",
-        "pop esi",
-        "ret 8",
-        addr = sym FRAME_POST_PROCESS_HOOK_VEC_PUSH_BACK_ONE_ADDR,
-    );
 }
 
 /// Pure-Rust port of `MineEntity::ConstructPointers` (0x00506D20). When
@@ -260,7 +177,7 @@ pub unsafe fn mine_constructor(
         let queue: *mut EntityActivityQueue = &raw mut (*world).entity_activity_queue;
         let slot = EntityActivityQueue::acquire(queue);
         (*this).activity_rank_slot = slot as u32;
-        bridge_reset_rank(queue, slot);
+        wa_calls::EntityActivityQueue::ResetRank(queue, slot);
 
         // Field initialization from fire_params + zeros.
         // Re-read via dword index (mirrors WA's param_3[N] decomp). Using
@@ -357,9 +274,15 @@ pub unsafe fn mine_constructor(
             // `gradient` overwrites bucket_mask internally; it restores
             // the pre-call value before returning.
             let mut out_grad: i32 = 0;
-            let r = bridge_gradient(this, x.to_raw(), y.to_raw(), 4, &raw mut out_grad);
+            let r = wa_calls::GameCollisionTask::gradient(
+                this as *mut WorldEntity,
+                x.to_raw(),
+                y.to_raw(),
+                4,
+                &raw mut out_grad,
+            );
             if r != 0 {
-                (*this).base.angle = Fixed(bridge_fixa1tan16(out_grad));
+                (*this).base.angle = Fixed(wa_calls::Math::fixa1tan16(out_grad));
             }
         }
 
@@ -386,8 +309,11 @@ pub unsafe fn mine_constructor(
                     ((vec_last as usize - vec_first as usize) >> 2) as u32
                 };
                 if next_id >= size {
-                    let sentinel: u32 = u32::MAX;
-                    bridge_vec_push_back_one(vec_struct, &sentinel);
+                    let mut sentinel: u32 = u32::MAX;
+                    wa_calls::FramePostProcessHookVec::push_back_one(
+                        vec_struct as *mut core::ffi::c_void,
+                        &raw mut sentinel,
+                    );
                 }
             }
         }

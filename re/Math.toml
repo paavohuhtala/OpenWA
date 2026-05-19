@@ -25,6 +25,16 @@ name = "Math__sub_5757E0"
 [[function]]
 va = 0x00575840
 name = "Math__fixa1tan16"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "int"
+
+  [[function.param]]
+  name = "gradient"
+  type = "int"
+  storage = "EAX"
 
 [[function]]
 va = 0x005758B0

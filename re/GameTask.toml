@@ -41,6 +41,16 @@ name = "GameTask__start_recording"
 [[function]]
 va = 0x00546B20
 name = "GameTask__ensure_recording"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "this"
+  type = "WorldEntity *"
+  storage = "EAX"
 
 [[function]]
 va = 0x00546BB0
@@ -136,6 +146,36 @@ name = "GameTask__create_score_bubble"
 [[function]]
 va = 0x005472C0
 name = "GameTask__create_bubble_1"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "pos_x"
+  type = "Fixed"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "pos_y"
+  type = "Fixed"
+  storage = "ECX"
+
+  [[function.param]]
+  name = "this"
+  type = "WorldEntity *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "zero"
+  type = "uint"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "kind"
+  type = "uint"
+  storage = "stack:0x8"
 
 [[function]]
 va = 0x00547310
@@ -144,6 +184,21 @@ name = "GameTask__create_flames"
 [[function]]
 va = 0x00547490
 name = "GameTask__create_smoke_0"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WorldEntity *"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "descriptor"
+  type = "uint *"
+  storage = "EDI"
 
 [[function]]
 va = 0x00547510

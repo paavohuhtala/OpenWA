@@ -57,6 +57,21 @@ custom_storage = true
 [[function]]
 va = 0x00541860
 name = "EntityActivityQueue__FreeSlotById"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "queue"
+  type = "EntityActivityQueue *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "slot"
+  type = "int"
+  storage = "stack:0x4"
 
 [[struct]]
 name = "EntityActivityQueue"
