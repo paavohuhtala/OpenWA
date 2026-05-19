@@ -1,6 +1,16 @@
 [[function]]
 va = 0x004FEF30
 name = "GameCollisionTask__Destructor_1"
+calling_convention = "__thiscall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "WorldEntity *"
+  storage = "ECX"
 
 [[function]]
 va = 0x004FF080

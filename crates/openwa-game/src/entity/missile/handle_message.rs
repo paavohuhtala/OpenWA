@@ -12,10 +12,12 @@ use crate::entity::Entity;
 use crate::entity::base::BaseEntity;
 use crate::entity::game_entity::WorldEntity;
 use crate::entity::missile::MAX_STEERING_TORQUE;
+use crate::entity::worm::WormEntity;
 use crate::game::game_entity_message::world_entity_handle_message;
 use crate::game::message::{
     DetonateWeaponMessage, EntityMessage, ExplosionMessage, MoveWeaponMessage, Unknown126Message,
 };
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 
 type HandleMessageFn = unsafe extern "thiscall" fn(
@@ -29,12 +31,10 @@ type HandleMessageFn = unsafe extern "thiscall" fn(
 pub static ORIGINAL_HANDLE_MESSAGE: AtomicU32 = AtomicU32::new(0);
 
 static mut STEP_ROPE_PHYSICS_ADDR: u32 = 0;
-static mut RESTORE_KAMIKAZE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
         STEP_ROPE_PHYSICS_ADDR = rb(0x005003D0);
-        RESTORE_KAMIKAZE_ADDR = rb(0x00500630);
     }
 }
 
@@ -47,18 +47,6 @@ unsafe fn bridge_step_rope_physics(this: *mut MissileEntity) {
             core::mem::transmute(STEP_ROPE_PHYSICS_ADDR as usize);
         f(this);
     }
-}
-
-/// `WormEntity::RestoreKamikazeState_Maybe` (0x00500630) — `__usercall(EAX = this)`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_restore_kamikaze_state(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym RESTORE_KAMIKAZE_ADDR,
-    );
 }
 
 /// `piVar8[2]` view at the top of WA's HandleMessage prologue.
@@ -267,7 +255,7 @@ unsafe fn msg_render_scene(
         }
 
         if kamikaze_proxy {
-            bridge_restore_kamikaze_state(this);
+            wa_calls::WormEntity::RestoreKamikazeState_Maybe(this as *mut WormEntity);
         }
 
         world_entity_handle_message(

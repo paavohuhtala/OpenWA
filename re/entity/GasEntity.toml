@@ -1,6 +1,41 @@
 [[function]]
 va = 0x00554750
 name = "GasEntity__Constructor"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "void"
+
+  [[function.param]]
+  name = "this"
+  type = "void *"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "parent"
+  type = "void *"
+  storage = "EAX"
+
+  [[function.param]]
+  name = "spawn_x"
+  type = "Fixed"
+  storage = "stack:0x4"
+
+  [[function.param]]
+  name = "spawn_y"
+  type = "Fixed"
+  storage = "stack:0x8"
+
+  [[function.param]]
+  name = "sprite"
+  type = "uint"
+  storage = "stack:0xC"
+
+  [[function.param]]
+  name = "owner"
+  type = "uint"
+  storage = "stack:0x10"
 
 [[function]]
 va = 0x00554810

@@ -17,6 +17,21 @@ name = "Math__sub_5756B0"
 [[function]]
 va = 0x00575730
 name = "Math__fixa2tan16"
+calling_convention = "__stdcall"
+custom_storage = true
+
+  [function.signature]
+  returns = "uint"
+
+  [[function.param]]
+  name = "y"
+  type = "int"
+  storage = "ESI"
+
+  [[function.param]]
+  name = "x"
+  type = "int"
+  storage = "EDI"
 
 [[function]]
 va = 0x005757E0

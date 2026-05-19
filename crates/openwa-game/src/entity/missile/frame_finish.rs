@@ -18,33 +18,18 @@ use crate::entity::fire::{FireEntity, FireEntityInit, fire_entity_construct};
 use crate::entity::game_entity::WorldEntity;
 use crate::entity::shared_data::SharedDataTable;
 use crate::game::message::{EntityMessage, WeaponHomingMessage};
+use crate::generated::wa_calls;
 use crate::rebase::rb;
 use crate::wa_alloc::wa_malloc;
 
 // ─── Bridge addresses ──────────────────────────────────────────────────────
 
-static mut CHECK_FOR_ALARMED_WORM_ADDR: u32 = 0;
-static mut INNER_TICK_DIGGER_ADDR: u32 = 0;
-static mut HANDLE_FLYING_ANIMAL_ADDR: u32 = 0;
-static mut HANDLE_WALKING_ANIMAL_ADDR: u32 = 0;
-static mut GAS_ENTITY_CTOR_ADDR: u32 = 0;
-static mut APPLY_DIRECT_HOMING_ADDR: u32 = 0;
-static mut APPLY_PIGEON_HOMING_ADDR: u32 = 0;
-static mut CREATE_CLUSTERS_ADDR: u32 = 0;
 static mut CREATE_BUBBLE_ADDR: u32 = 0;
 static mut COLLECT_CRATE_ADDR: u32 = 0;
 static mut ALARM_TABLE_ADDR: u32 = 0;
 
 pub unsafe fn init_addrs() {
     unsafe {
-        CHECK_FOR_ALARMED_WORM_ADDR = rb(0x0050B110);
-        INNER_TICK_DIGGER_ADDR = rb(0x0050A430);
-        HANDLE_FLYING_ANIMAL_ADDR = rb(0x0050AC60);
-        HANDLE_WALKING_ANIMAL_ADDR = rb(0x0050A900);
-        GAS_ENTITY_CTOR_ADDR = rb(crate::address::va::GAS_ENTITY_CTOR);
-        APPLY_DIRECT_HOMING_ADDR = rb(0x00509EB0);
-        APPLY_PIGEON_HOMING_ADDR = rb(0x0050A020);
-        CREATE_CLUSTERS_ADDR = rb(0x005096A0);
         CREATE_BUBBLE_ADDR = rb(0x005472C0);
         COLLECT_CRATE_ADDR = rb(0x00501340);
         ALARM_TABLE_ADDR = rb(0x006AD288);
@@ -52,114 +37,6 @@ pub unsafe fn init_addrs() {
 }
 
 // ─── WA bridges ────────────────────────────────────────────────────────────
-
-/// `Task_Missile::check_for_alarmed_worm` (0x0050B110) — `__usercall(EAX = this,
-/// [stack] = sound_id, [stack] = threshold)`, RET 0x8.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_check_for_alarmed_worm(
-    _this: *mut MissileEntity,
-    _sound_id: u32,
-    _threshold: i32,
-) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "push dword ptr [esp+12]",
-        "push dword ptr [esp+12]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 12",
-        addr = sym CHECK_FOR_ALARMED_WORM_ADDR,
-    );
-}
-
-/// `Task_Missile::handle_flying_animal` (0x0050AC60) — `__usercall(EAX = this)`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_handle_flying_animal(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym HANDLE_FLYING_ANIMAL_ADDR,
-    );
-}
-
-/// `Task_Missile::handle_walking_animal` (0x0050A900) — `__usercall(EAX = this)`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_handle_walking_animal(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "mov eax, dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym HANDLE_WALKING_ANIMAL_ADDR,
-    );
-}
-
-/// `GasEntity::Constructor` (0x00554750) — `__usercall(EAX = parent,
-/// ESI = this) + stdcall(spawn_x, spawn_y, sprite, owner)`, RET 0x10.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_gas_construct(
-    _this: *mut u8,
-    _parent: *mut u8,
-    _spawn_x: Fixed,
-    _spawn_y: Fixed,
-    _sprite: u32,
-    _owner: u32,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov eax, dword ptr [esp+12]",
-        "push dword ptr [esp+28]",
-        "push dword ptr [esp+28]",
-        "push dword ptr [esp+28]",
-        "push dword ptr [esp+28]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 24",
-        addr = sym GAS_ENTITY_CTOR_ADDR,
-    );
-}
-
-/// `Task_Missile::apply_direct_homing` (0x00509EB0) — `__usercall(ESI = this)`.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_apply_direct_homing(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 4",
-        addr = sym APPLY_DIRECT_HOMING_ADDR,
-    );
-}
-
-/// `Task_Missile::apply_pigeon_homing` (0x0050A020) — stdcall(this), RET 0x4.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_apply_pigeon_homing(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym APPLY_PIGEON_HOMING_ADDR,
-    );
-}
-
-/// `Task_Missile::handle_digger` (0x0050A430) — stdcall(this), RET 0x4.
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_inner_digger_tick(_this: *mut MissileEntity) {
-    core::arch::naked_asm!(
-        "push dword ptr [esp+4]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "ret 4",
-        addr = sym INNER_TICK_DIGGER_ADDR,
-    );
-}
 
 /// `GameCollisionTask::collect_crate` (0x00501340) — stdcall(this, owner_id,
 /// pickup_class, &flag), RET 0x10. Returns the picked-up crate kind (1/2/4/5)
@@ -176,28 +53,6 @@ unsafe extern "stdcall" fn bridge_collect_crate(
             core::mem::transmute(COLLECT_CRATE_ADDR);
         f(this, owner_id, pickup_class, flag)
     }
-}
-
-/// `Task_Missile::create_clusters` (0x005096A0) — `__usercall(ESI = this,
-/// [stack] = pos_x, [stack] = pos_y)`, RET 0x8. Spawns the cluster
-/// sub-pellets when a cluster grenade detonates (`weapon_data[0x2D] == 1|3`).
-#[unsafe(naked)]
-unsafe extern "stdcall" fn bridge_create_clusters(
-    _this: *mut MissileEntity,
-    _pos_x: Fixed,
-    _pos_y: Fixed,
-) {
-    core::arch::naked_asm!(
-        "push esi",
-        "mov esi, dword ptr [esp+8]",
-        "push dword ptr [esp+16]",
-        "push dword ptr [esp+16]",
-        "mov ecx, dword ptr [{addr}]",
-        "call ecx",
-        "pop esi",
-        "ret 12",
-        addr = sym CREATE_CLUSTERS_ADDR,
-    );
 }
 
 /// `GameTask::create_bubble_1` (0x005472C0) — `__usercall(EAX = pos_x,
@@ -254,7 +109,14 @@ unsafe fn update_animal_poison(this: *mut MissileEntity) {
                 let dy = Fixed::from_raw(0x40000);
                 let sprite = (*this)._render_data_23_24[1];
                 let owner = (*this).spawn_params.owner_id;
-                bridge_gas_construct(buf, parent, pos_x - dx, pos_y + dy, sprite, owner);
+                wa_calls::GasEntity::Constructor(
+                    buf as *mut core::ffi::c_void,
+                    parent as *mut core::ffi::c_void,
+                    pos_x - dx,
+                    pos_y + dy,
+                    sprite,
+                    owner,
+                );
             }
         }
 
@@ -381,7 +243,7 @@ unsafe fn detonate(this: *mut MissileEntity, pos_x: Fixed, pos_y: Fixed) {
 
         match (*this).weapon_data[0x2D] {
             1 | 3 if (*this).spawn_params.pellet_index == 0 => {
-                bridge_create_clusters(this, pos_x, pos_y);
+                wa_calls::MissileEntity::create_clusters(this, pos_x, pos_y);
             }
             2 => {
                 create_fire_1(this, pos_x, pos_y);
@@ -532,10 +394,10 @@ unsafe fn inner_homing_tick(this: *mut MissileEntity) {
         }
 
         match (*this).explosion_id {
-            1 => bridge_apply_direct_homing(this),
+            1 => wa_calls::MissileEntity::apply_direct_homing(this),
             2 => {
-                bridge_apply_direct_homing(this);
-                bridge_apply_pigeon_homing(this);
+                wa_calls::MissileEntity::apply_direct_homing(this);
+                wa_calls::MissileEntity::apply_pigeon_homing(this);
             }
             _ => {}
         }
@@ -556,9 +418,9 @@ unsafe fn inner_animal_tick(this: *mut MissileEntity) {
     unsafe {
         cluster_crate_sweep(this);
         if (*this).contact_phase == 1 {
-            bridge_handle_flying_animal(this);
+            wa_calls::MissileEntity::handle_flying_animal(this);
         } else {
-            bridge_handle_walking_animal(this);
+            wa_calls::MissileEntity::handle_walking_animal(this);
         }
         update_animal_poison(this);
     }
@@ -730,7 +592,7 @@ pub unsafe extern "thiscall" fn tick(
                     let bucket = ((rng >> 16) & 0xFF) % alarm_table_size;
                     let sound_id = *(ALARM_TABLE_ADDR as *const u32).add(bucket as usize);
                     let threshold = (*this).weapon_data[6].wrapping_mul(2) as i32;
-                    bridge_check_for_alarmed_worm(this, sound_id, threshold);
+                    wa_calls::MissileEntity::check_for_alarmed_worm(this, sound_id, threshold);
                     (*this).weapon_data[2] = 0;
                 }
             }
@@ -783,7 +645,7 @@ pub unsafe extern "thiscall" fn tick(
                     }
                 }
                 MissileType::Animal => inner_animal_tick(this),
-                MissileType::Digger => bridge_inner_digger_tick(this),
+                MissileType::Digger => wa_calls::MissileEntity::handle_digger(this),
                 MissileType::Cluster => cluster_crate_sweep(this),
                 MissileType::Zero | MissileType::Standard => {}
             }
